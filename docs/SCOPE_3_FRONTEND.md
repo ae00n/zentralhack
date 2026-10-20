@@ -1,5 +1,9 @@
 # SCOPE 3: Frontend (owner: Timo)
 
+
+> [!IMPORTANT]
+> Timeline change (2026-10-20): build this scope **now**, before the event. Use the schedule table below as the build order; the clock times no longer apply. Fri 19:00 to Sat 17:00 is for merging, integration, the eval run, the demo video and the pitch. Merge into `main` at least daily.
+
 ## Goal
 
 A German web app the jury remembers. It shows an undated archive card going in, the agent reasoning live, a pin on the map, and the same place across time. Structured metadata comes out with confidence and evidence. It runs fully offline on the M4 Air in demo mode.

@@ -31,4 +31,4 @@ Shared: [CONTRACTS](docs/CONTRACTS.md) (read first), `contracts/` (schemas + fix
 - Shared files (`docs/`, `contracts/`, `CLAUDE.md`, `AGENTS.md`) change only on `main`, after the team agrees.
 
 ## For teammates
-Open this repo with Claude Code or Codex and say who you are, e.g. "I'm Timo, read the repo and tell me what I do." `CLAUDE.md` / `AGENTS.md` route the agent to your branch and scope. No app code before Fri 19:00.
+Open this repo with Claude Code or Codex and say who you are, e.g. "I'm Timo, read the repo and tell me what I do." `CLAUDE.md` / `AGENTS.md` route the agent to your branch and scope. Build your scope now; Friday and Saturday are for merging, the eval run and the demo.

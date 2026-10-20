@@ -6,9 +6,9 @@ Zentral Hack 2026, Kanton Schwyz challenge: locate and date historical photos wi
 1. The human tells you their name. Map it: Dijar = Data, Said = Agent, Timo = Frontend. Unknown name: ask.
 2. Make sure you are on their branch: `git checkout dijar/data` / `said/agent` / `timo/frontend`, then `git pull`.
 3. Read `docs/CONTRACTS.md`, then their scope file, then `docs/ARCHITECTURE.md`.
-4. Check the clock. **Before Fri 23 Oct 2026 19:00: no app code.** Allowed before then: reading, explaining, planning, setting up tools (installing Node/Python, cloning), trying prompts by hand. From 19:00 on: build, following the scope file's schedule.
+4. Build now. The team decided (2026-10-20) to build each scope before the event; Fri/Sat is for merging, integration, the eval run, the demo and the pitch. Work through your scope file's priority list and schedule table in order (the clock times there are now just the order).
 
-A good first prompt: "I'm Timo. Read the repo docs, explain my scope in 10 bullets, list what I need installed, and tell me what I build first on Friday at 19:00."
+A good first prompt: "I'm Timo. Read the repo docs, explain my scope in 10 bullets, list what I need installed, and start building the first item on my priority list."
 
 ## Before you write anything
 1. Read `docs/CONTRACTS.md`. It is the single source of truth for data shapes and APIs.
@@ -34,5 +34,5 @@ A good first prompt: "I'm Timo. Read the repo docs, explain my scope in 10 bulle
 ## Git workflow
 - One repo, one branch per person: `dijar/data`, `said/agent`, `timo/frontend`. Work and push only on your own branch.
 - Each branch only touches its owner's folder (`data_pipeline/`, `agent/`, `frontend/`), so merges into `main` do not conflict.
-- Merge into `main` at the integration checkpoints (Fri 23:00, Sat 10:00, Sat 14:00 code freeze). Pull `main` into your branch after each merge.
+- Merge your branch into `main` at least once a day before the event (small merges, fewer conflicts), then at the checkpoints Fri 23:00, Sat 10:00 and the Sat 14:00 code freeze. Pull `main` into your branch after every merge.
 - Shared files (`docs/`, `contracts/`, `CLAUDE.md`, `AGENTS.md`) change only on `main`, after the team agrees.
