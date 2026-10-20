@@ -23,3 +23,9 @@ Shared: [CONTRACTS](docs/CONTRACTS.md) (read first), `contracts/` (schemas + fix
 ## Rules
 - `data/` is never committed. Staatsarchiv images are not openly licensed.
 - Keys via env vars only. See [CLAUDE.md](CLAUDE.md) / [AGENTS.md](AGENTS.md) for AI agent rules.
+
+## Git workflow
+- One repo, one branch per person: `dijar/data`, `said/agent`, `timo/frontend`. Work and push only on your own branch.
+- Each branch only touches its owner's folder (`data_pipeline/`, `agent/`, `frontend/`), so merges into `main` do not conflict.
+- Merge into `main` at the integration checkpoints (Fri 23:00, Sat 10:00, Sat 14:00 code freeze). Pull `main` into your branch after each merge.
+- Shared files (`docs/`, `contracts/`, `CLAUDE.md`, `AGENTS.md`) change only on `main`, after the team agrees.

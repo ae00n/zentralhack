@@ -22,3 +22,9 @@ Zentral Hack 2026, Kanton Schwyz challenge: locate and date historical photos wi
 - Data pipeline: `TODO`
 - Backend: `TODO` (FastAPI on :8000)
 - Frontend: `TODO` (Next.js on :3000, `NEXT_PUBLIC_MODE=mock|live|demo`)
+
+## Git workflow
+- One repo, one branch per person: `dijar/data`, `said/agent`, `timo/frontend`. Work and push only on your own branch.
+- Each branch only touches its owner's folder (`data_pipeline/`, `agent/`, `frontend/`), so merges into `main` do not conflict.
+- Merge into `main` at the integration checkpoints (Fri 23:00, Sat 10:00, Sat 14:00 code freeze). Pull `main` into your branch after each merge.
+- Shared files (`docs/`, `contracts/`, `CLAUDE.md`, `AGENTS.md`) change only on `main`, after the team agrees.
