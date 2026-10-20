@@ -1,8 +1,7 @@
 # SCOPE 3: Frontend (owner: Timo)
 
+Read `docs/CONTRACTS.md` first. Every interface named here is defined there. Work on branch `timo/frontend`.
 
-> [!IMPORTANT]
-> Timeline change (2026-10-20): build this scope **now**, before the event. Use the schedule table below as the build order; the clock times no longer apply. Fri 19:00 to Sat 17:00 is for merging, integration, the eval run, the demo video and the pitch. Merge into `main` at least daily.
 
 ## Goal
 
@@ -28,7 +27,7 @@ A German web app the jury remembers. It shows an undated archive card going in, 
 
 - `{TIME}` must be an exact value like `18641231`. An invalid value returns HTTP 400. Snap the slider year to the nearest value in `map_years` from `GET /timeline`. Valid values run from 1844 to 2021.
 - Attribution "© swisstopo" must be visible on every map. Archive images carry their `license.credit` (for example "Staatsarchiv Schwyz, SG.CIV.12.4743").
-- In demo mode, tiles come from `data/tiles/` through the backend, which falls back to the cache when offline. Use the same URL template with a different base.
+- In demo mode, tiles come from the backend's `/tiles/{layer}/{time}/{z}/{x}/{y}` route (base from `/health` `tiles_url`), backed by `data/tiles/`. Same template, different base.
 
 ## Inputs (from whom)
 
@@ -39,7 +38,7 @@ A German web app the jury remembers. It shows an undated archive card going in, 
 | Timeline photos and valid map years | Agent backend (`/timeline`), data from Data | 4, 5 |
 | Export files | Agent backend (`/export.csv`, `/export.json`) | 6 |
 | Eval numbers | Agent backend (`/eval/summary`) | 7 |
-| Demo card list | Data (`data/splits/demo.json`, served via `/photos?split=showcase`) | 1 |
+| Demo card list in pitch order | Agent backend (`/demo`), data from Data | 1, 5 |
 
 ## Outputs (to whom)
 
@@ -72,25 +71,36 @@ A German web app the jury remembers. It shows an undated archive card going in, 
 - `NEXT_PUBLIC_MODE=live`: real backend, real `/analyze`.
 - `NEXT_PUBLIC_MODE=demo`: real backend, but analysis is never triggered. The trace replays from cached `/results/{id}` with timed delays, so it looks live. Use it for the pitch and the video. It works with Wi-Fi off on the M4 Air (backend + cached results + tile cache).
 
-## Mock strategy (start at Fri 19:00 without waiting)
+## Starting point and mock strategy
 
-- Build everything against `contracts/fixtures/` first (photo_record, analysis_result, timeline, eval_summary, export.csv).
+- No frontend code exists yet; you build all of it.
+- Fixtures are on `main` in `contracts/fixtures/` (photo_record, analysis_result, timeline, eval_summary, export.csv, sample.jpg). `npm run fixtures` copies them to `frontend/public/fixtures/`; never edit the copies.
 - Wrap every fetch in one `lib/api.ts` that switches on `NEXT_PUBLIC_MODE`. Components never call `fetch` directly.
-- Use the real swisstopo tiles from the start. They need no backend.
+- Use the real swisstopo tiles from the start; they need no backend.
+- Switch to `live` as soon as Said's server runs (his fake mode `AGENT_FAKE=1` serves the fixture over real HTTP + SSE first).
 
-## Schedule (Fri 19:00 to Sat 17:00)
+## Build order
 
-| Time | Target |
-|---|---|
-| Fri 19:00 to 21:00 | Next.js scaffold running, `lib/api.ts` in mock mode, Archiv grid from fixtures |
-| Fri 21:00 to 23:00 | Analyse view with fields, confidence and evidence from fixture; map with pin + radius |
-| **Fri 23:00 checkpoint** | Frontend hits the real `/photos` and `/results/{id}` from Said's backend |
-| Fri 23:00 to 03:00 | SSE live trace, Zeitreise slider with zeitreihen + `/timeline`, export buttons |
-| Sat 03:00 to 10:00 | Sleep in shifts; Damals/Heute, composite split view, Nachweis page |
-| **Sat 10:00 checkpoint** | End-to-end on 3 demo cards in live mode; demo mode replay works |
-| Sat 10:00 to 14:00 | Polish, offline test on M4 Air (Wi-Fi off), fix contract mismatches |
-| **Sat 14:00 code freeze** | Record backup demo video; only bug fixes after this |
-| Sat 17:00 | Submission + presentation |
+Each item is done when its check passes.
+
+1. **Scaffold:** Next.js + Tailwind + `lib/api.ts` in mock mode. Check: `npm run dev` shows fixture data.
+2. **Archiv grid** (`/`). Check: showcase cards with title + muted meta line, undated first.
+3. **Analyse view** (`/analyse/[id]`): fields, confidence, evidence, rejected hypotheses, "Prüfung nötig" in amber. Check: renders the fixture AnalysisResult completely.
+4. **Map:** pin + uncertainty circle, "© swisstopo". Check: fixture coordinates show on swisstopo tiles.
+5. **Demo mode:** trace replays from `/results/{id}` with timed delays. Check: works with Wi-Fi off against a local backend.
+6. **Export buttons** (CSV, JSON). Check: the downloaded CSV opens in Excel.
+7. **Nachweis page** (`/nachweis`). Check: shows the numbers from `eval_summary.json`.
+8. **Live SSE trace** in live mode. Check: steps fade in as Said's server emits them.
+9. **Zeitreise** slider with zeitreihen + `/timeline`. Check: every year from 1864 to today shows a map; snapping never requests an invalid TIME.
+10. **Damals / Heute**, then the composite split view, then the calibration chart, then the swipe divider.
+
+## Event days (Fri 23 Oct 19:00 to Sat 24 Oct 17:00)
+
+- Fri 23:00 checkpoint: merge `timo/frontend` into `main`; the UI hits Said's real `/photos` and `/results/{id}`.
+- Sat 10:00 checkpoint: end to end on 3 demo cards in live mode; demo mode replay works.
+- Sat morning: offline test on the M4 Air (Wi-Fi off); fix contract mismatches.
+- Sat 14:00 code freeze: record the backup demo video; bug fixes only after this.
+- Sat 17:00: submission and pitch (you drive the live demo).
 
 ## Definition of done
 
@@ -98,24 +108,6 @@ A German web app the jury remembers. It shows an undated archive card going in, 
 - The Nachweis page shows the real eval numbers from `/eval/summary`.
 - "© swisstopo" and archive credits are visible wherever tiles or archive images are shown.
 - No pill badges, no bouncy motion, all UI text in German.
-
-## Priority
-
-**Must (in order):**
-1. Archiv grid
-2. Analyse view (fields + confidence + evidence)
-3. Map pin + radius
-4. Demo mode
-5. Export
-6. Nachweis page
-
-**Wow (after the musts work):**
-1. Live SSE trace
-2. Zeitreise slider
-3. Damals/Heute
-4. Composite split view
-5. Calibration chart
-6. Swipe divider
 
 ## Cut first if time runs out
 

@@ -1,10 +1,7 @@
 # SCOPE 2: Agent, backend, eval (owner: Said)
 
-Read `docs/CONTRACTS.md` first. This file is self-contained for the Agent workstream, but every interface named here is defined there.
+Read `docs/CONTRACTS.md` first. Every interface named here is defined there. Work on branch `said/agent`.
 
-
-> [!IMPORTANT]
-> Timeline change (2026-10-20): build this scope **now**, before the event. Use the schedule table below as the build order; the clock times no longer apply. Fri 19:00 to Sat 17:00 is for merging, integration, the eval run, the demo video and the pitch. Merge into `main` at least daily.
 
 ## Goal
 
@@ -25,10 +22,12 @@ The output is an `AnalysisResult` with per-field confidence and evidence, served
 
 `contracts/` and `docs/CONTRACTS.md` are shared: change them only after agreeing in the team chat.
 
-## Already done before Friday
+## Starting point
 
-- The contract (CONTRACTS.md) and fixtures exist.
-- A manual sanity test: about 10 eval cards pasted into the Claude console by hand to confirm the model can geolocate Schwyz postcards at all. Notes in `docs/RESEARCH.md`. **No agent code exists yet.** You build all of it at the event.
+- No agent code exists yet; you build all of it.
+- `data_pipeline` is real and importable now: from the repo root, `uv venv && uv pip install -e ./data_pipeline` (or `pip install -e ./data_pipeline`). If real data is missing on your machine, set `DATA_PIPELINE_STUB=1` and every function returns fixture data.
+- Fixtures and JSON Schemas are on `main` in `contracts/`.
+- Real data lives on Dijar's machine (`data/`, not in git). Ask him for a copy or the offline bundle.
 
 ## Inputs (what you consume)
 
@@ -54,27 +53,34 @@ The output is an `AnalysisResult` with per-field confidence and evidence, served
 - **Implements:** CONTRACTS 3, 5, 6, 7.
 - **Depends on:** CONTRACTS 1, 2, 4.
 
-## Mock / stub strategy (so all three start at 19:00)
+## Mock / stub strategy
 
-1. **You depend on Data:** run with `DATA_PIPELINE_STUB=1`; every section 4 function returns fixture data. Real data already exists on Friday, so switch off the stub as soon as Dijar confirms each function (target Fri 22:00).
-2. **Frontend depends on you:** at Fri 19:30 ship a fake mode first: `AGENT_FAKE=1` makes `POST /analyze` return a job whose SSE stream replays the trace from `contracts/fixtures/analysis_result.json` with 300 ms delays, then the fixture result. Timo builds the whole UI against this. Keep fake mode working until the end (it is also the offline fallback).
-3. Never change a response shape silently. Update CONTRACTS.md + fixture in one commit and tell Timo.
+1. **You depend on Data:** `DATA_PIPELINE_STUB=1` returns fixture data for every section 4 function. Use the real functions whenever `data/` is present.
+2. **Frontend depends on you:** build fake mode first. `AGENT_FAKE=1` makes `POST /analyze` return a job whose SSE stream replays the trace from `contracts/fixtures/analysis_result.json` with 300 ms delays, then the fixture result. Timo builds the UI against this. Keep it working to the end: it is also the offline fallback.
+3. Never change a response shape silently. Update CONTRACTS.md + fixture in one commit on `main` and tell Timo.
 
-## Friday / Saturday schedule
+## Build order
 
-| Time | Task | Done when |
-|---|---|---|
-| Fri 19:00 to 19:45 | FastAPI skeleton, `/health`, `/photos`, `/images`, fake `/analyze` + SSE | Timo gets fixture results from the real server |
-| Fri 19:45 to 22:00 | Agent loop v1: one image in, tool loop, AnalysisResult out (CLI first: `python -m agent.run <photo_id>`) | Runs on 3 eval cards |
-| Fri 22:00 to 23:00 | swisstopo tools with cache; real `data_pipeline` | |
-| **Fri 23:00** | **Integration checkpoint 1:** real agent behind `/analyze` for 1 card, shown in Timo's UI | |
-| Fri 23:00 to Sat 02:00 | Eval runner + similarity-only baseline; first eval on 50 cards with Haiku/Sonnet | First accuracy number exists |
-| Sat 02:00 to 07:00 | Sleep in shifts | |
-| Sat 07:00 to 10:00 | Prompt / tool fixes from failures; composite handling via `split_composite` | |
-| **Sat 10:00** | **Integration checkpoint 2:** full flow on laptop; start full eval (300 cards, Sonnet) | |
-| Sat 10:00 to 13:00 | Export endpoints, `/timeline`, `/eval/summary`; pre-compute results for all demo cards (Opus) into cache | Demo mode needs no live API |
-| **Sat 14:00** | **Code freeze.** Record backup demo video | |
-| Sat 14:00 to 17:00 | Proof slide numbers, honest failure case, rehearsal | Submission at 17:00 |
+Each item is done when its check passes.
+
+1. **FastAPI skeleton + fake mode:** `/health`, `/photos`, `/photos/{id}`, `/images/{id}`, fake `/analyze` + SSE. Check: Timo's frontend in `live` mode gets the fixture result from your server.
+2. **Agent loop v1 as a CLI:** `python -m agent.run <photo_id>`; one image in, tool loop, `submit_result`, a valid AnalysisResult out. Check: runs on 3 eval cards and validates against `contracts/schemas/analysis_result.schema.json`.
+3. **Real tools:** `similar_images`, `archive_lookup`, `swisstopo_search` with the disk cache. Check: the trace shows tool calls with German summaries; no eval card leaks into its own tool results.
+4. **Real `/analyze` + SSE + result cache** (`data/results/<photo_id>.json`, `?fresh=1`). Check: a second request for the same card is instant.
+5. **Eval runner + similarity-only baseline:** first a 50-card Haiku pass to debug, then Sonnet. Check: `eval_summary.json` validates and has the baseline.
+6. **Export** (`/export.csv`, `/export.json`), `/timeline`, `/eval/summary`, `/demo`, `/tiles`. Check: the CSV opens in Excel (BOM, `;`).
+7. **Composite handling:** run each part from `split_composite` separately; the parent result lists the parts. Check: a known composite yields 2+ part results.
+8. **Pre-compute demo results** with Opus into the cache. Check: demo mode needs no API.
+
+Wow, after the musts: `terrain_check`, calibration chart data, Opus vs Sonnet comparison, live upload of a canton photo.
+
+## Event days (Fri 23 Oct 19:00 to Sat 24 Oct 17:00)
+
+- Fri 23:00 checkpoint: merge `said/agent` into `main`; the real agent runs behind `/analyze` in Timo's UI.
+- Fri night: the full eval run (300 cards, Sonnet, about $27).
+- Sat 10:00 checkpoint: full flow on the laptop; fix failures found in the eval.
+- Sat 14:00 code freeze: record the backup demo video.
+- Sat 17:00: submission and pitch (you own the proof slide: accuracy, baseline, one honest failure case).
 
 ## Agent design (practical guidance)
 
@@ -140,23 +146,6 @@ The output is an `AnalysisResult` with per-field confidence and evidence, served
 3. Export CSV opens correctly in Excel (BOM, `;`).
 4. All demo cards have cached results, so the demo works with the API unreachable.
 5. No key in git; the cost ledger total stays under $80.
-
-## Priority order
-
-**Must:**
-1. Fake mode + SSE for Timo
-2. Agent loop with `submit_result`
-3. similar_images + swisstopo_search tools
-4. Eval runner + baseline
-5. Cached demo results
-6. Export
-
-**Wow:**
-1. terrain_check
-2. Composite handling per part
-3. Calibration chart
-4. Opus vs Sonnet comparison
-5. Live upload of a canton photo during the pitch
 
 ## Cut first if time runs out
 
