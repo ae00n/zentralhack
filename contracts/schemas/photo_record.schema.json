@@ -1,0 +1,285 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "photo_record.schema.json",
+  "title": "PhotoRecord",
+  "type": "object",
+  "required": [
+    "id",
+    "source",
+    "source_id",
+    "source_url",
+    "date",
+    "places",
+    "license",
+    "image",
+    "split"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^(stasz|smapshot|epics|upload):[^#]+(#\\d+)?$"
+    },
+    "source": {
+      "enum": [
+        "staatsarchiv",
+        "smapshot",
+        "epics",
+        "upload"
+      ]
+    },
+    "source_id": {
+      "type": "string"
+    },
+    "source_url": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "signature": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "collection": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "kind": {
+      "enum": [
+        "postcard",
+        "aerial",
+        "ground",
+        "unknown"
+      ]
+    },
+    "title": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "date": {
+      "type": "object",
+      "required": [
+        "raw",
+        "year_from",
+        "year_to",
+        "approximate"
+      ],
+      "properties": {
+        "raw": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "year_from": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "year_to": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "approximate": {
+          "type": "boolean"
+        }
+      }
+    },
+    "places": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "municipality": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "location": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "lat",
+            "lon",
+            "method"
+          ],
+          "properties": {
+            "lat": {
+              "type": "number"
+            },
+            "lon": {
+              "type": "number"
+            },
+            "method": {
+              "enum": [
+                "smapshot_pose",
+                "epics_geo",
+                "thema_gazetteer"
+              ]
+            },
+            "precision_m": {
+              "type": "number"
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "camera": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "lat": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "lon": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "altitude_m": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "azimuth": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "tilt": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "roll": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "focal": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "photographer": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "license": {
+      "type": "object",
+      "required": [
+        "code",
+        "credit"
+      ],
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "credit": {
+          "type": "string"
+        },
+        "url": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "image": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "path",
+            "width",
+            "height"
+          ],
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "width": {
+              "type": "integer"
+            },
+            "height": {
+              "type": "integer"
+            },
+            "sha1": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "parent_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "crop_bbox": {
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "split": {
+      "enum": [
+        "eval",
+        "showcase",
+        "reference",
+        "none"
+      ]
+    },
+    "raw": {
+      "type": "object"
+    }
+  }
+}

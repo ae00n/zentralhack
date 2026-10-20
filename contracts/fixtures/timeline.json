@@ -1,0 +1,47 @@
+{
+  "photos": [
+    {
+      "id": "epics:PK_020566",
+      "year_from": 1887,
+      "year_to": 1907,
+      "distance_m": 0,
+      "image_url": "/images/epics:PK_020566"
+    },
+    {
+      "id": "stasz:357562",
+      "year_from": 1904,
+      "year_to": 1904,
+      "distance_m": 420,
+      "image_url": "/images/stasz:357562"
+    },
+    {
+      "id": "stasz:361519",
+      "year_from": 1910,
+      "year_to": 1910,
+      "distance_m": 610,
+      "image_url": "/images/stasz:361519"
+    },
+    {
+      "id": "stasz:362871",
+      "year_from": 1940,
+      "year_to": 1940,
+      "distance_m": 750,
+      "image_url": "/images/stasz:362871"
+    }
+  ],
+  "map_years": [
+    18641231,
+    18781231,
+    18901231,
+    19041231,
+    19141231,
+    19241231,
+    19401231,
+    19561231,
+    19701231,
+    19851231,
+    20001231,
+    20211231
+  ],
+  "_fixture_note": "Only the first id resolves in stub mode; the stasz ids are placeholders. map_years is a subset of the real zeitreihen TIME values."
+}

@@ -1,0 +1,56 @@
+{
+  "n": 300,
+  "model": "claude-sonnet-5-5",
+  "created_at": "2026-10-20T21:00:00Z",
+  "municipality_accuracy": 0.71,
+  "decade_accuracy": 0.48,
+  "decade_within_one": 0.83,
+  "median_coord_error_km": 1.9,
+  "calibration": [
+    {
+      "bin": "0.0-0.5",
+      "n": 61,
+      "accuracy": 0.34
+    },
+    {
+      "bin": "0.5-0.8",
+      "n": 118,
+      "accuracy": 0.69
+    },
+    {
+      "bin": "0.8-1.0",
+      "n": 121,
+      "accuracy": 0.9
+    }
+  ],
+  "by_municipality": [
+    {
+      "municipality": "Schwyz",
+      "n": 72,
+      "accuracy": 0.81
+    },
+    {
+      "municipality": "Ingenbohl",
+      "n": 41,
+      "accuracy": 0.78
+    },
+    {
+      "municipality": "Einsiedeln",
+      "n": 38,
+      "accuracy": 0.84
+    }
+  ],
+  "baseline": {
+    "similarity_only_municipality_accuracy": 0.52
+  },
+  "failures": [
+    {
+      "photo_id": "stasz:361043",
+      "expected": "Arth",
+      "got": "Weggis",
+      "why": "Rigi-Panorama: Gipfel liegt auf der Kantonsgrenze, Kamera vermutlich auf Luzerner Seite"
+    }
+  ],
+  "cost_usd": 26.4,
+  "_fixture_note": "Made-up numbers for UI development only. Never show these in the pitch."
+}
