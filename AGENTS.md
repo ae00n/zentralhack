@@ -2,6 +2,14 @@
 
 Zentral Hack 2026, Kanton Schwyz challenge: locate and date historical photos with an AI agent.
 
+## Start here (first thing, every session)
+1. The human tells you their name. Map it: Dijar = Data, Said = Agent, Timo = Frontend. Unknown name: ask.
+2. Make sure you are on their branch: `git checkout dijar/data` / `said/agent` / `timo/frontend`, then `git pull`.
+3. Read `docs/CONTRACTS.md`, then their scope file, then `docs/ARCHITECTURE.md`.
+4. Check the clock. **Before Fri 23 Oct 2026 19:00: no app code.** Allowed before then: reading, explaining, planning, setting up tools (installing Node/Python, cloning), trying prompts by hand. From 19:00 on: build, following the scope file's schedule.
+
+A good first prompt: "I'm Timo. Read the repo docs, explain my scope in 10 bullets, list what I need installed, and tell me what I build first on Friday at 19:00."
+
 ## Before you write anything
 1. Read `docs/CONTRACTS.md`. It is the single source of truth for data shapes and APIs.
 2. Read your own scope file. If you do not know which scope the human owns, ask them.

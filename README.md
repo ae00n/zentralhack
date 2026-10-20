@@ -29,3 +29,6 @@ Shared: [CONTRACTS](docs/CONTRACTS.md) (read first), `contracts/` (schemas + fix
 - Each branch only touches its owner's folder (`data_pipeline/`, `agent/`, `frontend/`), so merges into `main` do not conflict.
 - Merge into `main` at the integration checkpoints (Fri 23:00, Sat 10:00, Sat 14:00 code freeze). Pull `main` into your branch after each merge.
 - Shared files (`docs/`, `contracts/`, `CLAUDE.md`, `AGENTS.md`) change only on `main`, after the team agrees.
+
+## For teammates
+Open this repo with Claude Code or Codex and say who you are, e.g. "I'm Timo, read the repo and tell me what I do." `CLAUDE.md` / `AGENTS.md` route the agent to your branch and scope. No app code before Fri 19:00.
