@@ -186,6 +186,12 @@ def fetch(limit: int | None, dzi_px: int, spread: bool = False) -> None:
         for row in todo:
             a = json.loads(client.get(f"{API}/images/{row['id']}/attributes", suffix=".json"))
             lic = license_code(a.get("license"), (a.get("owner") or {}).get("slug"))
+            if not lic and (a.get("owner") or {}).get("id") == ETH_OWNER and a.get("original_id"):
+                # Smapshot's credit line often omits the license for ETH items: ask E-Pics
+                item = epics.find_by_file_name(a["original_id"])
+                lic = epics.allowed(epics.props(item)) if item else None
+                if lic:
+                    a["license"] = f"{a.get('license')} / {epics.props(item).get('eth_license')}"
             if not lic:
                 skip.write(json.dumps({"id": str(row["id"]), "license": a.get("license")}, ensure_ascii=False) + "\n")
                 continue
