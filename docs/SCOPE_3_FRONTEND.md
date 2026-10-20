@@ -59,11 +59,61 @@ A German web app the jury remembers. It shows an undated archive card going in, 
 6. **Export**: buttons "CSV herunterladen" and "JSON herunterladen" on the result and on the archive grid (selected or all).
 7. **Nachweis** (`/nachweis`): the proof page. Big numbers come from `/eval/summary`: municipality accuracy, decade accuracy, decade within ±1, and n. Add the per-municipality table, a calibration chart (does confidence match accuracy?), the similarity-only baseline next to the agent, and one honest failure case.
 
-## Design rules (owner's, non-negotiable)
+## Look and layout (decided: archive look)
 
-- No `rounded-full` bordered pill or chip badges for status, kind or counts. Use the muted meta line: `text-xs text-muted-foreground`, with facts joined by " · ". Colour a word only when it needs attention: amber for review needed, red for error. If a tag is truly needed: `rounded px-1.5 h-5 text-[11px] bg-muted`, no border.
-- Motion: simple fades and gentle easing, 300 to 500 ms. No spring, elastic or bounce.
-- Calm, archival look: real photos big, chrome small. Laptop projector first, but it must not break on a phone.
+Feel: a reading room, not a SaaS dashboard. Warm paper, ink text, the photos and the map are the only colour on screen. If a screen could belong to any startup, it is wrong.
+
+### Tokens (put these in `app/globals.css` as CSS variables and map them in `tailwind.config`)
+
+| Token | Value | Use |
+|---|---|---|
+| `--paper` | `#F5F0E6` | page background |
+| `--paper-2` | `#ECE4D4` | panels, photo mats |
+| `--rule` | `#D6CBB6` | 1px dividers, borders |
+| `--ink` | `#1E1A15` | text, primary buttons (ink fill, paper text) |
+| `--ink-muted` | `#6A6054` | meta lines, labels |
+| `--accent` | `#9A3324` | the one accent (muted Schwyz red): selected year, map pin, focus ring, links |
+| `--warn` | `#A8690F` | "Prüfung nötig", confidence below 0.5 |
+| `--bad` | `#9B2C1F` | errors only |
+
+- Fonts (via `next/font/google`): **Source Serif 4** for headings and photo titles, **IBM Plex Sans** for UI, **IBM Plex Mono** for signatures, coordinates and years in the slider.
+- Type scale: page title 28px serif, section title 18px serif, body 14px, meta 12px. No bold beyond 600.
+- Radius 2px max (photos 0). Shadows: none. Separation comes from `--rule` lines and `--paper-2` mats.
+- Icons: lucide, 16px, stroke 1.5, `--ink-muted`. No icon in every heading.
+- Motion: fades and gentle easing, 300 to 500 ms. No spring, elastic or bounce. The trace lines fade in one by one.
+- No `rounded-full` pill or chip badges for status, kind, counts or years. Use a muted meta line: `text-xs` in `--ink-muted`, facts joined by " · ". Colour a word only when it needs attention (`--warn`, `--bad`). If a tag is truly needed: `rounded px-1.5 h-5 text-[11px] bg-[--paper-2]`, no border.
+- Laptop projector first (1440x900), must not break on a phone.
+
+### Main screen ("Ort & Zeit"), reference: the team's mock, minus its mistakes
+
+```
++------------------------------------------------+----------------------------+
+| MAP (MapLibre, swisstopo)                       | PHOTO under analysis       |
+| - pin + uncertainty circle in --accent          | (big, on a --paper-2 mat)  |
+| - base layer follows the slider year            | SG.CIV.12.4743 · 1914 ·    |
+|   (zeitreihen), "Heute" = swissimage            | Staatsarchiv Schwyz (mono) |
+|                                                 +----------------------------+
++------------------------------------------------+ RESULT, one row per field:  |
+| ZEITREISE: year axis (mono ticks, selected year | Gemeinde   Schwyz     0.86 |
+| in --accent, no chips) + strip of REAL archive  | Ort        Hauptplatz 0.71 |
+| cards of this place, each captioned             | Gebäude    ...        0.80 |
+| "1904 · SG.CIV.12.xxx"                          | Jahrzehnt  1900er     0.55 |
+|                                                 | each row expands to its    |
+|                                                 | evidence list (German)     |
+|                                                 | + "Verworfen: Brunnen, ..."|
+|                                                 | [Export CSV] [Export JSON] |
++------------------------------------------------+----------------------------+
+```
+
+- Confidence: the number in mono plus a 2px bar in `--ink` (60px wide). Below 0.5 the bar and number turn `--warn`. Never one global confidence bar on its own.
+- "Dann und heute": toggle on the photo panel that puts today's SWISSIMAGE at the same spot next to the photo.
+- Agent trace: a quiet log under the result while analysing ("Vergleiche mit 8 Referenzbildern ..."), collapsible after.
+
+### Things the mock got wrong (do not copy)
+- Generic blue, pill year chips, avatar, "My Archive" / "Contribute" tabs: none of that.
+- AI-generated photos and invented years (no photo from 1830): only real records from `/timeline`.
+- Invented map labels: only real swisstopo tiles, never a decorative map image.
+- One confidence bar for the whole result: ours is per field, with evidence.
 
 ## Modes
 
