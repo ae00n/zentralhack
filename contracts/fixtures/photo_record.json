@@ -1,0 +1,65 @@
+{
+  "id": "epics:PK_020566",
+  "source": "epics",
+  "source_id": "PK_020566",
+  "source_url": "http://doi.org/10.3932/ethz-a-001474901",
+  "signature": "PK_020566",
+  "collection": null,
+  "kind": "postcard",
+  "title": "Vierwaldstättersee mit Urirotstock (2932 m) und Gitschen (2520 m)",
+  "date": {
+    "raw": "vor 13.6.1907",
+    "year_from": 1887,
+    "year_to": 1907,
+    "approximate": true
+  },
+  "places": [
+    "Lac des Quatre-Cantons",
+    "Usser Tellen",
+    "Tellsplatte",
+    "Gurgeli",
+    "Bauen",
+    "Choltalbach"
+  ],
+  "municipality": "Ingenbohl",
+  "location": {
+    "lat": 46.9839864147136,
+    "lon": 8.608578341277779,
+    "method": "epics_geo",
+    "precision_m": 500
+  },
+  "camera": {
+    "lat": 46.9839864147136,
+    "lon": 8.608578341277779,
+    "altitude_m": 440.8779083259838,
+    "azimuth": 192.72310874469068,
+    "tilt": null,
+    "roll": null,
+    "focal": null
+  },
+  "photographer": "Unbekannt",
+  "license": {
+    "code": "PDM",
+    "credit": "ETH-Bibliothek Zürich, Bildarchiv / Unbekannt / PK_020566 / Public Domain Mark",
+    "url": "http://doi.org/10.3932/ethz-a-001474901"
+  },
+  "image": {
+    "path": "sample.jpg",
+    "width": 1024,
+    "height": 671,
+    "sha1": "01a66d62b1032da44eb4470acc44334b8486d0d1"
+  },
+  "parent_id": null,
+  "crop_bbox": null,
+  "split": "reference",
+  "raw": {
+    "file_name": "PK_020566.tif",
+    "eth_dating": "vor 13.6.1907",
+    "eth_date_range": "1887-06-12|1907-06-12",
+    "eth_license": "Public Domain Mark",
+    "eth_doi_link": "http://doi.org/10.3932/ethz-a-001474901",
+    "eth_image_stock_number": "3296",
+    "eth_sMapshot_Link": "https://smapshot.heig-vd.ch/visit/343450",
+    "_fixture_note": "Public-domain E-Pics card used as the shared fixture; title transcribed from the card print."
+  }
+}

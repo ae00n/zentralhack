@@ -1,0 +1,428 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "analysis_result.schema.json",
+  "title": "AnalysisResult",
+  "type": "object",
+  "$defs": {
+    "evidence": {
+      "type": "object",
+      "required": [
+        "kind",
+        "summary"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "visual_cue",
+            "text_on_card",
+            "similar_image",
+            "archive_record",
+            "swisstopo_place",
+            "terrain",
+            "map_layer"
+          ]
+        },
+        "summary": {
+          "type": "string"
+        },
+        "ref_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "url": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "score": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "supports": {
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  "required": [
+    "photo_id",
+    "run_id",
+    "status",
+    "model",
+    "fields",
+    "overall_confidence",
+    "needs_review",
+    "rejected_hypotheses",
+    "trace",
+    "usage",
+    "created_at"
+  ],
+  "properties": {
+    "photo_id": {
+      "type": "string"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "queued",
+        "running",
+        "done",
+        "needs_review",
+        "error"
+      ]
+    },
+    "model": {
+      "type": "string"
+    },
+    "composite": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "is_composite",
+            "parts"
+          ],
+          "properties": {
+            "is_composite": {
+              "type": "boolean"
+            },
+            "parts": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "fields": {
+      "type": "object",
+      "required": [
+        "municipality",
+        "place",
+        "buildings",
+        "landscape_features",
+        "decade",
+        "year_range",
+        "coordinates"
+      ],
+      "properties": {
+        "municipality": {
+          "type": "object",
+          "required": [
+            "value",
+            "confidence",
+            "evidence"
+          ],
+          "properties": {
+            "value": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "confidence": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/evidence"
+              }
+            }
+          }
+        },
+        "place": {
+          "type": "object",
+          "required": [
+            "value",
+            "confidence",
+            "evidence"
+          ],
+          "properties": {
+            "value": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "confidence": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/evidence"
+              }
+            }
+          }
+        },
+        "buildings": {
+          "type": "object",
+          "required": [
+            "value",
+            "confidence",
+            "evidence"
+          ],
+          "properties": {
+            "value": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "confidence": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/evidence"
+              }
+            }
+          }
+        },
+        "landscape_features": {
+          "type": "object",
+          "required": [
+            "value",
+            "confidence",
+            "evidence"
+          ],
+          "properties": {
+            "value": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "confidence": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/evidence"
+              }
+            }
+          }
+        },
+        "decade": {
+          "type": "object",
+          "required": [
+            "value",
+            "confidence",
+            "evidence"
+          ],
+          "properties": {
+            "value": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "confidence": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/evidence"
+              }
+            }
+          }
+        },
+        "year_range": {
+          "type": "object",
+          "required": [
+            "value",
+            "confidence",
+            "evidence"
+          ],
+          "properties": {
+            "value": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "required": [
+                    "from",
+                    "to"
+                  ],
+                  "properties": {
+                    "from": {
+                      "type": "integer"
+                    },
+                    "to": {
+                      "type": "integer"
+                    }
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "confidence": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/evidence"
+              }
+            }
+          }
+        },
+        "coordinates": {
+          "type": "object",
+          "required": [
+            "value",
+            "confidence",
+            "evidence"
+          ],
+          "properties": {
+            "value": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "required": [
+                    "lat",
+                    "lon"
+                  ],
+                  "properties": {
+                    "lat": {
+                      "type": "number"
+                    },
+                    "lon": {
+                      "type": "number"
+                    },
+                    "radius_m": {
+                      "type": "number"
+                    }
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "confidence": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/evidence"
+              }
+            }
+          }
+        }
+      }
+    },
+    "overall_confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "needs_review": {
+      "type": "boolean"
+    },
+    "rejected_hypotheses": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "field",
+          "value",
+          "reason"
+        ],
+        "properties": {
+          "field": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "trace": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "step",
+          "type"
+        ],
+        "properties": {
+          "step": {
+            "type": "integer"
+          },
+          "type": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "tool": {
+            "type": "string"
+          },
+          "input": {
+            "type": "object"
+          },
+          "output_summary": {
+            "type": "string"
+          },
+          "ms": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "usage": {
+      "type": "object",
+      "properties": {
+        "input_tokens": {
+          "type": "integer"
+        },
+        "output_tokens": {
+          "type": "integer"
+        },
+        "cost_usd": {
+          "type": "number"
+        },
+        "budget_hit": {
+          "type": "boolean"
+        }
+      }
+    },
+    "created_at": {
+      "type": "string"
+    }
+  }
+}

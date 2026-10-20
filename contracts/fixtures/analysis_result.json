@@ -1,0 +1,193 @@
+{
+  "photo_id": "epics:PK_020566",
+  "run_id": "2026-10-20T21:00:00Z-fixture",
+  "status": "done",
+  "model": "claude-sonnet-5-5",
+  "composite": null,
+  "fields": {
+    "municipality": {
+      "value": "Ingenbohl",
+      "confidence": 0.82,
+      "evidence": [
+        {
+          "kind": "text_on_card",
+          "summary": "Aufdruck nennt Vierwaldstättersee, Urirotstock und Gitschen",
+          "supports": true
+        },
+        {
+          "kind": "swisstopo_place",
+          "summary": "Blick auf Urirotstock und Gitschen passt zu einem Standort am Ufer bei Brunnen",
+          "url": "https://api3.geo.admin.ch/rest/services/api/SearchServer?searchText=Gitschen&type=locations",
+          "supports": true
+        },
+        {
+          "kind": "similar_image",
+          "summary": "Referenzkarte zeigt dieselbe Bergkulisse vom Ufer bei Brunnen",
+          "ref_id": "epics:PK_020566",
+          "score": 0.91,
+          "supports": true
+        }
+      ]
+    },
+    "place": {
+      "value": "Seeufer bei Brunnen, Blick Richtung Urnersee",
+      "confidence": 0.64,
+      "evidence": [
+        {
+          "kind": "visual_cue",
+          "summary": "Felsblöcke im Wasser und steile Seeufer typisch für den Urnersee",
+          "supports": true
+        }
+      ]
+    },
+    "buildings": {
+      "value": [],
+      "confidence": 0.9,
+      "evidence": [
+        {
+          "kind": "visual_cue",
+          "summary": "Keine Gebäude sichtbar",
+          "supports": true
+        }
+      ]
+    },
+    "landscape_features": {
+      "value": [
+        "Vierwaldstättersee",
+        "Urirotstock",
+        "Gitschen"
+      ],
+      "confidence": 0.9,
+      "evidence": [
+        {
+          "kind": "text_on_card",
+          "summary": "Bildlegende: Vierwaldstättersee mit Urirotstock (2932 m) und Gitschen (2520 m)",
+          "supports": true
+        },
+        {
+          "kind": "terrain",
+          "summary": "Höhenprofil vom Ufer zum Urirotstock passt zur Silhouette",
+          "supports": true
+        }
+      ]
+    },
+    "decade": {
+      "value": 1900,
+      "confidence": 0.78,
+      "evidence": [
+        {
+          "kind": "text_on_card",
+          "summary": "Handschriftliches Datum 13.6.1907 auf der Vorderseite",
+          "supports": true
+        },
+        {
+          "kind": "visual_cue",
+          "summary": "Kolorierter Lichtdruck, typisch für 1895 bis 1915",
+          "supports": true
+        }
+      ]
+    },
+    "year_range": {
+      "value": {
+        "from": 1898,
+        "to": 1907
+      },
+      "confidence": 0.74,
+      "evidence": [
+        {
+          "kind": "text_on_card",
+          "summary": "Poststempel bzw. Datum 1907 setzt die Obergrenze",
+          "supports": true
+        }
+      ]
+    },
+    "coordinates": {
+      "value": {
+        "lat": 46.984,
+        "lon": 8.6086,
+        "radius_m": 800
+      },
+      "confidence": 0.66,
+      "evidence": [
+        {
+          "kind": "map_layer",
+          "summary": "Uferlinie auf der Siegfriedkarte 1900 stimmt mit dem Blickwinkel überein",
+          "supports": true
+        }
+      ]
+    }
+  },
+  "overall_confidence": 0.76,
+  "needs_review": false,
+  "rejected_hypotheses": [
+    {
+      "field": "municipality",
+      "value": "Flüelen",
+      "reason": "Urirotstock stünde aus Flüelen links statt rechts; Blickrichtung Süden passt besser zu Brunnen"
+    },
+    {
+      "field": "municipality",
+      "value": "Sisikon",
+      "reason": "Gitschen wäre von Sisikon aus deutlich näher und grösser"
+    }
+  ],
+  "trace": [
+    {
+      "step": 1,
+      "type": "thought",
+      "text": "Kolorierte Karte, Seeufer mit Felsen, hohe Gipfel im Hintergrund. Aufdruck nennt Urirotstock und Gitschen.",
+      "ms": 0
+    },
+    {
+      "step": 2,
+      "type": "tool_call",
+      "tool": "swisstopo_search",
+      "input": {
+        "text": "Gitschen"
+      },
+      "output_summary": "Gitschen (UR), 2520 m, Koordinaten gefunden",
+      "ms": 380
+    },
+    {
+      "step": 3,
+      "type": "tool_call",
+      "tool": "similar_images",
+      "input": {
+        "k": 8
+      },
+      "output_summary": "5 von 8 Treffern am Ufer bei Brunnen",
+      "ms": 420
+    },
+    {
+      "step": 4,
+      "type": "tool_call",
+      "tool": "archive_lookup",
+      "input": {
+        "place": "Brunnen",
+        "year_from": 1895,
+        "year_to": 1915
+      },
+      "output_summary": "12 datierte Karten aus Brunnen 1896 bis 1914",
+      "ms": 35
+    },
+    {
+      "step": 5,
+      "type": "thought",
+      "text": "Blickrichtung Süden auf den Urnersee, Standort Seeufer bei Brunnen. Flüelen und Sisikon verworfen.",
+      "ms": 0
+    },
+    {
+      "step": 6,
+      "type": "final",
+      "text": "Ingenbohl (Brunnen), 1900er Jahre, Konfidenz 0.76",
+      "ms": 0
+    }
+  ],
+  "usage": {
+    "input_tokens": 28100,
+    "output_tokens": 2900,
+    "cost_usd": 0.085,
+    "budget_hit": false
+  },
+  "created_at": "2026-10-20T21:00:07Z"
+}

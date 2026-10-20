@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "eval_summary.schema.json",
+  "title": "EvalSummary",
+  "type": "object",
+  "required": [
+    "n",
+    "model",
+    "created_at",
+    "municipality_accuracy",
+    "decade_accuracy",
+    "decade_within_one",
+    "calibration",
+    "by_municipality",
+    "baseline",
+    "failures",
+    "cost_usd"
+  ],
+  "properties": {
+    "n": {
+      "type": "integer"
+    },
+    "model": {
+      "type": "string"
+    },
+    "created_at": {
+      "type": "string"
+    },
+    "municipality_accuracy": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "decade_accuracy": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "decade_within_one": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "median_coord_error_km": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "calibration": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "bin",
+          "n",
+          "accuracy"
+        ]
+      }
+    },
+    "by_municipality": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "municipality",
+          "n",
+          "accuracy"
+        ]
+      }
+    },
+    "baseline": {
+      "type": "object",
+      "properties": {
+        "similarity_only_municipality_accuracy": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "failures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "photo_id",
+          "expected",
+          "got",
+          "why"
+        ]
+      }
+    },
+    "cost_usd": {
+      "type": "number"
+    }
+  }
+}
