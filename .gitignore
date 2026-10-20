@@ -1,0 +1,29 @@
+# Scraped data, images, indexes, results: never committed (Staatsarchiv images are not openly licensed)
+data/
+*.faiss
+*.jpg
+*.jpeg
+*.png
+!contracts/fixtures/**/*.jpg
+!frontend/public/**/*.svg
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
