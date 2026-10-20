@@ -2,6 +2,10 @@
 
 Read `docs/CONTRACTS.md` first. This file is self-contained for the Agent workstream, but every interface named here is defined there.
 
+
+> [!IMPORTANT]
+> Timeline change (2026-10-20): build this scope **now**, before the event. Use the schedule table below as the build order; the clock times no longer apply. Fri 19:00 to Sat 17:00 is for merging, integration, the eval run, the demo video and the pitch. Merge into `main` at least daily.
+
 ## Goal
 
 An agent, not a single model call. For each photo it:
