@@ -1,10 +1,6 @@
 # SCOPE 1: Data (owner: Dijar)
 
-Read `docs/CONTRACTS.md` first. This file is self-contained for the Data workstream, but every interface named here is defined there.
-
-
-> [!IMPORTANT]
-> Timeline change (2026-10-20): build this scope **now**, before the event. Use the schedule table below as the build order; the clock times no longer apply. Fri 19:00 to Sat 17:00 is for merging, integration, the eval run, the demo video and the pitch. Merge into `main` at least daily.
+Read `docs/CONTRACTS.md` first. Every interface named here is defined there. Work on branch `dijar/data`.
 
 ## Goal
 
@@ -13,113 +9,100 @@ Give the agent and the frontend clean, fast, honest data:
 - a similarity index the agent can query
 - a leak-free labelled eval set
 - composite postcards split into single photos
-- everything packaged so the demo runs offline on the M4 Air
+- a bundle so the demo runs offline on the M4 Air
 
-## Owned folders (strict)
+## Owned folders
 
 | You own | You never edit |
 |---|---|
 | `data_pipeline/` (code) | `agent/`, `frontend/` |
-| `data/` except `data/results/` (data, gitignored) | `data/results/` (Agent writes it) |
+| `data/` except `data/results/` (gitignored) | `data/results/` (Agent writes it) |
 
-`contracts/` and `docs/CONTRACTS.md` are shared: change them only after agreeing in the team chat.
+`contracts/` and `docs/CONTRACTS.md` are shared: change them only after the team agrees, on `main`.
 
-## Already done before Friday (pre-event, data only)
+> Staatsarchiv images have no open licence. They never go into git, a public URL or the submission upload.
 
-| Item | Where |
-|---|---|
-| Staatsarchiv scraper + raw data (SG.CIV.12 Ansichtskarten, SG.CIV.04 Flugaufnahmen), watermark strip cropped | `data/records/staatsarchiv.jsonl`, `data/images/staatsarchiv/` |
-| Smapshot collector (Schwyz, pre-1970, with camera pose) | `data/records/smapshot.jsonl`, `data/images/smapshot/` |
-| E-Pics collector (Schwyz bbox, pre-1970, CC BY-SA / PDM only) | `data/records/epics.jsonl`, `data/images/epics/` |
-| Merged + deduplicated records | `data/records/all.jsonl` |
-| Embeddings (DINOv2-small and CLIP ViT-B/32) + FAISS index | `data/index/` |
-| Eval / showcase / timeline / demo splits + stats | `data/splits/` |
-| Gazetteer of Schwyz municipalities | `data/gazetteer/gemeinden.json` |
+## Current state (built, on `dijar/data`)
 
-> [!IMPORTANT]
-> Staatsarchiv images have no open licence. They never go into git, never into a public URL, never into the submission upload. Only the private repo's `.gitignore`d `data/` holds them.
+| Piece | File | State |
+|---|---|---|
+| Polite HTTP client (throttle, retry, disk cache) | `http.py` | done |
+| Schwyz gazetteer: 30 municipalities, Thema tag to municipality via swisstopo SearchServer | `gazetteer.py`, `geo.py` | done |
+| Staatsarchiv scraper (SG.CIV.12, 6,417 cards; SG.CIV.04) | `scrapers/staatsarchiv.py` | full run in progress |
+| E-Pics collector (geotagged pre-1970 + postcards, CC BY-SA / PDM only) | `scrapers/epics.py` | full run in progress |
+| Smapshot collector (camera poses, pre-1970) | `scrapers/smapshot.py` | queued after E-Pics |
+| Resumable runner | `run_scrapes.sh refs|archive` | done |
+| Merge to `data/records/all.jsonl` (E-Pics and Smapshot joined on file name) | `merge.py` | done, rerun after scrape |
+| Eval / showcase / timeline / demo splits + stats | `splits.py` | done, rerun and freeze after scrape |
+| CONTRACTS section 4 functions + `DATA_PIPELINE_STUB=1` stub | `api.py`, `stub.py`, `__init__.py` | done, 16 tests pass |
+| Embeddings: DINOv2-small + CLIP ViT-B/32, FAISS, `data/index/best.json` | `embed.py` | done on partial data |
+| Composite splitter | `split.py` | classical CV failed (recall 0 on 10 labelled composites); default is Claude Haiku boxes, untested until `ANTHROPIC_API_KEY` is set |
 
-## Inputs (what you consume)
+## Inputs
 
 | Input | From |
 |---|---|
-| Archive catalog, Smapshot API, E-Pics API (already scraped) | external, pre-event |
+| Archive catalog, E-Pics API, Smapshot API | external (scrapers) |
 | swisstopo WMTS tiles for the offline cache | external (geo.admin.ch) |
-| Canton photos handed out at the 18:30 pitch, if any | event; ingest as `source: "upload"` records |
-| Eval results, to help debug failures | Agent (`data/results/eval_summary.json`) |
+| Canton photos at the challenge pitch, if any | event; ingest as `source: "upload"` |
+| Eval results, to debug failures | Agent (`data/results/eval_summary.json`) |
 
-## Outputs (what you provide)
+## Outputs
 
 | Output | To | Contract |
 |---|---|---|
-| `data/` layout, PhotoRecords | Agent, Frontend | CONTRACTS 1, 2 |
-| Python module `data_pipeline` with `get_record`, `similar_images`, `archive_lookup`, `split_composite`, `timeline`, `gazetteer` | Agent (Agent serves them over HTTP to Frontend) | CONTRACTS 4 |
-| Eval ground truth `data/splits/eval.jsonl` | Agent eval runner | CONTRACTS 1, 7 |
-| Demo shortlist `data/splits/demo.json`, timeline sets | Frontend demo mode, pitch | CONTRACTS 1 |
-| Offline bundle (data subset + `data/tiles/`) | Laptop demo | CONTRACTS 1 |
+| `data/` layout, PhotoRecords, images | Agent, Frontend | 1, 2 |
+| `import data_pipeline` (all section 4 functions) | Agent | 4 |
+| `data/splits/eval.jsonl` ground truth | Agent eval runner | 1, 7 |
+| `demo.json`, `timeline_sets.json` | Agent `/demo`, `/timeline`; Frontend | 1, 5 |
+| Offline bundle (data subset + `data/tiles/`) | demo laptop | 1, 5 |
+| Fixtures `photo_record.json`, `timeline.json` (already on `main`) | Agent, Frontend | 8 |
 
-## Interfaces
+## Stub strategy
 
-- **Implements:** CONTRACTS section 1 (disk layout), 2 (PhotoRecord), 4 (Python interfaces), 8 (fixtures: you own `photo_record.json` and `timeline.json`).
-- **Depends on:** nothing at runtime. Section 5 `GET /timeline` and `GET /images` are served by Agent but read your functions.
+- `DATA_PIPELINE_STUB=1` makes every section 4 function return `contracts/fixtures/` data. It is Said's fallback if real data is missing on his machine; keep it working until the code freeze.
+- Never change a signature silently: update CONTRACTS.md, stub and fixture in one commit on `main` and tell Said.
 
-## Mock / stub strategy (so all three start at 19:00)
+## Build order
 
-1. At 19:00 the repo already has `data_pipeline/stub.py`: every section 4 function returns data from `contracts/fixtures/`. `DATA_PIPELINE_STUB=1` makes `import data_pipeline` use it. Agent develops against the stub; you swap in real code function by function behind the same signatures.
-2. Real data already exists on Friday, so the stub is only a safety net. Keep it working until Sat 10:00.
-3. Never change a function signature silently. If you must, update CONTRACTS.md, the stub and the fixture in one commit and tell Said.
+Each item is done when its check passes.
 
-## Friday / Saturday schedule
+1. **Finish the scrapes.** Check: `wc -l data/records/*.jsonl` matches the logs; a rerun of `run_scrapes.sh` fetches 0 new records.
+2. **Merge + splits.** `python -m data_pipeline.merge`, then `python -m data_pipeline.splits`. Freeze `eval.jsonl` (about 300 cards, stratified by municipality, fixed seed) and tell Said. Check: `stats.json` shows records per source, dated vs undated, eval size per municipality.
+3. **Embeddings on the full set.** `python -m data_pipeline.embed build`, then `embed check`. Check: `best.json` names the model, and its top-5 municipality agreement beats the "always Schwyz" baseline.
+4. **Splitter.** Set `ANTHROPIC_API_KEY`, then `python -m data_pipeline.split eval --method vlm` against `tests/split_labels.json` (76 hand labels, 10 composites), then `split batch`. Check: recall at least 0.8 on the labelled composites; cost under $1.
+5. **Timeline sets.** Places with 4 or more dated cards. Check: `timeline()` for Hauptplatz Schwyz returns cards sorted by year.
+6. **Demo shortlist.** About 10 cards in `demo.json`, each with a `why`: undated ones, composites, Hauptplatz Schwyz, Brunnen, Kloster Einsiedeln. Check: every card has an image and, after Said's run, a cached result.
+7. **Offline bundle.** Data subset for the demo cards and their references, plus a tile cache: about 5 km around each demo location, zoom 12 to 17, only the zeitreihen years in the demo timeline sets plus `swissimage` current, at most 5 tiles/s, stored as `data/tiles/<layer>/<time>/<z>/<x>/<y>.<ext>`. Check: the full demo runs on the M4 Air with Wi-Fi off.
+8. **Help Said with the eval.** Look into failures, fix data causes (wrong municipality mapping, bad crops).
 
-| Time | Task | Done when |
-|---|---|---|
-| Fri 19:00 to 20:00 | Install shared venv, check `data/` on the laptop, `get_record` + `gazetteer` real | Said can `import data_pipeline` with real records |
-| Fri 20:00 to 22:00 | `similar_images` (FAISS, best model from the pre-event retrieval check, `exclude_ids`, `sources` filter) + `archive_lookup` (eval ids excluded) | Top-8 query under 200 ms on the laptop |
-| Fri 22:00 to 23:00 | `timeline(lat, lon, radius_m)` | Hauptplatz Schwyz returns cards 1899 to 1972 sorted by year |
-| **Fri 23:00** | **Integration checkpoint 1:** agent runs end to end on real data for 1 card | |
-| Fri 23:00 to Sat 03:00 | `split_composite` (see notes) + test on the demo shortlist | All demo composites split correctly |
-| Sat 03:00 to 08:00 | Sleep in shifts (agree with team) | |
-| Sat 08:00 to 10:00 | Offline bundle: subset + tile cache + `README` "run on laptop" | App runs with Wi-Fi off |
-| **Sat 10:00** | **Integration checkpoint 2:** full flow on laptop, eval run started | |
-| Sat 10:00 to 14:00 | Help Said with eval failures; ingest canton photos if given; polish demo picks | |
-| **Sat 14:00** | **Code freeze.** Record backup demo video | |
-| Sat 14:00 to 17:00 | Pitch slides (data numbers, architecture), rehearsal | Submission at 17:00 |
+Wow, after the musts:
+- LUBIS terrestrial photos (`ch.swisstopo.lubis-terrestrische_aufnahmen`) as extra dated references.
+- DINOv2 vs CLIP retrieval chart for the pitch.
 
-## Implementation notes
+## Rules that must hold
 
-- **Composite splitter:** start classical (OpenCV): grayscale, threshold the light card background and decorative borders, find large rectangular contours (area over 15% of the card, aspect 0.5 to 2.5), drop nested boxes. Fall back to "one part = full image". Wow option if time: ask Claude Haiku 5.5 for bounding boxes, but only through Agent's client (Agent owns model calls) or with a clearly separate, budget-guarded helper you agree on with Said.
-- **Leakage:** `similar_images(exclude_ids=[...])` must also exclude crops (`id#n`) and the parent. `archive_lookup` never returns any eval id. Test this with a unit test: query each of 20 eval cards, assert their ids never appear.
-- **Image paths** in records are relative to `data/`. Expose `DATA_DIR` env (default `./data`).
-- **Tile cache:** only the demo area (about 5 km around each demo location), zoom 12 to 17, only the zeitreihen years used by the demo timeline sets plus `swissimage` current. Throttle to at most 5 tiles/second (WMTS limit is 1,200/min; we stay far below). Store as `data/tiles/<layer>/<time>/<z>/<x>/<y>.<ext>`; Frontend switches tile URL to the backend's static route in offline mode.
-- **Attribution** must survive: `license.credit` for every record ("ETH-Bibliothek Zürich, Bildarchiv", "Staatsarchiv Schwyz, <Signatur>", "© swisstopo").
+- **Leakage:** `similar_images(exclude_ids=[...])` also excludes crops (`id#n`) and the parent; `archive_lookup` never returns an eval id. Tests cover this.
+- **Attribution:** every record keeps `license.credit` ("Staatsarchiv Schwyz, <Signatur>", "ETH-Bibliothek Zürich, Bildarchiv / ...", "© swisstopo").
+- **Paths:** image paths are relative to `data/`; `ZH_DATA_DIR` overrides the location.
+
+## Event days (Fri 23 Oct 19:00 to Sat 24 Oct 17:00)
+
+- Fri 23:00 checkpoint: merge `dijar/data` into `main`; agent runs end to end on real data.
+- Sat 10:00 checkpoint: full flow on the laptop; Said's eval run started.
+- Ingest canton photos if they hand any out.
+- Sat 14:00 code freeze: record the backup demo video.
+- Sat 17:00: submission and pitch (you own the data numbers and the architecture slide).
 
 ## Definition of done
 
-1. All section 4 functions real, typed, with docstrings, and a `tests/` file covering leakage, timeline sort, splitter on 5 known composites.
-2. `data/splits/stats.json` gives numbers for the pitch: records per source, labelled vs undated, eval size per municipality.
-3. Offline bundle runs the full demo on the M4 Air with Wi-Fi off.
-4. No Staatsarchiv image or API key in git (`git ls-files data | wc -l` is 0).
-
-## Priority order
-
-**Must (Fri):**
-1. `get_record`, `gazetteer`, `similar_images`, `archive_lookup` real
-2. Leakage-safe eval set handed to Said
-3. `timeline`
-
-**Must (Sat morning):**
-1. `split_composite` for the demo cards
-2. Offline bundle
-
-**Wow:**
-1. Canton photos ingested live
-2. LUBIS terrestrial photos as extra dated references
-3. Haiku-assisted splitting
-4. Retrieval comparison chart (DINOv2 vs CLIP) for the pitch
+1. All section 4 functions real, tested (leakage, timeline sort, splitter on known composites).
+2. `stats.json` gives the pitch numbers.
+3. The offline bundle runs the demo with Wi-Fi off.
+4. `git ls-files data | wc -l` is 0; no key in git.
 
 ## Cut first if time runs out
 
-1. Haiku-assisted splitting (keep OpenCV only).
-2. Generic splitter: hand-annotate bounding boxes for the ~10 demo composites in `data/splits/demo.json` instead.
-3. Tile cache beyond the 2 main demo locations.
-4. LUBIS extras.
+1. LUBIS extras and the retrieval chart.
+2. Generic splitting: hand-annotate boxes for the ~10 demo composites in `demo.json` instead.
+3. Tile cache beyond the two main demo locations.

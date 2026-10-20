@@ -6,9 +6,9 @@ Zentral Hack 2026, Kanton Schwyz challenge: locate and date historical photos wi
 1. The human tells you their name. Map it: Dijar = Data, Said = Agent, Timo = Frontend. Unknown name: ask.
 2. Make sure you are on their branch: `git checkout dijar/data` / `said/agent` / `timo/frontend`, then `git pull`.
 3. Read `docs/CONTRACTS.md`, then their scope file, then `docs/ARCHITECTURE.md`.
-4. Build now. The team decided (2026-10-20) to build each scope before the event; Fri/Sat is for merging, integration, the eval run, the demo and the pitch. Work through your scope file's priority list and schedule table in order (the clock times there are now just the order).
+4. Work through the **Build order** in the scope file, top to bottom. Each item has a check; it is done when the check passes. Friday and Saturday are for merging, the eval run, the demo and the pitch.
 
-A good first prompt: "I'm Timo. Read the repo docs, explain my scope in 10 bullets, list what I need installed, and start building the first item on my priority list."
+A good first prompt: "I'm Timo. Read the repo docs, explain my scope in 10 bullets, list what I need installed, and start on the first unfinished item of my build order."
 
 ## Before you write anything
 1. Read `docs/CONTRACTS.md`. It is the single source of truth for data shapes and APIs.
