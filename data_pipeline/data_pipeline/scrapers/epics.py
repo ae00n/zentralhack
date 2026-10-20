@@ -95,14 +95,19 @@ def kind_for(stem: str) -> str:
     return "unknown"
 
 
-def parse_dating(raw: str | None) -> dict:
+def parse_dating(raw: str | None, date_range: str | None = None) -> dict:
+    """eth_dating is free text ("vor 13.6.1907"); eth_date_range ("1887-01-01|1907-12-31")
+    is the catalogue's own interval, so it wins when present."""
     raw = (raw or "").strip() or None
     years = [int(y) for y in re.findall(r"\b(1[6-9]\d\d|20[0-2]\d)\b", raw or "")]
+    ranged = [int(d[:4]) for d in (date_range or "").split("|") if re.match(r"\d{4}-", d)]
+    if len(ranged) == 2:
+        years = ranged
     return {
         "raw": raw,
         "year_from": min(years) if years else None,
         "year_to": max(years) if years else None,
-        "approximate": bool(raw and re.search(r"ca\.|\?|um |circa", raw, re.I)),
+        "approximate": bool(raw and re.search(r"ca\.|\?|um |circa|vor |nach ", raw, re.I)),
     }
 
 
@@ -178,7 +183,7 @@ def build_record(item: dict, p: dict, lic: str, image: dict | None) -> dict:
         "collection": p.get("eth_is_part_of"),
         "kind": kind_for(stem),
         "title": p.get("title") or p.get("eth_originaltitel"),
-        "date": parse_dating(p.get("eth_dating")),
+        "date": parse_dating(p.get("eth_dating"), p.get("eth_date_range")),
         "places": visible_names(p.get("eth_sMaphot_Swissnames")),  # names Smapshot computed as visible, nearest first
         "municipality": muni["name"] if muni else None,
         "location": {"lat": lat, "lon": lon, "method": "epics_geo", "precision_m": 500} if lat is not None else None,

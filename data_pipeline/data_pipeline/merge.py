@@ -50,6 +50,10 @@ def _merge_pair(ep: dict, sm: dict) -> dict:
 def merge() -> dict:
     stasz = list(read_jsonl(RECORDS / "staatsarchiv.jsonl"))
     epics = list(read_jsonl(RECORDS / "epics.jsonl"))
+    # records scraped before the eth_date_range fix carry dates from the free-text field only
+    from .scrapers.epics import parse_dating
+    for r in epics:
+        r["date"] = parse_dating(r["raw"].get("eth_dating"), r["raw"].get("eth_date_range"))
     smap = list(read_jsonl(RECORDS / "smapshot.jsonl"))
 
     by_file = {}
