@@ -52,9 +52,9 @@ def license_code(text: str | None, owner_slug: str | None) -> str | None:
     t = (text or "").lower()
     if "public domain" in t or "no known restrictions" in t:
         return "PDM"
-    if re.search(r"cc[ -]by[ -]sa", t):
+    if re.search(r"(cc|creative commons)[ -]by[ -]sa", t):
         return "CC-BY-SA"
-    if re.search(r"cc[ -]by\b(?![ -]n)", t):
+    if re.search(r"(cc|creative commons)[ -]by\b(?![ -]n)", t):
         return "CC-BY"
     if owner_slug == "swisstopo" or "swisstopo" in t:
         return "swisstopo-OGD"  # free geodata, attribution "© swisstopo" required

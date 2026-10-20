@@ -27,7 +27,11 @@ API = "https://api.ethz.sharedien.com/api/v10"
 HOME = "https://ba.e-pics.ethz.ch/"
 BOX = ["47.22,8.38", "46.88,9.03"]  # [N,W], [S,E]
 DATE_MAX = "1969-12-31"
-LICENSES = {"Public Domain Mark": "PDM", "CC BY-SA 4.0": "CC-BY-SA-4.0"}
+LICENSES = {
+    "Public Domain Mark": "PDM",
+    "Creative Commons BY-SA 4.0": "CC-BY-SA-4.0",  # spelling the E-Pics API actually returns
+    "CC BY-SA 4.0": "CC-BY-SA-4.0",
+}
 PROPS = [
     "file_name", "title", "description", "eth_license", "eth_geo_location", "eth_geo_azimuth",
     "eth_geo_altitude", "eth_dating", "eth_date_range", "eth_photographer", "eth_doi_link",
