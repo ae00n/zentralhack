@@ -36,3 +36,21 @@ def test_similar_images_excludes_query_and_its_crops(tiny_data, monkeypatch):
 
 def test_eval_ids(tiny_data):
     assert tiny_data.eval_ids() == {"stasz:1"}
+
+
+def test_similar_images_verify_reranks(tiny_data, monkeypatch):
+    fake = types.ModuleType("data_pipeline.embed")
+    fake.search = lambda path, k, model: [("stasz:2", 0.95), ("epics:4", 0.9), ("stasz:3", 0.8)]
+    geo = types.ModuleType("data_pipeline.verify")
+    inl = {"2.jpg": 5, "4.jpg": 80, "3.jpg": 40}
+    geo.verify = lambda q, paths: [{"path": str(p), "matches": 99, "inliers": inl[p.name],
+                                    "verified": inl[p.name] >= 30} for p in paths]
+    import data_pipeline
+    for name, mod in (("embed", fake), ("verify", geo)):
+        monkeypatch.setitem(sys.modules, f"data_pipeline.{name}", mod)
+        monkeypatch.setattr(data_pipeline, name, mod, raising=False)
+    plain = tiny_data.similar_images("q.jpg", k=3)
+    assert [o["id"] for o in plain] == ["stasz:2", "epics:4", "stasz:3"]
+    assert set(plain[0]) == {"id", "score", "record"}  # default shape unchanged
+    out = tiny_data.similar_images("q.jpg", k=2, verify=True)
+    assert [(o["id"], o["inliers"], o["verified"]) for o in out] == [("epics:4", 80, True), ("stasz:3", 40, True)]

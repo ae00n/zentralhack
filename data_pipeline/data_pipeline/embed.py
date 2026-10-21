@@ -1,10 +1,13 @@
 """Image embeddings + FAISS index (CONTRACTS section 1: data/index/<model>.*).
 
-Two models, compared on the archive itself:
-- dinov2: facebook/dinov2-small (CLS token, 384-d). Strong on scene and building structure.
-- clip:   open_clip ViT-B-32 (laion2b_s34b_b79k, 512-d). Robust across colour vs black-and-white.
+Three models, compared on the archive itself:
+- dinov2:  facebook/dinov2-small (CLS token, 384-d). Strong on scene and building structure.
+- clip:    open_clip ViT-B-32 (laion2b_s34b_b79k, 512-d). Robust across colour vs black-and-white.
+- megaloc: gmberton/MegaLoc via torch.hub (8448-d, 322x322 input, MIT). Trained for visual place
+           recognition, i.e. "same place", not "same kind of scene".
+Query-only pseudo model "fused": reciprocal rank fusion over every model whose index exists.
 
-    python -m data_pipeline.embed build [--model dinov2|clip|all]   # incremental: only new images
+    python -m data_pipeline.embed build [--model dinov2|clip|megaloc|all]   # incremental: only new images
     python -m data_pipeline.embed check                             # retrieval check, writes best.json
     python -m data_pipeline.embed query <image> [--k 8]
 
@@ -28,7 +31,8 @@ from PIL import Image
 
 from .paths import DATA_DIR, INDEX, RECORDS, ensure
 
-MODELS = ("dinov2", "clip")
+MODELS = ("dinov2", "clip", "megaloc")
+RRF_K = 60  # reciprocal rank fusion constant (Cormack et al.)
 BATCH = int(os.environ.get("EMBED_BATCH", "16"))
 SOURCE_PREFIX = {"staatsarchiv": "stasz:", "smapshot": "smapshot:", "epics": "epics:", "lubis": "lubis:", "nb": "nb:",
                  "upload": "upload:"}
@@ -61,6 +65,17 @@ class _Encoder:
             self.model, _, self.proc = open_clip.create_model_and_transforms(
                 "ViT-B-32", pretrained="laion2b_s34b_b79k")
             self.model = self.model.eval().to(self.device)
+        elif name == "megaloc":
+            import torchvision.transforms as tfm
+
+            # trust_repo: torch.hub would otherwise prompt on stdin the first time (hangs headless)
+            self.model = torch.hub.load("gmberton/MegaLoc", "get_trained_model", trust_repo=True)
+            self.model = self.model.eval().to(self.device)
+            self.proc = tfm.Compose([  # as on the model card
+                tfm.ToTensor(),
+                tfm.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+                tfm.Resize(size=[322, 322], antialias=True),
+            ])
         else:
             raise ValueError(name)
 
@@ -70,6 +85,8 @@ class _Encoder:
             if self.name == "dinov2":
                 inp = self.proc(images=images, return_tensors="pt").to(self.device)
                 v = self.model(**inp).last_hidden_state[:, 0]
+            elif self.name == "megaloc":
+                v = self.model(torch.stack([self.proc(im) for im in images]).to(self.device))
             else:
                 x = torch.stack([self.proc(im) for im in images]).to(self.device)
                 v = self.model.encode_image(x)
@@ -77,9 +94,9 @@ class _Encoder:
         return v / np.linalg.norm(v, axis=1, keepdims=True).clip(1e-8)
 
 
-@lru_cache(maxsize=1)
+@lru_cache(maxsize=3)
 def _encoder(name: str) -> _Encoder:
-    # maxsize=1: switching model frees the previous one (RAM)
+    # maxsize=3 so model="fused" keeps all three warm (~1.5 GB); build clears the cache per model
     return _Encoder(name)
 
 
@@ -166,7 +183,12 @@ def best_model() -> str:
     return json.loads(f.read_text())["model"] if f.exists() else "dinov2"
 
 
-@lru_cache(maxsize=2)
+def available_models() -> list[str]:
+    """Models whose FAISS index is on disk (the members of "fused")."""
+    return [m for m in MODELS if _paths(m)["faiss"].exists()]
+
+
+@lru_cache(maxsize=3)
 def _index(model: str):
     p = _paths(model)
     return faiss.read_index(str(p["faiss"])), json.loads(p["ids"].read_text())
@@ -201,14 +223,43 @@ def search_vector(vec: np.ndarray, k: int = 8, model: str = "best", exclude_ids=
         want *= 4
 
 
+def fuse(rankings: list[list[str]], k: int) -> list[tuple[str, float]]:
+    """Reciprocal rank fusion: score(id) = sum over rankings of 1 / (RRF_K + rank), rank from 1."""
+    score: dict[str, float] = {}
+    for ranking in rankings:
+        for rank, pid in enumerate(ranking, 1):
+            score[pid] = score.get(pid, 0.0) + 1.0 / (RRF_K + rank)
+    return sorted(score.items(), key=lambda x: -x[1])[:k]
+
+
+def search_fused(vecs: dict[str, np.ndarray], k: int = 8, exclude_ids=(), sources=None
+                 ) -> list[tuple[str, float]]:
+    """RRF over per-model searches. vecs: {model: query vector}. Each model contributes its top
+    max(50, 5k), so an id ranked well by one model alone can still make the list."""
+    depth = max(50, 5 * k)
+    rankings = [[pid for pid, _ in search_vector(v, depth, m, exclude_ids, sources)] for m, v in vecs.items()]
+    return fuse(rankings, k)
+
+
 def search(image_path: str, k: int = 8, model: str = "best", exclude_ids=(), sources=None
            ) -> list[tuple[str, float]]:
-    """[(photo_id, cosine score)] best first. exclude_ids also drops crops of those cards (eval leakage)."""
-    model = best_model() if model == "best" else model
+    """[(photo_id, score)] best first. exclude_ids also drops crops of those cards (eval leakage).
+
+    score is the cosine similarity, or for model="fused" the RRF score (max 3/61 ~ 0.049).
+    """
     p = Path(image_path)
     if not p.exists() and not p.is_absolute():
         p = DATA_DIR / image_path
-    vec = _encoder(model).encode([_load_image(p)])[0]
+    im = _load_image(p)
+    if model == "fused":
+        models = available_models()
+        if len(models) == 1:  # nothing to fuse
+            return search_vector(_encoder(models[0]).encode([im])[0], k, models[0], exclude_ids, sources)
+        # _encoder keeps one model in RAM at a time, so this loads each in turn (slow on first call
+        # per model switch; callers that care hold their own vectors and use search_fused)
+        return search_fused({m: _encoder(m).encode([im])[0] for m in models}, k, exclude_ids, sources)
+    model = best_model() if model == "best" else model
+    vec = _encoder(model).encode([im])[0]
     return search_vector(vec, k, model, exclude_ids, sources)
 
 
@@ -257,7 +308,7 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("cmd", choices=["build", "check", "query"])
     ap.add_argument("image", nargs="?")
-    ap.add_argument("--model", default="all")
+    ap.add_argument("--model", default="all", help="dinov2|clip|megaloc|all (query: also fused|best)")
     ap.add_argument("--k", type=int, default=8)
     a = ap.parse_args()
     if a.cmd == "build":

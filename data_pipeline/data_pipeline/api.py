@@ -69,9 +69,19 @@ def gazetteer() -> list[dict]:
     return json.loads(p.read_text(encoding="utf-8")) if p.exists() else []
 
 
+VERIFY_TOP = 10  # with verify=True, this many candidates (or k, if larger) get matched
+
+
 def similar_images(image_path: str, k: int = 8, model: str = "best",
-                   exclude_ids: list[str] = (), sources: list[str] | None = None) -> list[dict]:
+                   exclude_ids: list[str] = (), sources: list[str] | None = None,
+                   verify: bool = False) -> list[dict]:
     """[{id, score, record}] sorted by score desc.
+
+    model: "best" (best.json), "clip", "dinov2", "megaloc" or "fused" (rank fusion of all three;
+    score is then an RRF score, not a cosine).
+    verify=True: geometric check (data_pipeline.verify, ~1 to 2 s per candidate on CPU) of the top
+    max(k, VERIFY_TOP) hits. Each item gains "inliers" and "verified"; verified hits come first
+    (most inliers first), the rest keep score order. A verified hit shows the same place.
 
     Always pass the query card's own id in exclude_ids when analysing an archive card.
     Needs data_pipeline.embed with `search(image_path, k, model) -> [(id, score)]`.
@@ -90,9 +100,23 @@ def similar_images(image_path: str, k: int = 8, model: str = "best",
         if rec is None or (sources and rec["source"] not in sources):
             continue
         out.append({"id": rec["id"], "score": float(score), "record": rec})
-        if len(out) >= k:
+        if len(out) >= (max(k, VERIFY_TOP) if verify else k):
             break
+    if verify:
+        out = _verify_rerank(image_path, out)[:k]
     return out
+
+
+def _verify_rerank(image_path: str, items: list[dict]) -> list[dict]:
+    from . import verify as geo
+
+    paths = [image_file(it["record"]) for it in items]
+    checked = iter(geo.verify(image_path, [p for p in paths if p is not None]))
+    for it, p in zip(items, paths):
+        r = next(checked) if p is not None else {"inliers": 0, "verified": False}
+        it["inliers"], it["verified"] = r["inliers"], r["verified"]
+    # sorted() is stable: unverified hits keep their score order
+    return sorted(items, key=lambda it: (not it["verified"], -it["inliers"] if it["verified"] else 0))
 
 
 def archive_lookup(place: str | None = None, municipality: str | None = None,
