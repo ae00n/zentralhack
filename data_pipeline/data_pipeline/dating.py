@@ -203,7 +203,8 @@ def _norm(s: str) -> str:
 
 def nb_negative_hints(rec: dict) -> list[dict]:
     """A Wehrli card number is often the negative number, but only when the place agrees: a number
-    match alone hits the wrong place most of the time (94 of 359 matches agree on the place)."""
+    match alone hits the wrong place most of the time (94 of 359 matches agree on the place).
+    The match uses the card's Thema tags, so the evidence text must never name the place."""
     if family(publisher(rec)) not in WEHRLI_FAMILIES:
         return []
     c = card_number((rec.get("raw") or {}).get("Karten Nr."))
@@ -217,7 +218,7 @@ def nb_negative_hints(rec: dict) -> list[dict]:
             lo, hi = n["year_from"], n.get("year_to") or n["year_from"]
             pad = 3 if n.get("approximate") else 1
             out.append(_hint("nb_negative", round((lo + hi) / 2), lo - pad, hi + pad, 0.8,
-                             f"Negativ {n['ead_id']} der Nationalbibliothek ({n.get('title')}), datiert {n['date_raw']}",
+                             f"Negativ {n['ead_id']} der Nationalbibliothek, datiert {n['date_raw']}",
                              f"https://www.helveticarchives.admin.ch/detail.aspx?ID={n['ha_id']}"))
             break
     return out
