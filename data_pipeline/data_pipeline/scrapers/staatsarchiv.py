@@ -164,8 +164,17 @@ def parse_date(raw: str | None) -> dict:
         return out
     out["approximate"] = bool(re.search(r"\bca\.?|\?|circa", raw, re.I))
     years = [int(y) for y in re.findall(r"\b(1[6-9]\d\d|20[0-2]\d)\b", raw)]
+    century = re.search(r"\b(1[6-9]|20)\.\s*Jh", raw)
     if years:
         out["year_from"], out["year_to"] = min(years), max(years)
+    elif century:
+        c = int(century.group(1))
+        out["year_from"], out["year_to"], out["approximate"] = (c - 1) * 100 + 1, c * 100, True
+    # "vor 1920" / "bis 1920" is only an upper bound, "nach 1920" / "ab 1920" only a lower one
+    if years and re.match(r"(vor|bis)\b", raw, re.I):
+        out["year_from"], out["approximate"] = None, True
+    elif years and re.match(r"(nach|ab)\b", raw, re.I):
+        out["year_to"], out["approximate"] = None, True
     return out
 
 
