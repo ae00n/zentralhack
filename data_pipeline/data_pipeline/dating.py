@@ -7,8 +7,8 @@
 
 Hint kinds (each {kind, year, year_low, year_high, weight, evidence, source?}):
 - near_duplicate  the same picture elsewhere with a known date (CLIP cosine >= 0.92)
-- card_number     neighbouring publisher numbers in the same series (archive cards, plus the
-                  Swiss National Library negative table for Wehrli when it is present)
+- card_number     neighbouring publisher numbers in the same series (archive cards)
+- nb_negative     the Swiss National Library's dated Wehrli negative with the card's number and place
 - publisher_rule  imprint eras from dating_rules.json (e.g. "Gebr. Wehrli" 1895 to 1924)
 - year_probe      logistic regression on CLIP vectors of dated photos ("Blind Dates", 2023)
 A posted card's catalogue year is often the postmark, so it only bounds the photo from above.
@@ -118,13 +118,18 @@ def _series_index() -> dict[tuple, list[tuple[int, int, bool, str]]]:
         f, c = family(publisher(r)), card_number((r.get("raw") or {}).get("Karten Nr."))
         if f and c:
             idx.setdefault((f, c[0]), []).append((c[1], exact_year(r), posted(r), r["id"]))
+    return idx
+
+
+@lru_cache(maxsize=1)
+def _nb_negatives() -> dict[int, list[dict]]:
+    """Swiss National Library Wehrli negatives by number (scrapers/helveticarchives.py)."""
+    out: dict[int, list[dict]] = {}
     if NB_NEGATIVES.exists():
         for n in read_jsonl(NB_NEGATIVES):
-            y = n.get("year_from") if n.get("year_from") == n.get("year_to") else None
-            if y and n.get("number"):
-                for f in WEHRLI_FAMILIES:
-                    idx.setdefault((f, ""), []).append((n["number"], y, False, n.get("ead_id") or "nb"))
-    return idx
+            if n.get("number") and n.get("year_from"):
+                out.setdefault(n["number"], []).append(n)
+    return out
 
 
 @lru_cache(maxsize=1)
@@ -192,6 +197,32 @@ def card_number_hints(rec: dict, excluded: set[str]) -> list[dict]:
                   ", ".join(f"{n} ({y}{', Poststempel' if b else ''})" for n, y, b, _ in use))]
 
 
+def _norm(s: str) -> str:
+    return re.sub(r"[^a-zäöü]+", " ", (s or "").lower()).strip()
+
+
+def nb_negative_hints(rec: dict) -> list[dict]:
+    """A Wehrli card number is often the negative number, but only when the place agrees: a number
+    match alone hits the wrong place most of the time (94 of 359 matches agree on the place)."""
+    if family(publisher(rec)) not in WEHRLI_FAMILIES:
+        return []
+    c = card_number((rec.get("raw") or {}).get("Karten Nr."))
+    if not c or c[0]:
+        return []
+    names = {_norm(p) for p in (rec.get("places") or []) + [rec.get("municipality") or ""] if len(_norm(p)) >= 4}
+    out = []
+    for n in _nb_negatives().get(c[1], []):
+        text = _norm(f"{n.get('title')} {n.get('place')}")
+        if any(name in text for name in names):
+            lo, hi = n["year_from"], n.get("year_to") or n["year_from"]
+            pad = 3 if n.get("approximate") else 1
+            out.append(_hint("nb_negative", round((lo + hi) / 2), lo - pad, hi + pad, 0.8,
+                             f"Negativ {n['ead_id']} der Nationalbibliothek ({n.get('title')}), datiert {n['date_raw']}",
+                             f"https://www.helveticarchives.admin.ch/detail.aspx?ID={n['ha_id']}"))
+            break
+    return out
+
+
 def publisher_rule_hints(rec: dict) -> list[dict]:
     pub = publisher(rec)
     if not pub:
@@ -252,6 +283,7 @@ def date_hints(photo_id: str | None = None, image_path: str | None = None, exclu
         out += year_probe_hint(vec)
     if rec:
         out += card_number_hints(rec, excluded)
+        out += nb_negative_hints(rec)
         out += publisher_rule_hints(rec)
     return sorted(out, key=lambda h: -h["weight"])
 
