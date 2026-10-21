@@ -23,3 +23,11 @@ def test_rules_have_sources_and_publisher_regexes_compile():
         if r["applies"] == "publisher":
             re.compile(r["match"])
     assert all(r["category"] != "publisher" for r in rule_checklist())
+
+
+def test_date_hints_stub(monkeypatch):
+    from data_pipeline.dating import date_hints
+
+    monkeypatch.setenv("DATA_PIPELINE_STUB", "1")
+    hints = date_hints("stasz:anything")
+    assert hints and {"kind", "year_low", "year_high", "weight", "evidence"} <= set(hints[0])

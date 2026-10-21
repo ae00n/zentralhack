@@ -71,3 +71,7 @@ def timeline(lat: float, lon: float, radius_m: int = 1000) -> list[dict]:
     t = _load("timeline.json")
     return [{"id": p["id"], "year_from": p["year_from"], "year_to": p["year_to"],
              "distance_m": p["distance_m"], "image_path": "sample.jpg"} for p in t["photos"]]
+
+
+def date_hints(photo_id: str | None = None, image_path: str | None = None, exclude_ids=()) -> list[dict]:
+    return _load("date_hints.json")

@@ -17,6 +17,7 @@ Eval cards are never used as a source of a hint (same rule as archive_lookup).
 
 import argparse
 import json
+import os
 import pickle
 import re
 import statistics as st
@@ -291,6 +292,10 @@ def eval_exclusions(photo_id: str) -> list[str]:
 
 def date_hints(photo_id: str | None = None, image_path: str | None = None, exclude_ids=()) -> list[dict]:
     """All date hints for a photo. Pass the query's own id in exclude_ids (eval leakage rule)."""
+    if os.environ.get("DATA_PIPELINE_STUB") == "1":
+        from .stub import date_hints as stub_hints
+
+        return stub_hints(photo_id, image_path, exclude_ids)
     excluded = {_base(i) for i in exclude_ids} | ({_base(photo_id)} if photo_id else set())
     rec = get_record(photo_id) if photo_id else None
     out: list[dict] = []
