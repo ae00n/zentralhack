@@ -26,7 +26,6 @@ import argparse
 import base64
 import json
 import os
-import re
 import time
 from pathlib import Path
 
@@ -50,6 +49,11 @@ List every separate photograph on the card with its bounding box as fractions of
 (even with a caption or a border), return exactly one box covering it.
 
 Answer with JSON only: {"panels": [{"x0": 0.0, "y0": 0.0, "x1": 1.0, "y1": 1.0}]}"""
+
+_BOX = {"type": "object", "additionalProperties": False, "required": ["x0", "y0", "x1", "y1"],
+        "properties": {k: {"type": "number"} for k in ("x0", "y0", "x1", "y1")}}
+PANELS_SCHEMA = {"type": "object", "additionalProperties": False, "required": ["panels"],
+                 "properties": {"panels": {"type": "array", "items": _BOX}}}
 
 
 # ---------- classical CV (conservative fallback) ----------
@@ -110,17 +114,19 @@ def find_panels_vlm(path: Path, key: str) -> list[tuple[int, int, int, int]]:
         import anthropic
 
         data = base64.standard_b64encode(path.read_bytes()).decode()
+        # Haiku 5.5 thinks by default: low effort keeps that short, and the JSON schema
+        # guarantees the text block parses (a small max_tokens used to cut it off mid-JSON)
         msg = anthropic.Anthropic().messages.create(
             model=VLM_MODEL,
-            max_tokens=400,
+            max_tokens=4000,
+            output_config={"effort": "low", "format": {"type": "json_schema", "schema": PANELS_SCHEMA}},
             messages=[{"role": "user", "content": [
                 {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": data}},
                 {"type": "text", "text": VLM_PROMPT},
             ]}],
         )
-        text = "".join(b.text for b in msg.content if b.type == "text")
-        m = re.search(r"\{.*\}", text, re.S)
-        panels = json.loads(m.group(0))["panels"] if m else []
+        text = next((b.text for b in msg.content if b.type == "text"), "")
+        panels = json.loads(text)["panels"] if text else []
         cache[key] = panels
         ensure(SPLITS)
         with CACHE.open("a") as f:
