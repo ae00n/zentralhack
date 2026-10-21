@@ -29,6 +29,15 @@ BASE = "https://query.staatsarchiv.sz.ch"
 COLLECTIONS = {
     "SG.CIV.12": {"node": "267225", "seed": "514200", "kind": "postcard"},
     "SG.CIV.04": {"node": "267220", "seed": "841227", "kind": "aerial"},  # seed found via OpenSearch: the tree hides this node's children
+    # photographer series; the tree hides their children too, seeds are each series' ".1" item
+    # found via OpenSearch (q=SG.CIV.21.1 etc.)
+    "SG.CIV.21": {"node": "561847", "seed": "637184", "kind": "ground"},  # Niederberger, 1950-1980
+    "SG.CIV.22": {"node": "625415", "seed": "637176", "kind": "ground"},  # Gemeinde Ingenbohl-Brunnen, 1900-1940
+    "SG.CIV.24": {"node": "741395", "seed": "741405", "kind": "ground"},  # Gemeinde Ingenbohl-Brunnen, 1900-1940
+    "SG.CIV.25": {"node": "651219", "seed": "802163", "kind": "ground"},  # Stereoskopien Annen, ca. 1920-1940; stereo glass plates: the image shows both halves side by side (aspect ~2.3) and often a handwritten place caption on top (label leak; crop before use). No "stereo" kind in the contract enum
+    "SG.CIV.26": {"node": "773237", "seed": "803876", "kind": "ground"},  # Zeni, ca. 1960-1985
+    "SG.CIV.28": {"node": "803875", "seed": "839347", "kind": "ground"},  # Nideröst, 1920-1950
+    "SG.CIV.31": {"node": "875272", "seed": "908003", "kind": "ground"},  # Gemeinde Morschach, ca. 1900-1950
 }
 WATERMARK_PX = 20  # "Staatsarchiv Schwyz" + signature burned into the bottom strip
 MAX_EDGE = 1024
@@ -254,7 +263,8 @@ def fetch(collection: str, limit: int | None, spread: bool = False) -> None:
             except FileNotFoundError:
                 print(f"  {veid}: detail 404, skipped", flush=True)
                 continue
-            if not f.get("Signatur", "").startswith(collection):
+            # require the "." so SG.CIV.2 never matches SG.CIV.21
+            if not f.get("Signatur", "").startswith(collection + "."):
                 print(f"  {veid}: signature {f.get('Signatur')!r} not in {collection}, skipped", flush=True)
                 continue
             image = save_image(veid) if f.get("Digitalisat vorhanden", "").lower().startswith(("ja", "yes")) else None
