@@ -89,15 +89,16 @@ flowchart LR
 | Tool | Backed by | Purpose |
 |---|---|---|
 | `split_composite` | data_pipeline | Called before the loop, not by the model |
-| `similar_images(k, sources)` | FAISS index | Visual neighbours with location + date |
+| `similar_images(k, sources)` | FAISS index (CLIP, DINOv2, MegaLoc; `fused` + LightGlue `verify`) | Visual neighbours with location + date; verified = same place |
+| `date_hints(photo_id)` | records, card numbers, NB negatives, year probe | Year clues with ranges and German evidence |
 | `archive_lookup(place, municipality, year range)` | Staatsarchiv records | Dated cards of a candidate place, to compare and date |
 | `swisstopo_search(name)` | SearchServer | Peak / place / settlement name to coordinates |
 | `swisstopo_height(lat, lon)` / `swisstopo_profile(a, b)` | height / profile REST | Terrain plausibility (is that peak visible from there?) |
 | `submit_result(fields...)` | local | Ends the loop with structured output |
 
 ### Loop
-1. Haiku pre-pass: read text printed on the card (OCR), coarse description.
-2. Sonnet loop: hypothesis, tool call, update, until `submit_result`.
+1. Opus loop: hypothesis, tool call, update, until `submit_result` (Opus reads printed text itself; no pre-pass).
+2. `submit_result` is requested by the prompt with `tool_choice: auto` (forced tool use is a 400 on Opus 5.5).
 3. Stop conditions: `submit_result` called, or max 8 tool calls, or budget per photo (~$0.15) reached. On forced stop, return best hypothesis with `needs_review: true`.
 4. Must record at least one rejected hypothesis when it considered alternatives.
 
@@ -106,7 +107,7 @@ flowchart LR
 - Calibrate on the eval set: report accuracy per confidence bin (`calibration` in EvalSummary). Threshold for `needs_review`: core field < 0.5.
 
 ### Eval leakage rule
-When analysing an eval card, `similar_images` and `archive_lookup` must never return that card or its crops, and `archive_lookup` never returns any eval card. Text printed on the card is allowed (it is real evidence). Title and Thema metadata of the query card are never shown to the agent.
+When analysing an eval card, `similar_images` and `archive_lookup` must never return that card or its crops, and `archive_lookup` and `date_hints` never use any eval card. Eval runs also pass `eval_exclusions(photo_id)`. Text printed on the card is allowed (it is real evidence). Title and Thema metadata of the query card are never shown to the agent; `date_hints` reads the publisher and card number fields, and its evidence never names a place.
 
 ### Baseline
 Report a similarity-only baseline (majority municipality of top-k neighbours) next to the agent number. This shows what the agent adds.
@@ -117,19 +118,21 @@ Prices verified on platform.claude.com, 2026-10-20.
 
 | Job | Model | Price (in / out per MTok) | Est. per photo |
 |---|---|---|---|
-| Agent reasoning + geolocation | `claude-sonnet-5-5` | $2 / $10 | ~$0.09 |
-| Hard cases, live demo | `claude-opus-5-5` | $4 / $20 | ~$0.18 |
-| OCR / pre-pass / split check | `claude-haiku-5-5` | $0.10 / $0.50 | ~$0.005 |
-| Similarity | DINOv2-small / CLIP local | $0 | $0 |
+| Agent, eval and demo | `claude-opus-5-5` | $4 / $20 | ~$0.02 to $0.05 (single call with neighbours ~$0.025) |
+| Composite split, debug runs | `claude-haiku-5-5` | $0.10 / $0.50 | ~$0.0003 |
+| Similarity | CLIP, DINOv2, MegaLoc local + LightGlue verify | $0 | $0 |
+
+Model choice measured 2026-10-21 (200 cards, image only): municipality Opus 92%, Sonnet 84%, Haiku 69%; without a printed place name Opus 76%, Sonnet 52%, Haiku 48%. Sonnet is not used.
 
 Images sent to Claude: max 1024 px long edge, about 1,300 tokens each (`ceil(w/28) x ceil(h/28)`).
 
 | Budget item | Est. |
 |---|---|
-| Eval run, 300 cards, Sonnet | ~$27 |
-| Development runs | ~$20 |
+| Data measurements before the event (done) | ~$18 |
+| Eval run, 350 items, Opus | ~$15 to $30 |
+| Agent development (mostly Haiku) | ~$10 |
 | Demo + rehearsal | ~$5 |
-| **Total** | **~$55 of $100** |
+| **Total** | **~$50 to $65 of $100** |
 
 API key in env `ANTHROPIC_API_KEY`, never in git. Spend limit set in the console.
 

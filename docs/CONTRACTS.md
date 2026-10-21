@@ -5,7 +5,7 @@ Every scope builds against this file. Change it only when all three agree (say i
 Owners: Data = Dijar (`data_pipeline/`), Agent = Said (`agent/`), Frontend = Timo (`frontend/`).
 
 Conventions:
-- IDs are strings `"<source>:<source_id>"`, e.g. `stasz:514200`, `smapshot:2772`, `epics:LBS_MH01-001467`, `upload:7f3c...`. Crops of a composite card get `stasz:514200#1`, `#2`.
+- IDs are strings `"<source>:<source_id>"`, e.g. `stasz:514200`, `smapshot:2772`, `epics:LBS_MH01-001467`, `lubis:368701`, `nb:EAD-WEHR-20678-B`, `upload:7f3c...`. Crops of a composite card get `stasz:514200#1`, `#2`.
 - Coordinates: WGS84 `lat`/`lon` everywhere in JSON. The export adds Swiss LV95 (`E`, `N`) because the archive and swisstopo use it.
 - Confidence is a float `0.0` to `1.0`.
 - Years are integers. A decade is the first year of the decade (`1910` = 1910s).
@@ -19,12 +19,15 @@ data/
   records/staatsarchiv.jsonl   one PhotoRecord per line
   records/smapshot.jsonl
   records/epics.jsonl
-  records/all.jsonl            merged, deduplicated (Smapshot + E-Pics joined on E-Pics file name)
+  records/lubis.jsonl          swisstopo LUBIS ground photos (exact capture day, camera station)
+  records/nb.jsonl             Swiss National Library Photoglob-Wehrli + Zinggeler photos (Commons, public domain)
+  records/all.jsonl            merged, deduplicated (Smapshot + E-Pics joined on E-Pics file name; LUBIS beats its Smapshot copy)
   images/<source>/<source_id>.jpg   max 1024 px long edge, watermark strip cropped (stasz)
   index/<model>.faiss          FAISS IndexFlatIP over L2-normalised embeddings
   index/<model>.ids.json       row -> PhotoRecord id
-  index/<model>.meta.json      {model, dim, n, created_at}
-  splits/eval.jsonl            {id, municipality, year_from, year_to}  (labelled ground truth)
+  index/<model>.meta.json      {model, dim, n, created_at}   models: clip, dinov2, megaloc
+  index/year_probe.pkl         CLIP year probe used by date_hints (eval cards left out of training)
+  splits/eval.jsonl            {id, subset, municipality, year_from, year_to, approximate, year_is_upper_bound}  (ground truth, frozen)
   splits/showcase.jsonl        {id}  undated / unlocated cards for the demo
   splits/timeline_sets.json    [{place, lat, lon, ids:[...sorted by year]}]
   splits/demo.json             [{id, why}]  pre-picked, pre-tested demo cards
@@ -39,7 +42,7 @@ data/
 ```jsonc
 {
   "id": "stasz:514200",
-  "source": "staatsarchiv",            // staatsarchiv | smapshot | epics | upload
+  "source": "staatsarchiv",            // staatsarchiv | smapshot | epics | lubis | nb | upload
   "source_id": "514200",
   "source_url": "https://query.staatsarchiv.sz.ch/detail.aspx?ID=514200",
   "signature": "SG.CIV.12.4743",       // Signatur, null if none
@@ -56,10 +59,10 @@ data/
   "municipality": "Arth",              // canonical Gemeinde from gazetteer, null if not resolvable
   "location": {                        // null if unknown
     "lat": 47.06, "lon": 8.53,
-    "method": "thema_gazetteer",       // smapshot_pose | epics_geo | thema_gazetteer
+    "method": "thema_gazetteer",       // smapshot_pose | epics_geo | thema_gazetteer | lubis_station
     "precision_m": 2000
   },
-  "camera": null,                      // Smapshot only: {lat, lon, altitude_m, azimuth, tilt, roll, focal}
+  "camera": null,                      // Smapshot and LUBIS: {lat, lon, altitude_m, azimuth, tilt, roll, focal}
   "photographer": null,
   "license": {
     "code": "stasz-private",           // stasz-private | CC-BY-SA-4.0 | PDM | ...
@@ -76,6 +79,16 @@ data/
 
 Ground truth for evaluation = `municipality` (from Thema) and `date.year_from/year_to`.
 
+### Eval set (`splits/eval.jsonl`, frozen, 350 items)
+
+| subset | items | year truth |
+|---|---|---|
+| `card_exact` | 150 unposted SG.CIV.12 cards with an exact year | exact year |
+| `card_posted` | 100 posted cards | `year_is_upper_bound: true`: the catalogue year is often the postmark, so the photo is from that year or earlier |
+| `photo_dated` | 100 LUBIS + NB Wehrli photos with a capture date | exact year |
+
+Every eval run is scored with `data_pipeline.metrics.score(predictions)` so all numbers are comparable.
+
 ## 3. AnalysisResult (produced by Agent)
 
 ```jsonc
@@ -83,7 +96,7 @@ Ground truth for evaluation = `municipality` (from Thema) and `date.year_from/ye
   "photo_id": "stasz:514189",
   "run_id": "2026-10-23T21:14:02Z-ab12",
   "status": "done",                    // queued | running | done | needs_review | error
-  "model": "claude-sonnet-5-5",
+  "model": "claude-opus-5-5",
   "composite": {                       // null if single photo
     "is_composite": true,
     "parts": ["stasz:514189#1", "stasz:514189#2"]   // each part has its own AnalysisResult
@@ -131,8 +144,12 @@ Importable from `data_pipeline` (installed in the shared venv). Agent must not r
 ```python
 def get_record(photo_id: str) -> dict | None: ...                         # PhotoRecord
 def similar_images(image_path: str, k: int = 8, model: str = "best",
-                   exclude_ids: list[str] = (), sources: list[str] | None = None) -> list[dict]:
-    """[{id, score, record}] sorted by score desc. exclude_ids prevents eval leakage (always pass the query card's own id)."""
+                   exclude_ids: list[str] = (), sources: list[str] | None = None,
+                   verify: bool = False) -> list[dict]:
+    """[{id, score, record}] sorted best first. exclude_ids prevents eval leakage (always pass the query card's own id).
+    model: "best" | "clip" | "dinov2" | "megaloc" | "fused" (rank fusion; score is then an RRF score, max about 0.05,
+    not a cosine). verify=True checks the top hits with LightGlue (about 1 s per hit on CPU) and adds
+    {inliers, verified}; verified hits come first. A verified hit has the right municipality about 96% of the time."""
 def archive_lookup(place: str | None = None, municipality: str | None = None,
                    year_from: int | None = None, year_to: int | None = None, limit: int = 20) -> list[dict]:
     """Dated, labelled Staatsarchiv records matching the filter. Excludes eval split ids."""
@@ -144,9 +161,27 @@ def gazetteer() -> list[dict]: ...                                         # gem
 def eval_ids() -> set[str]: ...                                            # ids in splits/eval.jsonl (eval runner + leakage tests share this)
 ```
 
-Stub mode: with env `DATA_PIPELINE_STUB=1` every function returns fixture data from `contracts/fixtures/`, so Agent can build before the real index exists.
+Dating (`from data_pipeline.dating import ...`):
 
-> Eval leakage rule: when the agent analyses an eval card, `similar_images` and `archive_lookup` must never return that card or its crops. `archive_lookup` never returns any eval card.
+```python
+def date_hints(photo_id: str | None = None, image_path: str | None = None, exclude_ids=()) -> list[dict]:
+    """[{kind, year, year_low, year_high, weight, evidence, source?}] sorted by weight. evidence is German.
+    kind: near_duplicate | card_number | nb_negative | publisher_rule | year_probe. year/low/high may be null
+    (e.g. a posted near-duplicate only gives an upper bound). Eval cards are never used as a hint source."""
+def rule_checklist() -> list[dict]:
+    """Visual dating rules for the prompt: [{id, category, feature, year_min, year_max, confidence, source}]
+    (postal rates, print techniques, Schwyz landmarks; every rule has a source URL)."""
+def eval_exclusions(photo_id: str) -> list[str]:
+    """Extra ids to exclude when scoring an eval item (LUBIS / NB survey series). Pass them to date_hints and
+    similar_images in eval runs only."""
+```
+
+Scoring (`from data_pipeline.metrics import score`): `score(predictions) -> dict` with predictions
+`[{id, municipality, municipality_confidence, year, year_low, year_high, place_name_printed?}]`.
+
+Stub mode: with env `DATA_PIPELINE_STUB=1` the section 4 functions return fixture data from `contracts/fixtures/`, so Agent can build before the real index exists.
+
+> Eval leakage rule: when the agent analyses an eval card, `similar_images` and `archive_lookup` must never return that card or its crops. `archive_lookup` and `date_hints` never use any eval card. Eval runs also pass `eval_exclusions(photo_id)`.
 
 ## 5. HTTP API (Agent serves on :8000, Frontend calls)
 
@@ -203,7 +238,7 @@ CSV, UTF-8 with BOM, `;` separator (Swiss Excel default). Column names follow th
 
 ```jsonc
 {
-  "n": 300, "model": "claude-sonnet-5-5", "created_at": "...",
+  "n": 350, "model": "claude-opus-5-5", "created_at": "...",
   "municipality_accuracy": 0.0,     // exact Gemeinde match
   "decade_accuracy": 0.0,           // predicted decade == true decade (true decade from year_from..year_to)
   "decade_within_one": 0.0,         // off by at most one decade
@@ -212,10 +247,11 @@ CSV, UTF-8 with BOM, `;` separator (Swiss Excel default). Column names follow th
   "by_municipality": [{ "municipality": "Schwyz", "n": 0, "accuracy": 0.0 }],
   "baseline": { "similarity_only_municipality_accuracy": 0.0 },
   "failures": [{ "photo_id": "...", "expected": "...", "got": "...", "why": "..." }],
-  "cost_usd": 0.0
+  "cost_usd": 0.0,
+  "metrics": { }                     // data_pipeline.metrics.score(predictions): per subset, printed vs not printed, confidence levels, year ranges
 }
 ```
 
 ## 8. Fixtures
 
-`contracts/fixtures/` holds one valid example of each object (`photo_record.json`, `analysis_result.json`, `timeline.json`, `eval_summary.json`, `export.csv`) using a public-domain reference image, so Agent and Frontend can build before real data or a real agent exists. Frontend mock mode (`NEXT_PUBLIC_MODE=mock`) reads them through a copy step (`npm run fixtures` copies `contracts/fixtures/` to `frontend/public/fixtures/`); never edit the copies.
+`contracts/fixtures/` holds one valid example of each object (`photo_record.json`, `analysis_result.json`, `timeline.json`, `eval_summary.json`, `export.csv`, `date_hints.json`) using a public-domain reference image, so Agent and Frontend can build before real data or a real agent exists. Frontend mock mode (`NEXT_PUBLIC_MODE=mock`) reads them through a copy step (`npm run fixtures` copies `contracts/fixtures/` to `frontend/public/fixtures/`); never edit the copies.

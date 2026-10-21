@@ -17,13 +17,15 @@
   "properties": {
     "id": {
       "type": "string",
-      "pattern": "^(stasz|smapshot|epics|upload):[^#]+(#\\d+)?$"
+      "pattern": "^(stasz|smapshot|epics|lubis|nb|upload):[^#]+(#\\d+)?$"
     },
     "source": {
       "enum": [
         "staatsarchiv",
         "smapshot",
         "epics",
+        "lubis",
+        "nb",
         "upload"
       ]
     },
@@ -126,7 +128,8 @@
               "enum": [
                 "smapshot_pose",
                 "epics_geo",
-                "thema_gazetteer"
+                "thema_gazetteer",
+                "lubis_station"
               ]
             },
             "precision_m": {
