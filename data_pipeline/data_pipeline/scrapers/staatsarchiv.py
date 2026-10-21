@@ -28,7 +28,7 @@ from ..paths import IMAGES, RAW, RECORDS, ensure
 BASE = "https://query.staatsarchiv.sz.ch"
 COLLECTIONS = {
     "SG.CIV.12": {"node": "267225", "seed": "514200", "kind": "postcard"},
-    "SG.CIV.04": {"node": "267220", "seed": None, "kind": "aerial"},
+    "SG.CIV.04": {"node": "267220", "seed": "841227", "kind": "aerial"},  # seed found via OpenSearch: the tree hides this node's children
 }
 WATERMARK_PX = 20  # "Staatsarchiv Schwyz" + signature burned into the bottom strip
 MAX_EDGE = 1024
