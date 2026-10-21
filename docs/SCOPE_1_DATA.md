@@ -28,15 +28,18 @@ Give the agent and the frontend clean, fast, honest data:
 |---|---|---|
 | Polite HTTP client (throttle, retry, disk cache) | `http.py` | done |
 | Schwyz gazetteer: 30 municipalities, Thema tag to municipality via swisstopo SearchServer | `gazetteer.py`, `geo.py` | done |
-| Staatsarchiv scraper (SG.CIV.12, 6,417 cards; SG.CIV.04) | `scrapers/staatsarchiv.py` | full run in progress |
-| E-Pics collector (geotagged pre-1970 + postcards, CC BY-SA / PDM only) | `scrapers/epics.py` | full run in progress |
-| Smapshot collector (camera poses, pre-1970) | `scrapers/smapshot.py` | queued after E-Pics |
-| Resumable runner | `run_scrapes.sh refs|archive` | done |
-| Merge to `data/records/all.jsonl` (E-Pics and Smapshot joined on file name) | `merge.py` | done, rerun after scrape |
-| Eval / showcase / timeline / demo splits + stats | `splits.py` | done, rerun and freeze after scrape |
-| CONTRACTS section 4 functions + `DATA_PIPELINE_STUB=1` stub | `api.py`, `stub.py`, `__init__.py` | done, 16 tests pass |
-| Embeddings: DINOv2-small + CLIP ViT-B/32, FAISS, `data/index/best.json` | `embed.py` | done on partial data |
-| Composite splitter | `split.py` | classical CV failed (recall 0 on 10 labelled composites); default is Claude Haiku boxes, untested until `ANTHROPIC_API_KEY` is set |
+| Staatsarchiv: SG.CIV.12 (6,417 postcards), SG.CIV.04 (153 aerials), photographer series SG.CIV.21 to .31 (2,837) | `scrapers/staatsarchiv.py` | done |
+| E-Pics (4,466, CC BY-SA / PDM) and Smapshot (camera poses) | `scrapers/epics.py`, `scrapers/smapshot.py` | done |
+| swisstopo LUBIS ground photos (2,716, exact capture day, camera station) | `scrapers/lubis.py` | done |
+| Swiss National Library Wehrli + Zinggeler photos from Commons (2,884, public domain) | `scrapers/nb_commons.py` | done |
+| Wehrli negative number to date table (22,615 negatives) | `scrapers/helveticarchives.py` | done |
+| Merge (19,988 records) | `merge.py` | done |
+| Eval v2 (350 items in 3 subsets, frozen), showcase, timeline sets, demo shortlist | `splits.py` | done |
+| Shared scoring for every eval run | `metrics.py` | done |
+| Embeddings: CLIP, DINOv2, MegaLoc; rank fusion; LightGlue verification | `embed.py`, `verify.py` | done; LOO top-5 municipality vote: CLIP 61%, MegaLoc 77%, fused + verify 78% |
+| Date hints: near-duplicates, card-number series, NB negatives, publisher eras, CLIP year probe; 55 sourced dating rules | `dating.py`, `dating_rules.json` | done; card number median error 1 year, year probe 4 |
+| CONTRACTS section 4 functions + `DATA_PIPELINE_STUB=1` stub | `api.py`, `stub.py`, `__init__.py` | done, 23 tests pass |
+| Composite splitter (Claude Haiku boxes) | `split.py` | eval done: recall 0.90, precision 0.90 on 76 labelled cards |
 
 ## Inputs
 
@@ -65,20 +68,16 @@ Give the agent and the frontend clean, fast, honest data:
 
 ## Build order
 
-Each item is done when its check passes.
+Each item is done when its check passes. Items 1 to 4 of the earlier order (scrapes, merge + splits, embeddings, splitter eval) are done.
 
-1. **Finish the scrapes.** Check: `wc -l data/records/*.jsonl` matches the logs; a rerun of `run_scrapes.sh` fetches 0 new records.
-2. **Merge + splits.** `python -m data_pipeline.merge`, then `python -m data_pipeline.splits`. Freeze `eval.jsonl` (about 300 cards, stratified by municipality, fixed seed) and tell Said. Check: `stats.json` shows records per source, dated vs undated, eval size per municipality.
-3. **Embeddings on the full set.** `python -m data_pipeline.embed build`, then `embed check`. Check: `best.json` names the model, and its top-5 municipality agreement beats the "always Schwyz" baseline.
-4. **Splitter.** Set `ANTHROPIC_API_KEY`, then `python -m data_pipeline.split eval --method vlm` against `tests/split_labels.json` (76 hand labels, 10 composites), then `split batch`. Check: recall at least 0.8 on the labelled composites; cost under $1.
-5. **Timeline sets.** Places with 4 or more dated cards. Check: `timeline()` for Hauptplatz Schwyz returns cards sorted by year.
-6. **Demo shortlist.** About 10 cards in `demo.json`, each with a `why`: undated ones, composites, Hauptplatz Schwyz, Brunnen, Kloster Einsiedeln. Check: every card has an image and, after Said's run, a cached result.
-7. **Offline bundle.** Data subset for the demo cards and their references, plus a tile cache: about 5 km around each demo location, zoom 12 to 17, only the zeitreihen years in the demo timeline sets plus `swissimage` current, at most 5 tiles/s, stored as `data/tiles/<layer>/<time>/<z>/<x>/<y>.<ext>`. Check: the full demo runs on the M4 Air with Wi-Fi off.
-8. **Help Said with the eval.** Look into failures, fix data causes (wrong municipality mapping, bad crops).
+1. **Split all composites.** `python -m data_pipeline.split batch`. Check: crops in `data/records/crops.jsonl`, cost under $2.
+2. **Point "best" at the strongest index.** `embed check`, then make sure `best.json` names `megaloc` (Said can also ask for `model="fused"`). Check: `similar_images` default beats CLIP on the LOO check.
+3. **Timeline sets.** Places with 4 or more dated cards (62 today). Check: `timeline()` for Hauptplatz Schwyz returns cards sorted by year.
+4. **Demo shortlist.** About 10 cards in `demo.json`, each with a `why`: undated ones, composites, Hauptplatz Schwyz, Brunnen, Kloster Einsiedeln. Check: every card has an image and, after Said's run, a cached result.
+5. **Offline bundle.** Data subset for the demo cards and their references, plus a tile cache: about 5 km around each demo location, zoom 12 to 17, only the zeitreihen years in the demo timeline sets plus `swissimage` current, at most 5 tiles/s, stored as `data/tiles/<layer>/<time>/<z>/<x>/<y>.<ext>`. Check: the full demo runs on the M4 Air with Wi-Fi off.
+6. **Data causes of eval failures.** When Said shares failures, fix only the data side (wrong municipality mapping, bad crops, wrong dates). Prompts and agent runs stay his.
 
-Wow, after the musts:
-- LUBIS terrestrial photos (`ch.swisstopo.lubis-terrestrische_aufnahmen`) as extra dated references.
-- DINOv2 vs CLIP retrieval chart for the pitch.
+Wow, after the musts: a retrieval chart for the pitch (CLIP vs MegaLoc vs fused + verify).
 
 ## Rules that must hold
 
@@ -103,6 +102,6 @@ Wow, after the musts:
 
 ## Cut first if time runs out
 
-1. LUBIS extras and the retrieval chart.
+1. The retrieval chart.
 2. Generic splitting: hand-annotate boxes for the ~10 demo composites in `demo.json` instead.
 3. Tile cache beyond the two main demo locations.

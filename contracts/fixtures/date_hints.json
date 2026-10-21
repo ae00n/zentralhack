@@ -1,0 +1,36 @@
+[
+ {
+  "kind": "publisher_rule",
+  "year": null,
+  "year_low": 1895,
+  "year_high": 1924,
+  "weight": 0.9,
+  "evidence": "Verlagsangabe 'Wehrli, Gebr. - Kilchberg, Zürich': Imprint 'Gebr. Wehrli, Kilchberg'",
+  "source": "https://www.nb.admin.ch/en/photoglob-wehrli-archive"
+ },
+ {
+  "kind": "card_number",
+  "year": 1909,
+  "year_low": 1903,
+  "year_high": 1914,
+  "weight": 0.8,
+  "evidence": "Verlag wehrli Nr. 11547: Nachbarnummern 11594 (1911), 11645 (1906), 11659 (1909)"
+ },
+ {
+  "kind": "nb_negative",
+  "year": 1910,
+  "year_low": 1907,
+  "year_high": 1913,
+  "weight": 0.8,
+  "evidence": "Negativ EAD-WEHR-11547-B der Nationalbibliothek, datiert 1910 (ca.)",
+  "source": "https://www.helveticarchives.admin.ch/detail.aspx?ID=687972"
+ },
+ {
+  "kind": "year_probe",
+  "year": 1912,
+  "year_low": 1900,
+  "year_high": 1954,
+  "weight": 0.4,
+  "evidence": "Bildstil-Modell (CLIP, trainiert auf datierten Fotos): wahrscheinlich 1900 bis 1954"
+ }
+]

@@ -19,6 +19,7 @@ A good first prompt: "I'm Timo. Read the repo docs, explain my scope in 10 bulle
 
 ## Hard rules
 - Stay inside your owned folder. Do not edit another scope's folder.
+- Never do another scope's work, not even as an experiment, a "quick test", a prototype or a throwaway script outside the repo. That covers prompts, agent runs and eval runs (Agent), UI (Frontend) and data or index work (Data). If something in another scope blocks you or could be better, write down what you measured and what you need, give it to your human to pass on, and stop. Do not offer to do it yourself.
 - Never edit `contracts/` or `docs/CONTRACTS.md` unless the whole team agreed. Then update schemas, fixtures and the doc in one commit.
 - Never commit `data/`, images, `.env`, API keys or tokens. Keys come from env vars only (`ANTHROPIC_API_KEY`).
 - Staatsarchiv Schwyz images are NOT openly licensed. Never publish them, upload them anywhere public, or put them in git.
