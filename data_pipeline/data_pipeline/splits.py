@@ -1,9 +1,12 @@
 """Eval / showcase / timeline / demo splits (docs/CONTRACTS.md section 1).
 
-    python -m data_pipeline.splits [--target 300] [--seed 42]
+    python -m data_pipeline.splits [--seed 42]
 
-- eval:     dated Staatsarchiv cards with an image and ONE resolved municipality,
-            stratified by municipality (ground truth = municipality + year range)
+- eval:     three subsets, each stratified by municipality (ground truth = municipality + year):
+            card_exact   unposted SG.CIV.12 cards with an exact catalogue year
+            card_posted  posted cards: the catalogue year is often the postmark, so it is only an
+                         upper bound for the photo (year_is_upper_bound)
+            photo_dated  LUBIS / NB photos with a capture date (clean truth for dating)
 - showcase: undated Staatsarchiv cards with an image (the "Keine Angabe" story)
 - reference: everything else (E-Pics, Smapshot, remaining Staatsarchiv cards)
 The split is written back into data/records/all.jsonl (and only there). Same seed + same records
@@ -114,15 +117,42 @@ def demo_candidates(stasz: list[dict], eval_ids: set[str], n: int = 10) -> list[
     return picked
 
 
-def build(target: int = 300, seed: int = 42) -> dict:
+EVAL_SUBSETS = {"card_exact": 150, "card_posted": 100, "photo_dated": 100}
+DATED_PHOTO_SOURCES = ("lubis", "nb")
+
+
+def _exact_year(r: dict) -> int | None:
+    d = r.get("date") or {}
+    y = d.get("year_from")
+    return y if y and y == d.get("year_to") and not d.get("approximate") else None
+
+
+def _posted(r: dict) -> bool:
+    z = ((r.get("raw") or {}).get("Zusatzinfos") or "").lower()
+    return "gelaufen" in z and "ungelaufen" not in z
+
+
+def eval_subsets(rows: list[dict], seed: int, sizes: dict = EVAL_SUBSETS) -> dict[str, list[dict]]:
+    ok = [r for r in rows if _has_image(r) and r.get("municipality") and _exact_year(r)]
+    cards = [r for r in ok if r["source"] == "staatsarchiv" and r.get("collection") == "SG.CIV.12"]
+    pools = {
+        "card_exact": [r for r in cards if not _posted(r)],
+        "card_posted": [r for r in cards if _posted(r)],
+        "photo_dated": [r for r in ok if r["source"] in DATED_PHOTO_SOURCES],
+    }
+    return {name: stratified_eval(pool, sizes[name], seed) for name, pool in pools.items()}
+
+
+def build(seed: int = 42) -> dict:
     rows = list(read_jsonl(RECORDS / "all.jsonl"))
     if not rows:
         raise SystemExit("data/records/all.jsonl is empty: run python -m data_pipeline.merge first")
     stasz = [r for r in rows if r["source"] == "staatsarchiv"]
     dated = [r for r in stasz if r["date"].get("year_from") and _has_image(r)]
-    eval_pool = [r for r in dated if r.get("municipality")]
-    ev = stratified_eval(eval_pool, target, seed)
-    ev_ids = {r["id"] for r in ev}
+    subsets = eval_subsets(rows, seed)
+    ev = [r for rs in subsets.values() for r in rs]
+    subset_of = {r["id"]: name for name, rs in subsets.items() for r in rs}
+    ev_ids = set(subset_of)
     showcase = [r for r in stasz if not r["date"].get("year_from") and _has_image(r)]
     sc_ids = {r["id"] for r in showcase}
 
@@ -131,8 +161,10 @@ def build(target: int = 300, seed: int = 42) -> dict:
     write_jsonl(RECORDS / "all.jsonl", rows)
 
     write_jsonl(SPLITS / "eval.jsonl", (
-        {"id": r["id"], "municipality": r["municipality"], "year_from": r["date"]["year_from"],
-         "year_to": r["date"]["year_to"], "approximate": r["date"].get("approximate", False)}
+        {"id": r["id"], "subset": subset_of[r["id"]], "municipality": r["municipality"],
+         "year_from": r["date"]["year_from"], "year_to": r["date"]["year_to"],
+         "approximate": r["date"].get("approximate", False),
+         "year_is_upper_bound": subset_of[r["id"]] == "card_posted"}
         for r in ev))
     write_jsonl(SPLITS / "showcase.jsonl", ({"id": r["id"]} for r in showcase))
     # timeline sets use all dated cards except eval ones, so the time slider never shows eval answers
@@ -157,7 +189,7 @@ def build(target: int = 300, seed: int = 42) -> dict:
         "references_in_canton": sum(1 for r in rows if (r.get("raw") or {}).get("in_canton")),
         "eval": {
             "n": len(ev),
-            "pool": len(eval_pool),
+            "by_subset": {name: len(rs) for name, rs in subsets.items()},
             "seed": seed,
             "by_municipality": dict(Counter(r["municipality"] for r in ev).most_common()),
             "by_decade": dict(sorted(Counter(_decade(r) for r in ev).items())),
@@ -174,12 +206,11 @@ def build(target: int = 300, seed: int = 42) -> dict:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--target", type=int, default=300)
     ap.add_argument("--seed", type=int, default=42)
     a = ap.parse_args()
-    s = build(a.target, a.seed)
+    s = build(seed=a.seed)
     print({k: s[k] for k in ("records", "by_source", "showcase", "timeline_sets", "demo_candidates")})
-    print("eval", s["eval"]["n"], "of pool", s["eval"]["pool"])
+    print("eval", s["eval"]["n"], s["eval"]["by_subset"])
 
 
 if __name__ == "__main__":

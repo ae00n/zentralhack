@@ -30,7 +30,8 @@ from .paths import DATA_DIR, INDEX, RECORDS, ensure
 
 MODELS = ("dinov2", "clip")
 BATCH = int(os.environ.get("EMBED_BATCH", "16"))
-SOURCE_PREFIX = {"staatsarchiv": "stasz:", "smapshot": "smapshot:", "epics": "epics:", "upload": "upload:"}
+SOURCE_PREFIX = {"staatsarchiv": "stasz:", "smapshot": "smapshot:", "epics": "epics:", "lubis": "lubis:", "nb": "nb:",
+                 "upload": "upload:"}
 
 
 def _device():

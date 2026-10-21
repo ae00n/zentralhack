@@ -1,0 +1,567 @@
+{
+ "_about": "Year bounds for dating Swiss postcards and photos. Every rule was checked against the source URL on 2026-10-21. applies=publisher: matched in code against the record's publisher field (regex, case-insensitive). applies=visual: a checklist for the agent; it decides whether the feature is visible. [PS] = rule for the post office's own pre-printed cards, only a loose hint for private picture postcards. Publisher rules were also checked against exact-dated Staatsarchiv cards (checked_on_archive_cards = agreeing/total); 'Photoglob AG from 1974' was dropped because 10 of 13 dated cards contradict it.",
+ "rules": [
+  {
+   "id": "pk_exists",
+   "category": "postal",
+   "applies": "visual",
+   "feature": "Any postcard (Switzerland)",
+   "year_min": 1870,
+   "year_max": null,
+   "confidence": "high",
+   "source": "https://www.mbtaxcards.ch/download/PK-Handbuch_eng.pdf"
+  },
+  {
+   "id": "pk_header_carte_correspondance",
+   "category": "postal",
+   "applies": "visual",
+   "feature": "Header 'Carte-correspondance' [PS]",
+   "year_min": 1870,
+   "year_max": 1879,
+   "confidence": "high",
+   "source": "https://www.mbtaxcards.ch/download/PK-Handbuch_eng.pdf"
+  },
+  {
+   "id": "pk_header_trilingual",
+   "category": "postal",
+   "applies": "visual",
+   "feature": "Header 'Postkarte / Carte postale / Cartolina postale' [PS]",
+   "year_min": 1879,
+   "year_max": null,
+   "confidence": "high",
+   "source": "https://www.mbtaxcards.ch/download/PK-Handbuch_eng.pdf"
+  },
+  {
+   "id": "pk_upu_text",
+   "category": "postal",
+   "applies": "visual",
+   "feature": "Text 'Weltpostverein / Union postale universelle'",
+   "year_min": 1875,
+   "year_max": null,
+   "confidence": "medium",
+   "source": "https://www.mbtaxcards.ch/download/PK-Handbuch_eng.pdf"
+  },
+  {
+   "id": "pk_divided_back",
+   "category": "postal",
+   "applies": "visual",
+   "feature": "Divided back (message left, address right on the address side)",
+   "year_min": 1905,
+   "year_max": null,
+   "confidence": "high",
+   "source": "https://de.wikipedia.org/wiki/Ansichtskarte"
+  },
+  {
+   "id": "pk_message_on_picture_side",
+   "category": "postal",
+   "applies": "visual",
+   "feature": "Message written on the picture side, undivided back",
+   "year_min": null,
+   "year_max": 1906,
+   "confidence": "medium",
+   "source": "https://de.wikipedia.org/wiki/Ansichtskarte"
+  },
+  {
+   "id": "rate_5",
+   "category": "postal",
+   "applies": "visual",
+   "feature": "Domestic postcard stamp 5 Rp",
+   "year_min": 1870,
+   "year_max": 1917,
+   "confidence": "high",
+   "source": "https://www.pm-schlaate.info/ansichtskarten_frankatur.htm"
+  },
+  {
+   "id": "rate_7_5",
+   "category": "postal",
+   "applies": "visual",
+   "feature": "Domestic postcard stamp 7 1/2 Rp",
+   "year_min": 1918,
+   "year_max": 1920,
+   "confidence": "high",
+   "source": "https://postgeschichte.ch/module/Journal/2/schweizerische_inland-posttaxen_ab_1849_iii"
+  },
+  {
+   "id": "rate_10",
+   "category": "postal",
+   "applies": "visual",
+   "feature": "Domestic postcard stamp 10 Rp",
+   "year_min": 1921,
+   "year_max": 1967,
+   "confidence": "high",
+   "source": "https://www.postgeschichte.ch/module/Journal/5/schweizerische_inland-posttaxen_ab_1849_v"
+  },
+  {
+   "id": "rate_20",
+   "category": "postal",
+   "applies": "visual",
+   "feature": "Domestic postcard stamp 20 Rp",
+   "year_min": 1967,
+   "year_max": 1972,
+   "confidence": "medium",
+   "source": "https://www.pm-schlaate.info/ansichtskarten_frankatur.htm"
+  },
+  {
+   "id": "rate_30",
+   "category": "postal",
+   "applies": "visual",
+   "feature": "Domestic postcard stamp 30 Rp",
+   "year_min": 1973,
+   "year_max": 1975,
+   "confidence": "medium",
+   "source": "https://www.pm-schlaate.info/ansichtskarten_frankatur.htm"
+  },
+  {
+   "id": "rate_40",
+   "category": "postal",
+   "applies": "visual",
+   "feature": "Domestic postcard stamp 40 Rp",
+   "year_min": 1976,
+   "year_max": 1983,
+   "confidence": "medium",
+   "source": "https://www.pm-schlaate.info/ansichtskarten_frankatur.htm"
+  },
+  {
+   "id": "rate_50",
+   "category": "postal",
+   "applies": "visual",
+   "feature": "Domestic postcard stamp 50 Rp",
+   "year_min": 1984,
+   "year_max": 1990,
+   "confidence": "medium",
+   "source": "https://www.pm-schlaate.info/ansichtskarten_frankatur.htm"
+  },
+  {
+   "id": "brb_1939",
+   "category": "postal",
+   "applies": "visual",
+   "feature": "Printed 'BRB 3.10.1939' (military censorship notice)",
+   "year_min": 1939,
+   "year_max": 1945,
+   "confidence": "high",
+   "source": "https://www.mbtaxcards.ch/download/PK-Handbuch_eng.pdf"
+  },
+  {
+   "id": "plz",
+   "category": "postal",
+   "applies": "visual",
+   "feature": "Four-digit postal code (PLZ) in address or postmark",
+   "year_min": 1964,
+   "year_max": null,
+   "confidence": "high",
+   "source": "https://site.post.ch/en/about-us/company/history-of-swiss-post?shortcut=about-us-profile-history"
+  },
+  {
+   "id": "postbus",
+   "category": "postal",
+   "applies": "visual",
+   "feature": "Postbus visible",
+   "year_min": 1906,
+   "year_max": null,
+   "confidence": "high",
+   "source": "https://site.post.ch/en/about-us/company/history-of-swiss-post?shortcut=about-us-profile-history"
+  },
+  {
+   "id": "postbus_yellow",
+   "category": "postal",
+   "applies": "visual",
+   "feature": "Yellow postbus (colour photo)",
+   "year_min": 1939,
+   "year_max": null,
+   "confidence": "medium",
+   "source": "https://site.post.ch/en/about-us/company/history-of-swiss-post?shortcut=about-us-profile-history"
+  },
+  {
+   "id": "ptt_logo",
+   "category": "postal",
+   "applies": "visual",
+   "feature": "PTT logo",
+   "year_min": 1932,
+   "year_max": null,
+   "confidence": "medium",
+   "source": "https://site.post.ch/en/about-us/company/history-of-swiss-post?shortcut=about-us-profile-history"
+  },
+  {
+   "id": "postmark",
+   "category": "postal",
+   "applies": "visual",
+   "feature": "Readable postmark date: the photo is from that year or earlier",
+   "year_min": null,
+   "year_max": null,
+   "confidence": "high",
+   "source": "https://de.wikipedia.org/wiki/Ansichtskarte"
+  },
+  {
+   "id": "print_chromolitho",
+   "category": "print",
+   "applies": "visual",
+   "feature": "Chromolithography",
+   "year_min": 1895,
+   "year_max": 1905,
+   "confidence": "medium",
+   "source": "https://de.wikipedia.org/wiki/Ansichtskarte"
+  },
+  {
+   "id": "print_litho_mono",
+   "category": "print",
+   "applies": "visual",
+   "feature": "Single-colour lithography",
+   "year_min": 1885,
+   "year_max": 1910,
+   "confidence": "medium",
+   "source": "https://de.wikipedia.org/wiki/Ansichtskarte"
+  },
+  {
+   "id": "print_collotype",
+   "category": "print",
+   "applies": "visual",
+   "feature": "Collotype (Lichtdruck)",
+   "year_min": 1900,
+   "year_max": 1925,
+   "confidence": "medium",
+   "source": "https://magazin.wienmuseum.at/reproduktionstechniken-und-materialitaet-von-ansichtskarten"
+  },
+  {
+   "id": "print_photochrom",
+   "category": "print",
+   "applies": "visual",
+   "feature": "Photochrom (colour lithograph from a photo)",
+   "year_min": 1895,
+   "year_max": 1930,
+   "confidence": "medium",
+   "source": "https://www.cash.ch/news/150-jahre-postkarte-und-der-schweizer-trick-der-sie-bunt-machte-425847"
+  },
+  {
+   "id": "print_real_photo",
+   "category": "print",
+   "applies": "visual",
+   "feature": "Real photo (gelatin silver, Bromsilber)",
+   "year_min": 1910,
+   "year_max": 1970,
+   "confidence": "medium",
+   "source": "https://de.wikipedia.org/wiki/Ansichtskarte"
+  },
+  {
+   "id": "print_photogravure",
+   "category": "print",
+   "applies": "visual",
+   "feature": "Photogravure, matte (Kupfertiefdruck)",
+   "year_min": 1910,
+   "year_max": 1950,
+   "confidence": "medium",
+   "source": "https://de.wikipedia.org/wiki/Ansichtskarte"
+  },
+  {
+   "id": "print_halftone",
+   "category": "print",
+   "applies": "visual",
+   "feature": "Halftone dots (Autotypie)",
+   "year_min": 1900,
+   "year_max": 1970,
+   "confidence": "medium",
+   "source": "https://de.wikipedia.org/wiki/Ansichtskarte"
+  },
+  {
+   "id": "print_offset_4c",
+   "category": "print",
+   "applies": "visual",
+   "feature": "Four-colour offset print",
+   "year_min": 1965,
+   "year_max": null,
+   "confidence": "medium",
+   "source": "https://de.wikipedia.org/wiki/Ansichtskarte"
+  },
+  {
+   "id": "pub_photochrom_co",
+   "category": "publisher",
+   "applies": "publisher",
+   "match": "photochrom",
+   "feature": "Imprint 'Photochrom & Co.'",
+   "year_min": 1889,
+   "year_max": null,
+   "confidence": "high",
+   "source": "https://www.nb.admin.ch/en/photoglob-wehrli-archive"
+  },
+  {
+   "id": "pub_photoglob_co",
+   "category": "publisher",
+   "applies": "publisher",
+   "match": "^(?!.*(wehrli|vouga)).*photoglob.*(&|und|u\\.)\\s*co",
+   "feature": "Imprint 'Photoglob & Co.'",
+   "year_min": 1895,
+   "year_max": 1924,
+   "confidence": "high",
+   "source": "https://www.nb.admin.ch/en/photoglob-wehrli-archive"
+  },
+  {
+   "id": "pub_gebr_wehrli",
+   "category": "publisher",
+   "applies": "publisher",
+   "match": "^(?!.*photoglob).*(gebr\\.?.*wehrli|wehrli.*gebr)",
+   "feature": "Imprint 'Gebr. Wehrli, Kilchberg'",
+   "year_min": 1895,
+   "year_max": 1924,
+   "confidence": "high",
+   "source": "https://www.nb.admin.ch/en/photoglob-wehrli-archive",
+   "checked_on_archive_cards": "32/32"
+  },
+  {
+   "id": "pub_photoglob_wehrli",
+   "category": "publisher",
+   "applies": "publisher",
+   "match": "photoglob.*wehrli|wehrli.*photoglob",
+   "feature": "Imprint 'Photoglob-Wehrli'",
+   "year_min": 1924,
+   "year_max": null,
+   "confidence": "medium",
+   "source": "https://www.nb.admin.ch/en/photoglob-wehrli-archive",
+   "checked_on_archive_cards": "115/119"
+  },
+  {
+   "id": "pub_vouga",
+   "category": "publisher",
+   "applies": "publisher",
+   "match": "vouga",
+   "feature": "Imprint including 'Vouga'",
+   "year_min": 1928,
+   "year_max": null,
+   "confidence": "medium",
+   "source": "https://www.nb.admin.ch/en/photoglob-wehrli-archive",
+   "checked_on_archive_cards": "38/41"
+  },
+  {
+   "id": "pub_hugo_kopp",
+   "category": "publisher",
+   "applies": "publisher",
+   "match": "kopp,?\\s*hugo|hugo\\s*kopp",
+   "feature": "Verlag Hugo Kopp, Zürich",
+   "year_min": 1930,
+   "year_max": null,
+   "confidence": "low",
+   "source": "https://www.helveticarchives.admin.ch/detail.aspx?ID=233714",
+   "checked_on_archive_cards": "33/34"
+  },
+  {
+   "id": "pub_goetz",
+   "category": "publisher",
+   "applies": "publisher",
+   "match": "goetz,?\\s*emil|emil\\s*goetz",
+   "feature": "Emil Goetz, Luzern",
+   "year_min": 1896,
+   "year_max": 1958,
+   "confidence": "low",
+   "source": "https://digital.sandiego.edu/pcswitzerland/19",
+   "checked_on_archive_cards": "138/138"
+  },
+  {
+   "id": "lm_arth_rigi",
+   "category": "landmark",
+   "applies": "visual",
+   "feature": "Arth-Rigi-Bahn track or train",
+   "year_min": 1875,
+   "year_max": null,
+   "confidence": "high",
+   "source": "https://www.rigi.ch/en/about-us/history/railway-history"
+  },
+  {
+   "id": "lm_arth_rigi_electric",
+   "category": "landmark",
+   "applies": "visual",
+   "feature": "Arth-Rigi-Bahn with overhead wires (Goldau to Kulm)",
+   "year_min": 1907,
+   "year_max": null,
+   "confidence": "high",
+   "source": "https://www.rigi.ch/en/about-us/history/railway-history"
+  },
+  {
+   "id": "lm_arth_goldau_valley_line",
+   "category": "landmark",
+   "applies": "visual",
+   "feature": "Rigi railway valley section Arth am See to Goldau in service",
+   "year_min": 1875,
+   "year_max": 1959,
+   "confidence": "high",
+   "source": "https://www.rigi.ch/en/about-us/history/railway-history"
+  },
+  {
+   "id": "lm_vitznau_rigi_electric",
+   "category": "landmark",
+   "applies": "visual",
+   "feature": "Vitznau-Rigi with overhead wires",
+   "year_min": 1937,
+   "year_max": null,
+   "confidence": "high",
+   "source": "https://www.rigi.ch/en/about-us/history/railway-history"
+  },
+  {
+   "id": "lm_brunnen_morschach",
+   "category": "landmark",
+   "applies": "visual",
+   "feature": "Brunnen-Morschach-Axenstein rack railway",
+   "year_min": 1905,
+   "year_max": 1969,
+   "confidence": "high",
+   "source": "https://swiss.nwrail.org.uk/nb9003.html"
+  },
+  {
+   "id": "lm_hotel_axenstein",
+   "category": "landmark",
+   "applies": "visual",
+   "feature": "Grand Hotel Axenstein",
+   "year_min": 1869,
+   "year_max": null,
+   "confidence": "medium",
+   "source": "https://swissholidaypark.ch/en/company/history"
+  },
+  {
+   "id": "lm_palace_axenfels",
+   "category": "landmark",
+   "applies": "visual",
+   "feature": "Palace Hotel Axenfels",
+   "year_min": 1874,
+   "year_max": null,
+   "confidence": "medium",
+   "source": "https://swissholidaypark.ch/en/company/history"
+  },
+  {
+   "id": "lm_stoos_funicular_old",
+   "category": "landmark",
+   "applies": "visual",
+   "feature": "Old Schwyz-Stoos funicular",
+   "year_min": 1933,
+   "year_max": 2017,
+   "confidence": "high",
+   "source": "https://en.wikipedia.org/wiki/Drahtseilbahn_Schwyz%E2%80%93Stoos"
+  },
+  {
+   "id": "lm_schwyz_tram",
+   "category": "landmark",
+   "applies": "visual",
+   "feature": "Schwyz tram (Schwyzer Strassenbahnen) tracks or cars",
+   "year_min": 1900,
+   "year_max": 1963,
+   "confidence": "medium",
+   "source": "https://donsdepot.irm.org/dr2397.htm"
+  },
+  {
+   "id": "lm_schwyz_tram_brunnen",
+   "category": "landmark",
+   "applies": "visual",
+   "feature": "Tram running to Brunnen",
+   "year_min": 1915,
+   "year_max": 1963,
+   "confidence": "medium",
+   "source": "https://donsdepot.irm.org/dr2397.htm"
+  },
+  {
+   "id": "lm_gotthard_line",
+   "category": "landmark",
+   "applies": "visual",
+   "feature": "Gotthard railway (e.g. at Arth-Goldau)",
+   "year_min": 1882,
+   "year_max": null,
+   "confidence": "high",
+   "source": "https://en.wikipedia.org/wiki/Gotthard_railway"
+  },
+  {
+   "id": "lm_gotthard_electric",
+   "category": "landmark",
+   "applies": "visual",
+   "feature": "Gotthard line with overhead wires",
+   "year_min": 1922,
+   "year_max": null,
+   "confidence": "high",
+   "source": "https://en.wikipedia.org/wiki/Gotthard_railway"
+  },
+  {
+   "id": "lm_waedenswil_einsiedeln",
+   "category": "landmark",
+   "applies": "visual",
+   "feature": "Railway at Einsiedeln",
+   "year_min": 1877,
+   "year_max": null,
+   "confidence": "high",
+   "source": "https://en.wikipedia.org/wiki/W%C3%A4denswil%E2%80%93Einsiedeln_railway"
+  },
+  {
+   "id": "lm_einsiedeln_electric",
+   "category": "landmark",
+   "applies": "visual",
+   "feature": "Wädenswil-Einsiedeln railway with overhead wires",
+   "year_min": 1939,
+   "year_max": null,
+   "confidence": "high",
+   "source": "https://en.wikipedia.org/wiki/W%C3%A4denswil%E2%80%93Einsiedeln_railway"
+  },
+  {
+   "id": "lm_sob",
+   "category": "landmark",
+   "applies": "visual",
+   "feature": "SOB line Pfäffikon to Arth-Goldau (e.g. Biberbrugg, Rothenthurm, Sattel)",
+   "year_min": 1891,
+   "year_max": null,
+   "confidence": "high",
+   "source": "https://en.wikipedia.org/wiki/Pf%C3%A4ffikon%E2%80%93Arth-Goldau_railway"
+  },
+  {
+   "id": "lm_sob_electric",
+   "category": "landmark",
+   "applies": "visual",
+   "feature": "SOB line with overhead wires",
+   "year_min": 1939,
+   "year_max": null,
+   "confidence": "high",
+   "source": "https://en.wikipedia.org/wiki/Pf%C3%A4ffikon%E2%80%93Arth-Goldau_railway"
+  },
+  {
+   "id": "lm_axenstrasse",
+   "category": "landmark",
+   "applies": "visual",
+   "feature": "Axenstrasse along the lake",
+   "year_min": 1865,
+   "year_max": null,
+   "confidence": "high",
+   "source": "https://en.wikipedia.org/wiki/Axenstrasse"
+  },
+  {
+   "id": "lm_sihlsee",
+   "category": "landmark",
+   "applies": "visual",
+   "feature": "Sihlsee reservoir with water (Einsiedeln, Willerzell, Euthal)",
+   "year_min": 1937,
+   "year_max": null,
+   "confidence": "high",
+   "source": "https://blog.nationalmuseum.ch/en/2025/11/the-bombing-of-the-sihl-plain/"
+  },
+  {
+   "id": "lm_sihl_plain_dry",
+   "category": "landmark",
+   "applies": "visual",
+   "feature": "Sihl plain without the lake (villages of the valley floor still standing)",
+   "year_min": null,
+   "year_max": 1937,
+   "confidence": "high",
+   "source": "https://blog.nationalmuseum.ch/en/2025/11/the-bombing-of-the-sihl-plain/"
+  },
+  {
+   "id": "lm_kollegium_fire",
+   "category": "landmark",
+   "applies": "visual",
+   "feature": "Kollegium Schwyz as fire ruins",
+   "year_min": 1910,
+   "year_max": 1910,
+   "confidence": "high",
+   "source": "https://query.staatsarchiv.sz.ch/archivplansuche.aspx?ID=359706"
+  },
+  {
+   "id": "lm_tierpark_goldau",
+   "category": "landmark",
+   "applies": "visual",
+   "feature": "Tierpark Goldau",
+   "year_min": 1925,
+   "year_max": null,
+   "confidence": "medium",
+   "source": "https://en.wikipedia.org/wiki/Natur-_und_Tierpark_Goldau"
+  }
+ ]
+}
