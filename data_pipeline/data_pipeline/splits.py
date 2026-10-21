@@ -138,7 +138,8 @@ def eval_subsets(rows: list[dict], seed: int, sizes: dict = EVAL_SUBSETS) -> dic
     pools = {
         "card_exact": [r for r in cards if not _posted(r)],
         "card_posted": [r for r in cards if _posted(r)],
-        "photo_dated": [r for r in ok if r["source"] in DATED_PHOTO_SOURCES],
+        # Zinggeler plates show the negative number in the image, so they stay references only
+        "photo_dated": [r for r in ok if r["source"] in DATED_PHOTO_SOURCES and r.get("collection") != "Zinggeler"],
     }
     return {name: stratified_eval(pool, sizes[name], seed) for name, pool in pools.items()}
 
