@@ -95,15 +95,30 @@ Wow, after the musts: `terrain_check`, calibration chart data, N=3 sampling with
 - Thinking is always on. Control depth with `output_config.effort` (Opus default `medium`); Haiku 5.5 also thinks by default, so give it enough `max_tokens` or the answer gets cut off.
 - No assistant prefill.
 
-**Measured inputs from Data** (eval v2, Opus, single call, no tool loop; for your planning, not a design you have to follow):
+**Benchmark to beat** (measured by Data on 2026-10-21 on the frozen eval v2, 350 items, Opus 5.5, single calls without a tool loop, scored with `data_pipeline.metrics.score`). Your eval run is the official number; it should beat the "Best so far" column. If it does not, say so in the pitch and use the better pipeline.
 
-| Prompt contents | Municipality, no printed name | Year within ±5 | Conf ≥ 0.8: share / correct |
-|---|---|---|---|
-| Image only | 56% | 62% (all 350) | 11% / 100% (hard items) |
-| + `date_hints` text + `rule_checklist()` | 60% | 73% (all 350) | 11% / 100% |
-| + up to 5 verified neighbours (`similar_images(model="fused", verify=True)`) as images with municipality, year, coordinates | 69% (86% when a verified neighbour exists) | 70% | 43% / 95% |
+| Metric (350 items) | Image only | Best so far |
+|---|---|---|
+| Municipality, all | 78% | **83%** |
+| Place name printed | 94% | 95% |
+| No printed place name | 56% | **68%** (86% when a verified neighbour exists) |
+| Unposted cards (`card_exact`) | 75% | **87%** |
+| Dated photos (`photo_dated`) | 69% | 72% |
+| Confidence ≥ 0.8: share answered / correct | 55% / 99.5% | **69% / 97.5%** |
+| Confidence ≥ 0.9: share answered / correct | 47% / 100% | 55% / 99.5% |
+| Year median error | 4 | **2** |
+| Year within ±5 / ±10 | 62% / 84% | **72% / 86%** |
+| Year range contains truth / median width | 89% / 24 years | 90% / 22 years |
+| Posted cards: guess at or before the postmark | 88% | 86% |
 
-Hard items = the 150 eval items without a printed place name. Showing neighbours with "their years are only loose hints" kept them from pulling the year off.
+How "Best so far" was produced (facts, not a design you have to copy):
+- Items with a printed place name: one call with the image, `date_hints` as text and `rule_checklist()`.
+- Items without one: the same plus up to 5 neighbours from `similar_images(model="fused", verify=True)` that are `verified`, sent as images with municipality, year and coordinates, and the line "their years are only loose hints".
+- Both: structured output with a JSON schema (municipality from the 30 Gemeinden as an enum, confidence, year, year_low, year_high, evidence, place_name_printed), effort `medium`, the line "black and white is not evidence of age by itself".
+- Eval hygiene: `exclude_ids=[photo_id] + eval_exclusions(photo_id)` plus all eval ids for neighbours.
+- Cost: $4.40 per 350 items image only, $6.40 with hints, about $0.025 per item with neighbours.
+
+Known limits: some catalogue years are postmarks or acquisition dates, so year scores have a noise floor; each number has about ±4 to 5 points of sampling uncertainty.
 
 **Loop:**
 1. Main loop (Opus, tool use): system prompt + image (resized to max 1024 px, image first, then text). Opus reads the printed text itself.
