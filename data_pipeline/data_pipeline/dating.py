@@ -270,6 +270,22 @@ def year_probe_hint(vec: np.ndarray) -> list[dict]:
                   f"Bildstil-Modell (CLIP, trainiert auf datierten Fotos): wahrscheinlich {low} bis {high}")]
 
 
+@lru_cache(maxsize=1)
+def _ids_by_source() -> dict[str, list[str]]:
+    out: dict[str, list[str]] = {}
+    for r in read_jsonl(RECORDS / "all.jsonl"):
+        out.setdefault(r["source"], []).append(r["id"])
+    return out
+
+
+def eval_exclusions(photo_id: str) -> list[str]:
+    """Extra ids to exclude when scoring photo_id. LUBIS and NB photos come in survey campaigns and
+    numbered series whose members look alike and share dates, so for an eval photo from those
+    collections the whole collection is excluded. Stricter than real use, on purpose."""
+    source = photo_id.split(":", 1)[0]
+    return [i for i in _ids_by_source().get(source, []) if i != photo_id] if source in ("lubis", "nb") else []
+
+
 # ---------- contract ----------
 
 def date_hints(photo_id: str | None = None, image_path: str | None = None, exclude_ids=()) -> list[dict]:
@@ -297,7 +313,7 @@ def check() -> dict:
     by_kind: dict[str, list] = {}
     for t in truth:
         y = t["year_from"]
-        for h in date_hints(t["id"]):
+        for h in date_hints(t["id"], exclude_ids=eval_exclusions(t["id"])):
             row = by_kind.setdefault(h["kind"], [])
             inside = (h["year_low"] is None or h["year_low"] <= y) and (h["year_high"] is None or y <= h["year_high"])
             row.append((abs(h["year"] - y) if h["year"] is not None else None, inside))
