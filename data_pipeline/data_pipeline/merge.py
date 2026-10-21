@@ -5,7 +5,8 @@
 Smapshot and E-Pics overlap for ETH images: Smapshot's `raw.original_id` is the E-Pics file
 name. Such pairs become ONE record: the E-Pics record (license, places, DOI) enriched with the
 Smapshot camera pose, which is more precise than E-Pics' own point. Both source ids are kept in
-`raw.merged_from`. Smapshot images outside the canton stay in (useful references for similarity
+`raw.merged_from`. LUBIS photos are also on Smapshot: the LUBIS record wins (exact capture day,
+swisstopo camera data) and the Smapshot copy is dropped. NB (Swiss National Library) photos are added as is. Smapshot images outside the canton stay in (useful references for similarity
 search); `raw.in_canton` tells them apart. Safe to re-run while scrapers are still writing.
 """
 
@@ -15,7 +16,7 @@ from collections import Counter
 from .jsonl import read_jsonl, write_jsonl
 from .paths import RECORDS
 
-SOURCES = ("staatsarchiv", "epics", "smapshot")
+SOURCES = ("staatsarchiv", "epics", "smapshot", "lubis", "nb")
 
 
 def _pixels(rec: dict) -> int:
@@ -57,7 +58,11 @@ def merge() -> dict:
     from .scrapers.epics import parse_dating
     for r in epics:
         r["date"] = parse_dating(r["raw"].get("eth_dating"), r["raw"].get("eth_date_range"))
-    smap = list(read_jsonl(RECORDS / "smapshot.jsonl"))
+    lubis = list(read_jsonl(RECORDS / "lubis.jsonl"))
+    nb = list(read_jsonl(RECORDS / "nb.jsonl"))
+    in_lubis = {str((r.get("raw") or {}).get("smapshot_id")) for r in lubis}
+    smap_all = list(read_jsonl(RECORDS / "smapshot.jsonl"))
+    smap = [r for r in smap_all if r["source_id"] not in in_lubis]
 
     by_file = {}
     for r in epics:
@@ -78,6 +83,8 @@ def merge() -> dict:
     for r in epics:
         if r["id"] not in out:
             out[r["id"]] = r
+    for r in lubis + nb:
+        out[r["id"]] = r
 
     # dedupe identical images (same sha1) across sources, keep the first seen
     seen_sha = {}
@@ -102,7 +109,9 @@ def merge() -> dict:
 
     n = write_jsonl(RECORDS / "all.jsonl", rows)
     stats = {
-        "inputs": {"staatsarchiv": len(stasz), "epics": len(epics), "smapshot": len(smap)},
+        "inputs": {"staatsarchiv": len(stasz), "epics": len(epics), "smapshot": len(smap),
+                   "lubis": len(lubis), "nb": len(nb)},
+        "smapshot_dropped_for_lubis": len(smap_all) - len(smap),
         "merged_epics_smapshot": len(merged_ids),
         "duplicate_images_dropped": dup,
         "all": n,
