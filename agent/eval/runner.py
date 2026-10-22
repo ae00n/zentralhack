@@ -20,7 +20,7 @@ from collections.abc import Callable
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from datetime import datetime, timezone
 
-from .. import config, loop, results, schemas
+from .. import config, llm, loop, results, schemas
 from . import baseline as bl
 from . import items as eval_items
 from . import summary as sm
@@ -90,6 +90,12 @@ def run_agent(items: list[dict], *, model: str, workers: int = 4, max_cost: floa
                 n = stats["done"] + len(stats["errors"]) + 1
                 try:
                     result = fut.result()
+                except (llm.MissingKey, llm.SessionBudgetExceeded) as e:  # every later item would fail too
+                    queue.clear()
+                    stats["budget_stop"] = True
+                    stats["errors"].append({"photo_id": it["id"], "error": f"{type(e).__name__}: {e}"})
+                    log(f"[{n}/{len(todo)}] {it['id']} ABBRUCH {type(e).__name__}: {e}")
+                    continue
                 except Exception as e:  # noqa: BLE001  one failing item must not stop the run
                     err = f"{type(e).__name__}: {e}"
                     stats["errors"].append({"photo_id": it["id"], "error": err})

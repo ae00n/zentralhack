@@ -73,7 +73,8 @@ def _field(result: dict, name: str) -> dict:
 
 
 def _printed(result: dict) -> bool:
-    for flag in (result.get("place_name_printed"), _field(result, "place_name_printed").get("value")):
+    for flag in ((result.get("estimates") or {}).get("place_name_printed"), result.get("place_name_printed"),
+                 _field(result, "place_name_printed").get("value")):
         if isinstance(flag, bool):
             return flag
     return any(e.get("kind") == "text_on_card" and e.get("supports", True) is not False
@@ -88,7 +89,9 @@ def year_fields(result: dict) -> tuple[int | None, int | None, int | None, int |
         lo, hi = hi, lo
     dec = _field(result, "decade").get("value")
     dec = dec if isinstance(dec, int) else None
-    year = _field(result, "year").get("value")
+    year = (result.get("estimates") or {}).get("year")  # the agent's own point estimate, when it gave one
+    if not isinstance(year, int):
+        year = _field(result, "year").get("value")
     if not isinstance(year, int):
         if lo is not None and hi is not None:
             year = (lo + hi) // 2

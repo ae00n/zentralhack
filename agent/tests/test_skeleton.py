@@ -10,7 +10,10 @@ def test_fixture_is_valid():
     assert schemas.errors(fixture, "analysis_result") == []
 
 
-def test_analyze_signature_and_cache_roundtrip():
+def test_analyze_signature_and_cache_roundtrip(monkeypatch):
+    from agent import config
+
+    monkeypatch.setattr(config, "FAKE", True)
     events = []
     r = analyze("stasz:1", on_event=events.append)
     assert r["photo_id"] == "stasz:1" and events

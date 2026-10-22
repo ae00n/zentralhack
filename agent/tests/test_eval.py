@@ -58,7 +58,7 @@ def fake_analyze(monkeypatch):
         with lock:
             calls.append(photo_id)
         if photo_id in behaviour["fail"]:
-            raise RuntimeError("boom")
+            raise behaviour.get("error", RuntimeError("boom"))
         return fake_result(photo_id, model, municipality=TRUTH[photo_id]["municipality"], cost=behaviour["cost"])
 
     monkeypatch.setattr(loop, "analyze", analyze)
@@ -97,6 +97,15 @@ def test_failing_item_does_not_stop_the_run(fake_analyze, tmp_results):
     fake_analyze.clear()
     runner.run_agent(ITEMS, model=MODEL, workers=2, log=quiet)
     assert fake_analyze == ["stasz:2"]
+
+
+def test_session_budget_stops_the_whole_run(fake_analyze):
+    from agent import llm
+
+    fake_analyze.behaviour["fail"] = {ITEMS[0]["id"]}
+    fake_analyze.behaviour["error"] = llm.SessionBudgetExceeded("over $80")
+    s = runner.run_agent(ITEMS, model=MODEL, workers=1, log=quiet)
+    assert s["budget_stop"] and s["done"] == 0 and len(fake_analyze) == 1
 
 
 def test_cost_cap_stops_scheduling(fake_analyze):
