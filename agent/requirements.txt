@@ -1,0 +1,10 @@
+-e ./data_pipeline
+fastapi
+uvicorn[standard]
+anthropic
+httpx
+jsonschema
+pillow
+python-multipart
+python-dotenv
+pytest
