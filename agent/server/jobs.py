@@ -6,7 +6,9 @@ import threading
 import time
 from datetime import datetime, timezone
 
-from .. import config, loop, results
+import anthropic
+
+from .. import config, llm, loop, results
 
 # AGENT_FAKE replay: seconds between trace items (tests set it to ~0)
 FAKE_DELAY_S = 0.3
@@ -44,9 +46,11 @@ class Job:
         with self._lock:
             self.result = result
 
-    def fail(self, message: str) -> None:
+    def fail(self, message: str, detail: str | None = None) -> None:
         r = self._partial("error")
-        r["error"] = message
+        r["error"] = message  # German, shown in the UI
+        if detail:
+            r["error_detail"] = detail
         self.finish(r)
 
     def since(self, i: int) -> tuple[list[dict], dict | None]:
@@ -134,6 +138,24 @@ def _run_fake(job: Job, image_path: str | None) -> None:
         job.fail(f"{type(e).__name__}: {e}")
 
 
+def _german_error(e: Exception) -> str:
+    if isinstance(e, llm.MissingKey):
+        return "Kein API-Schlüssel gesetzt: die Analyse kann nicht starten."
+    if isinstance(e, llm.SessionBudgetExceeded):
+        return "Kostenlimit erreicht: keine weiteren Analysen in dieser Sitzung."
+    if isinstance(e, anthropic.AuthenticationError):
+        return "API-Schlüssel ungültig."
+    if isinstance(e, (anthropic.APIConnectionError, anthropic.APITimeoutError)):
+        return "Claude ist nicht erreichbar. Bitte Internetverbindung prüfen."
+    if isinstance(e, anthropic.RateLimitError):
+        return "Zu viele Anfragen an Claude. Bitte kurz warten und erneut versuchen."
+    if isinstance(e, anthropic.APIStatusError):
+        return "Claude hat die Anfrage abgelehnt."
+    if isinstance(e, (FileNotFoundError, ValueError)):
+        return "Foto oder Bilddatei nicht gefunden."
+    return "Die Analyse ist fehlgeschlagen."
+
+
 def _run_real(job: Job, image_path: str | None) -> None:
     try:
         upload = image_path is not None and job.photo_id.startswith("upload:")
@@ -143,4 +165,4 @@ def _run_real(job: Job, image_path: str | None) -> None:
         results.save(result)
         job.finish(result)
     except Exception as e:  # noqa: BLE001
-        job.fail(f"{type(e).__name__}: {e}")
+        job.fail(_german_error(e), f"{type(e).__name__}: {e}")

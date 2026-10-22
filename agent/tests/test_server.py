@@ -160,7 +160,20 @@ def test_real_analyze_error_ends_stream(client, real, monkeypatch):
     monkeypatch.setattr(loop, "analyze", boom)
     job_id = client.post("/analyze", json={"photo_id": FIXTURE_ID}).json()["job_id"]
     final = sse_events(client, job_id)[-1]
-    assert final[0] == "result" and final[1]["status"] == "error" and "kaputt" in final[1]["error"]
+    assert final[0] == "result" and final[1]["status"] == "error"
+    assert final[1]["error"] == "Die Analyse ist fehlgeschlagen." and "kaputt" in final[1]["error_detail"]
+
+
+def test_missing_key_gives_german_error(client, real, monkeypatch):
+    from agent import llm
+
+    def no_key(*a, **kw):
+        raise llm.MissingKey("ANTHROPIC_API_KEY is not set")
+
+    monkeypatch.setattr(loop, "analyze", no_key)
+    job_id = client.post("/analyze", json={"photo_id": FIXTURE_ID}).json()["job_id"]
+    final = sse_events(client, job_id)[-1]
+    assert final[1]["error"].startswith("Kein API-Schlüssel")
 
 
 def test_upload(client, fake):
