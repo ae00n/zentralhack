@@ -34,12 +34,13 @@ Give the agent and the frontend clean, fast, honest data:
 | Swiss National Library Wehrli + Zinggeler photos from Commons (2,884, public domain) | `scrapers/nb_commons.py` | done |
 | Wehrli negative number to date table (22,615 negatives) | `scrapers/helveticarchives.py` | done |
 | Merge (19,988 records) | `merge.py` | done |
-| Eval v2 (350 items in 3 subsets, frozen), showcase, timeline sets, demo shortlist | `splits.py` | done |
+| Eval v2 (350 items in 3 subsets, frozen), showcase, timeline sets, demo shortlist | `splits.py` | done; `splits refresh` rewrites timelines + stats without touching eval. 64 timeline sets labelled by the geocoded place tag; 10 demo cards (incl. 2 split composites, 1 card with no printed place name) |
 | Shared scoring for every eval run | `metrics.py` | done |
-| Embeddings: CLIP, DINOv2, MegaLoc; rank fusion; LightGlue verification | `embed.py`, `verify.py` | done; LOO top-5 municipality vote: CLIP 61%, MegaLoc 77%, fused + verify 78% |
+| Embeddings: CLIP, DINOv2, MegaLoc; rank fusion; LightGlue verification | `embed.py`, `verify.py` | done; `best` = megaloc (LOO over 8,342 cards, top-5 vote: MegaLoc 80%, CLIP 68%, DINOv2 69%). Crops are indexed too |
 | Date hints: near-duplicates, card-number series, NB negatives, publisher eras, CLIP year probe; 55 sourced dating rules | `dating.py`, `dating_rules.json` | done; card number median error 1 year, year probe 4 |
-| CONTRACTS section 4 functions + `DATA_PIPELINE_STUB=1` stub | `api.py`, `stub.py`, `__init__.py` | done, 23 tests pass |
-| Composite splitter (Claude Haiku boxes) | `split.py` | eval done: recall 0.90, precision 0.90 on 76 labelled cards |
+| CONTRACTS section 4 functions + `DATA_PIPELINE_STUB=1` stub | `api.py`, `stub.py`, `__init__.py` | done, 24 tests pass |
+| Composite splitter (Claude Haiku boxes) | `split.py` | done: recall 0.90, precision 0.90 on 76 labelled cards; all 6,017 SG.CIV.12 cards split ($0.82): 543 composites, 1,851 crops in `records/crops.jsonl` |
+| Offline tile cache + laptop bundle | `tiles.py`, `bundle.py` | done: 27,178 tiles (3.9 GB): zeitreihen, one TIME per decade 1870s to 2020s (16 `map_years` in `data/tiles/manifest.json`), + swissimage, around 15 demo areas. `bundle` writes `~/zh-bundle/zh-data.tar` (10.6 GB: data without raw + model weights); unpacked, every section 4 call works with no network |
 
 ## Inputs
 
@@ -68,7 +69,7 @@ Give the agent and the frontend clean, fast, honest data:
 
 ## Build order
 
-Each item is done when its check passes. Items 1 to 4 of the earlier order (scrapes, merge + splits, embeddings, splitter eval) are done.
+Each item is done when its check passes. Items 1 to 4 of the earlier order (scrapes, merge + splits, embeddings, splitter eval) are done. Items 1 to 5 below are done on our side (22 Oct); item 5's last check (full demo with Wi-Fi off on the M4 Air) needs the backend and frontend, Sat 10:00.
 
 1. **Split all composites.** `python -m data_pipeline.split batch`. Check: crops in `data/records/crops.jsonl`, cost under $2.
 2. **Point "best" at the strongest index.** `embed check`, then make sure `best.json` names `megaloc` (Said can also ask for `model="fused"`). Check: `similar_images` default beats CLIP on the LOO check.
