@@ -21,6 +21,10 @@ from .base import ToolContext, ToolOutput
 SEARCH_URL = "https://api3.geo.admin.ch/rest/services/api/SearchServer"
 RATE_PER_MIN = 30
 LIMIT = 8
+# Hits further than this from the town of Schwyz are fuzzy matches elsewhere in Switzerland (e.g.
+# "Urirotstock" finds L'Aurore VD; swisstopo spells it "Uri Rotstock"). 60 km covers the Zentralschweiz.
+SCHWYZ_LV95 = (2691000, 1208000)
+REGION_KM = 60
 
 DEFINITION = {
     "name": "swisstopo_search",
@@ -105,11 +109,24 @@ def run(ctx: ToolContext, text: str) -> ToolOutput:
             "E_LV95": round(a["y"]) if a.get("y") is not None else None,
             "N_LV95": round(a["x"]) if a.get("x") is not None else None,
         }.items() if v is not None})
-    return ToolOutput({"query": text, "results": out, "url": url}, _summary(text, out))
+    for r in out:
+        if "E_LV95" in r and "N_LV95" in r:
+            r["km_from_schwyz"] = round(((r["E_LV95"] - SCHWYZ_LV95[0]) ** 2
+                                         + (r["N_LV95"] - SCHWYZ_LV95[1]) ** 2) ** 0.5 / 1000, 1)
+    near = [r for r in out if r.get("km_from_schwyz", 0) <= REGION_KM]
+    data = {"query": text, "results": near, "url": url}
+    if out and not near:
+        data["far_results_dropped"] = len(out)
+        data["hint"] = ("No match within 60 km of Schwyz, only fuzzy matches elsewhere in Switzerland. "
+                        "Try another spelling: swisstopo often writes compound names apart "
+                        "(e.g. 'Uri Rotstock', not 'Urirotstock') or without a prefix.")
+    return ToolOutput(data, _summary(text, near, len(out) - len(near)))
 
 
-def _summary(text: str, results: list[dict]) -> str:
+def _summary(text: str, results: list[dict], dropped: int = 0) -> str:
     if not results:
+        if dropped:
+            return f"swisstopo: nichts in der Zentralschweiz für «{text}», andere Schreibweise nötig"
         return f"swisstopo: nichts gefunden für «{text}»"
     first = results[0]
     sz = sum(1 for r in results if r.get("canton") == "SZ")

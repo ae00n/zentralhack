@@ -129,6 +129,18 @@ def test_swisstopo_cache_hit_does_not_call_the_network_twice(monkeypatch):
     assert len(calls) == 2
 
 
+def test_swisstopo_drops_far_fuzzy_matches_and_hints_a_spelling(monkeypatch):
+    far = {"results": [{"attrs": {"label": "Ort <b>L'Aurore</b> (VD) - Grandson", "lat": 46.8, "lon": 6.6,
+                                  "origin": "gazetteer", "x": 1185037.0, "y": 2539092.0}}]}
+    monkeypatch.setattr(swisstopo.httpx, "get", lambda url, **kw: _Resp(far if "Urirotstock" in url else SEARCH_BODY))
+    ctx = ToolContext(photo_id="x", image_path="x.jpg", exclude_ids=["x"])
+    miss = swisstopo.run(ctx, text="Urirotstock")
+    assert miss.data["results"] == [] and miss.data["far_results_dropped"] == 1 and "Uri Rotstock" in miss.data["hint"]
+    assert "andere Schreibweise" in miss.summary
+    hit = swisstopo.run(ctx, text="Gitschen")
+    assert hit.data["results"][0]["km_from_schwyz"] < 60 and "hint" not in hit.data
+
+
 def test_swisstopo_network_error_is_a_tool_error(monkeypatch):
     def down(url, **kw):
         raise httpx.ConnectError("offline")
