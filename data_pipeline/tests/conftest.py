@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 @pytest.fixture
 def tiny_data(tmp_path, monkeypatch):
-    """A throwaway data/ dir with 3 Staatsarchiv cards (one in eval) and one reference."""
+    """A throwaway data/ dir with 3 Staatsarchiv cards (one in eval, one with a crop) and one reference."""
     def rec(i, source="staatsarchiv", year=1910, muni="Schwyz", lat=47.02, lon=8.65):
         return {"id": f"{'stasz' if source == 'staatsarchiv' else source}:{i}", "source": source, "source_id": str(i),
                 "date": {"raw": str(year) if year else "keine Angabe", "year_from": year, "year_to": year,
@@ -21,6 +21,8 @@ def tiny_data(tmp_path, monkeypatch):
     (tmp_path / "records").mkdir()
     (tmp_path / "splits").mkdir()
     (tmp_path / "records" / "all.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows) + '{"truncated')
+    crop = dict(rec(2, year=1920), id="stasz:2#1", parent_id="stasz:2")
+    (tmp_path / "records" / "crops.jsonl").write_text(json.dumps(crop) + "\n")
     (tmp_path / "splits" / "eval.jsonl").write_text(json.dumps({"id": "stasz:1"}) + "\n")
     monkeypatch.setenv("ZH_DATA_DIR", str(tmp_path))
     for m in [m for m in sys.modules if m.startswith("data_pipeline")]:

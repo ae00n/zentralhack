@@ -32,6 +32,9 @@ def test_similar_images_excludes_query_and_its_crops(tiny_data, monkeypatch):
     assert [o["id"] for o in out] == ["epics:4", "stasz:1"]
     out = tiny_data.similar_images("q.jpg", k=5, exclude_ids=["stasz:2"], sources=["epics"])
     assert [o["id"] for o in out] == ["epics:4"]
+    # without an exclusion, a card and its crop count once: the better-scored crop stays
+    out = tiny_data.similar_images("q.jpg", k=5)
+    assert [o["id"] for o in out] == ["stasz:2#1", "epics:4", "stasz:1"]
 
 
 def test_eval_ids(tiny_data):

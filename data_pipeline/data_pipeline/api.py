@@ -92,13 +92,14 @@ def similar_images(image_path: str, k: int = 8, model: str = "best",
         raise NotImplementedError("similar_images needs data_pipeline.embed (index not built yet)") from e
     excluded = {_base(i) for i in exclude_ids}
     want = k * 3 + len(excluded) + 10
-    out = []
+    out, seen = [], set()
     for pid, score in embed.search(image_path, want, model):
-        if _base(pid) in excluded:
+        if _base(pid) in excluded or _base(pid) in seen:  # a card and its crops count once (best one wins)
             continue
         rec = get_record(pid)
         if rec is None or (sources and rec["source"] not in sources):
             continue
+        seen.add(_base(pid))
         out.append({"id": rec["id"], "score": float(score), "record": rec})
         if len(out) >= (max(k, VERIFY_TOP) if verify else k):
             break
