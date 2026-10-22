@@ -1,0 +1,57 @@
+// German UI labels for contract keys. Unknown keys fall back to the raw key.
+import type { FieldKey } from "./types";
+
+/** Result rows in display order. year_range is shown inside the Jahrzehnt row (question 2.4). */
+export const FIELD_ROWS: { key: FieldKey; label: string }[] = [
+  { key: "municipality", label: "Gemeinde" },
+  { key: "place", label: "Ort" },
+  { key: "buildings", label: "Gebäude" },
+  { key: "landscape_features", label: "Landschaft" },
+  { key: "decade", label: "Jahrzehnt" },
+  { key: "coordinates", label: "Koordinaten" },
+];
+
+export const FIELD_LABELS: Record<string, string> = {
+  ...Object.fromEntries(FIELD_ROWS.map((r) => [r.key, r.label])),
+  year_range: "Zeitraum",
+};
+
+const EVIDENCE_LABELS: Record<string, string> = {
+  visual_cue: "Bildmerkmal",
+  text_on_card: "Aufdruck",
+  similar_image: "Ähnliches Bild",
+  archive_record: "Archivdatensatz",
+  swisstopo_place: "swisstopo Ortsname",
+  terrain: "Gelände",
+  map_layer: "Historische Karte",
+  // date_hints kinds (question 3.7)
+  near_duplicate: "Fast gleiche Karte",
+  card_number: "Kartennummer",
+  nb_negative: "Negativ Nationalbibliothek",
+  publisher_rule: "Verlag",
+  year_probe: "Bildstil",
+};
+
+const TOOL_LABELS: Record<string, string> = {
+  similar_images: "Ähnliche Bilder",
+  date_hints: "Datierungshinweise",
+  archive_lookup: "Archivsuche",
+  swisstopo_search: "swisstopo Suche",
+  swisstopo_height: "Höhenabfrage",
+  swisstopo_profile: "Höhenprofil",
+  terrain_check: "Geländeprüfung",
+  submit_result: "Ergebnis",
+};
+
+export function fieldLabel(key: string): string {
+  return FIELD_LABELS[key] ?? key;
+}
+
+export function evidenceLabel(kind: string): string {
+  return EVIDENCE_LABELS[kind] ?? kind;
+}
+
+export function toolLabel(tool: string | undefined): string {
+  if (!tool) return "Werkzeug";
+  return TOOL_LABELS[tool] ?? tool;
+}

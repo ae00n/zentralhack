@@ -1,0 +1,49 @@
+"use client";
+
+// Quiet log of the agent's steps. Lines fade in as they arrive; collapsible once the analysis is done.
+import { toolLabel } from "@/lib/labels";
+import type { TraceItem } from "@/lib/types";
+
+interface Props {
+  items: TraceItem[];
+  running: boolean;
+}
+
+export default function TraceLog({ items, running }: Props) {
+  const list = (
+    <ol className="mt-2 space-y-1.5">
+      {items.map((item) => (
+        <li key={item.step} className="fade-in grid grid-cols-[24px_1fr] gap-2 text-meta">
+          <span className="font-mono text-ink-muted">{item.step}</span>
+          <TraceLine item={item} />
+        </li>
+      ))}
+      {running && <li className="pl-8 text-meta text-ink-muted">...</li>}
+    </ol>
+  );
+
+  return (
+    <details open>
+      <summary className="cursor-pointer text-meta text-ink-muted hover:text-ink">
+        {running ? "Analyse läuft" : `Analyseschritte (${items.length})`}
+      </summary>
+      {list}
+    </details>
+  );
+}
+
+function TraceLine({ item }: { item: TraceItem }) {
+  if (item.type === "tool_call") {
+    return (
+      <span>
+        <span className="text-ink-muted">{toolLabel(item.tool)}</span>
+        {item.output_summary && <span>: {item.output_summary}</span>}
+        {item.ms > 0 && <span className="font-mono text-ink-muted"> · {item.ms} ms</span>}
+      </span>
+    );
+  }
+  if (item.type === "final") {
+    return <span className="font-medium">{item.text}</span>;
+  }
+  return <span className="text-ink-muted">{item.text ?? item.output_summary ?? item.type}</span>;
+}
