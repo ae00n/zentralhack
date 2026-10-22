@@ -76,7 +76,17 @@ def image(photo_id: str, w: int | None = Query(None, ge=16, le=4096)):
 
 # ---------- analysis ----------
 
-@app.post("/analyze")
+# The body is parsed by hand (JSON or multipart), so describe it for the /docs page explicitly.
+_ANALYZE_BODY = {"requestBody": {"required": True, "content": {
+    "application/json": {
+        "schema": {"type": "object", "required": ["photo_id"], "properties": {"photo_id": {"type": "string"}}},
+        "example": {"photo_id": "epics:PK_020566"}},
+    "multipart/form-data": {
+        "schema": {"type": "object", "properties": {"file": {"type": "string", "format": "binary"}}}},
+}}}
+
+
+@app.post("/analyze", openapi_extra=_ANALYZE_BODY)
 async def analyze(request: Request, fresh: bool = False):
     ctype = request.headers.get("content-type", "")
     image_path = None
