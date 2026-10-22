@@ -18,7 +18,7 @@ straight-line frame detection) found none of the 10 hand-labelled composites
 One item with the full image is returned when the card is not composite.
 
     python -m data_pipeline.split eval [--method cv|vlm]   # against tests/split_labels.json
-    python -m data_pipeline.split batch [--limit N]        # all Staatsarchiv cards -> records/crops.jsonl
+    python -m data_pipeline.split batch [--limit N] [--workers 6]   # SG.CIV.12 cards -> records/crops.jsonl
     python -m data_pipeline.split run <img>...
 """
 
@@ -26,7 +26,9 @@ import argparse
 import base64
 import json
 import os
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import cv2
@@ -39,6 +41,7 @@ CACHE = SPLITS / "composite_cache.jsonl"
 LABELS = Path(__file__).resolve().parents[1] / "tests" / "split_labels.json"
 VLM_MODEL = os.environ.get("SPLIT_MODEL", "claude-haiku-5-5")
 MIN_PANEL_SHARE = 0.03  # ignore boxes smaller than 3% of the card (stamps, coats of arms)
+PRICE = {"claude-haiku-5-5": (0.10, 0.50)}  # USD per MTok in / out, for the batch cost print
 
 VLM_PROMPT = """This is a scanned historical postcard. Some postcards show several separate photographs \
 (or printed photo views) on one card, e.g. a collage, an inset oval or a second view next to the first. \
@@ -92,6 +95,8 @@ def find_panels_cv(img: np.ndarray) -> list[tuple[int, int, int, int]]:
 # ---------- vision model ----------
 
 _cache: dict | None = None
+_lock = threading.Lock()  # batch runs several cards at once: guards the cache file and the usage tally
+usage = {"input_tokens": 0, "output_tokens": 0}
 
 
 def _load_cache() -> dict:
@@ -127,10 +132,13 @@ def find_panels_vlm(path: Path, key: str) -> list[tuple[int, int, int, int]]:
         )
         text = next((b.text for b in msg.content if b.type == "text"), "")
         panels = json.loads(text)["panels"] if text else []
-        cache[key] = panels
-        ensure(SPLITS)
-        with CACHE.open("a") as f:
-            f.write(json.dumps({"key": key, "panels": panels, "model": VLM_MODEL}) + "\n")
+        with _lock:
+            cache[key] = panels
+            usage["input_tokens"] += msg.usage.input_tokens
+            usage["output_tokens"] += msg.usage.output_tokens
+            ensure(SPLITS)
+            with CACHE.open("a") as f:
+                f.write(json.dumps({"key": key, "panels": panels, "model": VLM_MODEL}) + "\n")
     boxes = []
     for p in cache[key]:
         x0, y0 = max(0.0, float(p["x0"])), max(0.0, float(p["y0"]))
@@ -205,22 +213,34 @@ def _eval(method: str) -> None:
           f"exact panel count {exact}/{total}, {1000 * np.mean(times):.0f} ms/card")
 
 
-def _batch(limit: int | None, method: str | None) -> None:
-    """Split every Staatsarchiv card and write crop PhotoRecords to records/crops.jsonl (read by api.py)."""
+def _cost() -> float:
+    pi, po = PRICE.get(VLM_MODEL, (0, 0))
+    return (usage["input_tokens"] * pi + usage["output_tokens"] * po) / 1e6
+
+
+def _batch(limit: int | None, method: str | None, collection: str | None = "SG.CIV.12", workers: int = 6) -> None:
+    """Split the Staatsarchiv cards and write crop PhotoRecords to records/crops.jsonl (read by api.py).
+    Only postcards (SG.CIV.12) by default: the splitter was evaluated on those, aerials and photographer
+    series are single photos."""
     src = RECORDS / "staatsarchiv.jsonl"
     out = RECORDS / "crops.jsonl"
     done_file = SPLITS / "split_done.txt"  # every card already processed, composite or not
     ensure(SPLITS)
     done = set(done_file.read_text().split()) if done_file.exists() else set()
     recs = [json.loads(l) for l in src.read_text().splitlines() if l.strip()]
-    todo = [r for r in recs if r.get("image") and r["id"] not in done]
+    todo = [r for r in recs if r.get("image") and r["id"] not in done
+            and (not collection or r.get("collection") == collection)]
     if limit:
         todo = todo[:limit]
-    print(f"{len(todo)} cards to split ({_method(method)})", flush=True)
-    n_comp = 0
-    with out.open("a") as f, done_file.open("a") as d:
-        for i, r in enumerate(todo, 1):
-            parts = split_composite(r["image"]["path"], photo_id=r["id"], method=method)
+    print(f"{len(todo)} cards to split ({_method(method)}, {workers} workers)", flush=True)
+    n_comp = n_done = 0
+    _load_cache()  # once, before the workers start
+
+    def one(r):
+        return r, split_composite(r["image"]["path"], photo_id=r["id"], method=method)
+
+    with out.open("a") as f, done_file.open("a") as d, ThreadPoolExecutor(workers) as ex:
+        for r, parts in ex.map(one, todo):
             if len(parts) >= 2:
                 n_comp += 1
                 for j, part in enumerate(parts, 1):
@@ -229,9 +249,12 @@ def _batch(limit: int | None, method: str | None) -> None:
                                        "width": part["bbox"][2], "height": part["bbox"][3], "sha1": None})
                     f.write(json.dumps(crop, ensure_ascii=False) + "\n")
             d.write(r["id"] + "\n")
-            if i % 100 == 0:
-                print(f"  {i}/{len(todo)}, {n_comp} composite", flush=True)
-    print(f"done: {n_comp} composite of {len(todo)}")
+            f.flush()
+            d.flush()
+            n_done += 1
+            if n_done % 100 == 0:
+                print(f"  {n_done}/{len(todo)}, {n_comp} composite, ${_cost():.2f}", flush=True)
+    print(f"done: {n_comp} composite of {len(todo)}, ${_cost():.2f}")
 
 
 def main() -> None:
@@ -240,11 +263,13 @@ def main() -> None:
     ap.add_argument("paths", nargs="*")
     ap.add_argument("--method", choices=["cv", "vlm"])
     ap.add_argument("--limit", type=int)
+    ap.add_argument("--collection", default="SG.CIV.12", help="batch: only this collection ('' = all)")
+    ap.add_argument("--workers", type=int, default=6)
     a = ap.parse_args()
     if a.cmd == "eval":
         _eval(_method(a.method))
     elif a.cmd == "batch":
-        _batch(a.limit, a.method)
+        _batch(a.limit, a.method, a.collection, a.workers)
     else:
         for p in a.paths:
             print(p, split_composite(p, method=a.method))

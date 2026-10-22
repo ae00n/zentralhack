@@ -1,6 +1,7 @@
 """Eval / showcase / timeline / demo splits (docs/CONTRACTS.md section 1).
 
-    python -m data_pipeline.splits [--seed 42]
+    python -m data_pipeline.splits [build] [--seed 42]   # everything, incl. a new eval set
+    python -m data_pipeline.splits refresh               # timeline sets + stats only, eval untouched
 
 - eval:     three subsets, each stratified by municipality (ground truth = municipality + year):
             card_exact   unposted SG.CIV.12 cards with an exact catalogue year
@@ -14,6 +15,7 @@ gives the same eval set. Re-run once after the full scrape, then treat eval.json
 """
 
 import argparse
+import json
 import random
 import re
 from collections import Counter, defaultdict
@@ -65,12 +67,36 @@ def stratified_eval(pool: list[dict], target: int, seed: int) -> list[dict]:
     return sorted(out, key=lambda r: r["id"])
 
 
+# Thema tags that are archive categories, not places. Cards of people, events and objects are not
+# views of a place, so they stay out of the time series.
+NOT_A_VIEW = {"Porträt", "Gruppenbild", "Anlässe", "Objekt"}
+CATEGORY_TAGS = NOT_A_VIEW | {"Ortsbild", "Verkehr", "Wirtschaft", "Alltag"}
+# names outside the canton that the geocoder still pinned to a Schwyz point: never a set label
+NOT_A_PLACE_NAME = {"Schweiz", "Zürich", "Bern", "Uri", "Luzern", "Zug", "Glarus"}
+
+
+def _point_labels() -> dict[tuple[float, float], set[str]]:
+    """Gazetteer point -> the normalised tags that geocoded to it (place cache + municipality centroids)."""
+    from .gazetteer import _place_cache, gemeinden, norm
+    out = defaultdict(set)
+    for key, hit in _place_cache().items():
+        if hit:
+            out[(round(hit["lat"], 4), round(hit["lon"], 4))].add(key)
+    for g in gemeinden():
+        if "lat" in g:
+            out[(round(g["lat"], 4), round(g["lon"], 4))].add(norm(g["name"]))
+    return out
+
+
 def timeline_sets(dated: list[dict], min_cards: int = 4) -> list[dict]:
-    """Group dated cards that resolved to the same place (same gazetteer point)."""
+    """Group dated cards that resolved to the same place (same gazetteer point). The label is the
+    Thema tag that geocoded to that point, so category tags ("Ortsbild", "Verkehr") never name a set."""
+    from .gazetteer import norm
+    labels = _point_labels()
     groups = defaultdict(list)
     for r in dated:
         loc = r.get("location")
-        if not loc:
+        if not loc or NOT_A_VIEW & set(r.get("places") or []):
             continue
         groups[(round(loc["lat"], 4), round(loc["lon"], 4))].append(r)
     sets = []
@@ -79,7 +105,11 @@ def timeline_sets(dated: list[dict], min_cards: int = 4) -> list[dict]:
         if len(rs) < min_cards or len(years) < 2:
             continue
         muni = Counter(r["municipality"] for r in rs if r["municipality"]).most_common(1)
-        tags = Counter(p for r in rs for p in r["places"] if not muni or p != muni[0][0]).most_common(1)
+        here = labels.get((lat, lon), set())
+        # resolve() also geocodes neighbouring tag pairs ("Rigi; Kulm" -> "Rigi Kulm")
+        tags = Counter(t for r in rs for t in r["places"] + [f"{x} {y}" for x, y in zip(r["places"], r["places"][1:])
+                                                      if not CATEGORY_TAGS & {x, y}]
+                       if norm(t) in here and t not in NOT_A_PLACE_NAME).most_common(1)
         place = tags[0][0] if tags else (muni[0][0] if muni else "?")
         rs = sorted(rs, key=lambda r: (r["date"]["year_from"], r["id"]))
         sets.append({
@@ -175,6 +205,25 @@ def build(seed: int = 42) -> dict:
     write_json(SPLITS / "demo.json", demo)
 
     stats = {
+        **_counts(rows, stasz),
+        "eval": {
+            "n": len(ev),
+            "by_subset": {name: len(rs) for name, rs in subsets.items()},
+            "seed": seed,
+            "by_municipality": dict(Counter(r["municipality"] for r in ev).most_common()),
+            "by_decade": dict(sorted(Counter(_decade(r) for r in ev).items())),
+        },
+        "showcase": len(showcase),
+        "timeline_sets": len(tsets),
+        "timeline_top": [{"place": s["place"], "n": s["n"], "years": s["years"]} for s in tsets[:10]],
+        "demo_candidates": len(demo),
+    }
+    write_json(SPLITS / "stats.json", stats)
+    return stats
+
+
+def _counts(rows: list[dict], stasz: list[dict]) -> dict:
+    return {
         "records": len(rows),
         "by_source": dict(Counter(r["source"] for r in rows)),
         "staatsarchiv": {
@@ -188,27 +237,37 @@ def build(seed: int = 42) -> dict:
         },
         "references_with_coordinates": sum(1 for r in rows if r["source"] != "staatsarchiv" and r.get("location")),
         "references_in_canton": sum(1 for r in rows if (r.get("raw") or {}).get("in_canton")),
-        "eval": {
-            "n": len(ev),
-            "by_subset": {name: len(rs) for name, rs in subsets.items()},
-            "seed": seed,
-            "by_municipality": dict(Counter(r["municipality"] for r in ev).most_common()),
-            "by_decade": dict(sorted(Counter(_decade(r) for r in ev).items())),
-        },
-        "showcase": len(showcase),
-        "timeline_sets": len(tsets),
-        "timeline_top": [{"place": s["place"], "n": s["n"], "years": s["years"]} for s in tsets[:10]],
-        "demo_candidates": len(demo),
         "licenses": dict(Counter((r.get("license") or {}).get("code") for r in rows)),
     }
+
+
+def refresh() -> dict:
+    """Rewrite timeline_sets.json and the record counts in stats.json from the current all.jsonl.
+    eval.jsonl, showcase.jsonl and demo.json stay as they are (eval is frozen)."""
+    rows = list(read_jsonl(RECORDS / "all.jsonl"))
+    ev_ids = {r["id"] for r in read_jsonl(SPLITS / "eval.jsonl")}
+    stasz = [r for r in rows if r["source"] == "staatsarchiv"]
+    dated = [r for r in stasz if r["date"].get("year_from") and _has_image(r)]
+    tsets = timeline_sets([r for r in dated if r["id"] not in ev_ids])
+    write_json(SPLITS / "timeline_sets.json", tsets)
+    stats = json.loads((SPLITS / "stats.json").read_text()) if (SPLITS / "stats.json").exists() else {}
+    stats.update(_counts(rows, stasz))
+    stats["timeline_sets"] = len(tsets)
+    stats["timeline_top"] = [{"place": s["place"], "n": s["n"], "years": s["years"]} for s in tsets[:10]]
     write_json(SPLITS / "stats.json", stats)
     return stats
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("cmd", nargs="?", choices=["build", "refresh"], default="build",
+                    help="build: everything incl. a new eval set; refresh: timelines + stats only")
     ap.add_argument("--seed", type=int, default=42)
     a = ap.parse_args()
+    if a.cmd == "refresh":
+        s = refresh()
+        print({k: s[k] for k in ("records", "by_source", "timeline_sets")}, s["timeline_top"][:5])
+        return
     s = build(seed=a.seed)
     print({k: s[k] for k in ("records", "by_source", "showcase", "timeline_sets", "demo_candidates")})
     print("eval", s["eval"]["n"], s["eval"]["by_subset"])
