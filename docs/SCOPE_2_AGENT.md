@@ -59,6 +59,16 @@ The output is an `AnalysisResult` with per-field confidence and evidence, served
 2. **Frontend depends on you:** build fake mode first. `AGENT_FAKE=1` makes `POST /analyze` return a job whose SSE stream replays the trace from `contracts/fixtures/analysis_result.json` with 300 ms delays, then the fixture result. Timo builds the UI against this. Keep it working to the end: it is also the offline fallback.
 3. Never change a response shape silently. Update CONTRACTS.md + fixture in one commit on `main` and tell Timo.
 
+## Handover from Data (2026-10-22, state on `main`)
+
+- `similar_images` default is now **megaloc** (municipality in top 5: 80% vs CLIP 68%, DINOv2 69%, on 8,342 cards). The first call loads it (about 1 GB RAM). `model="fused"` still works.
+- Composite postcards are split: 543 composites, 1,851 crops with ids `stasz:N#k` (parent in `parent_id`, `data/records/crops.jsonl`). Crops are in all indexes; `similar_images` counts a card and its crops once (best hit wins). Eval leakage exclusion covers crops.
+- `data/splits/demo.json` v2: 3 new cards (357185 four-panel, 357848 undated five-panel, 499742 no printed name, matched via a verified neighbour). All 10 need cached results in `data/results/`.
+- Offline map years: `data/tiles/manifest.json`, key `map_years` (16 values, 18791231 to 20211231, one per decade). Serve these in `/health` and `/timeline` when offline.
+- `data/` (10 GB) is not in git. Get it from Dijar: the bundle `zh-data.tar` (private path only) or access to his server. `README.txt` in the bundle lists the env vars (`ZH_DATA_DIR`, `HF_HOME`, `TORCH_HOME`, `HF_HUB_OFFLINE=1`).
+- API key: your own key via a private link from Dijar, into the gitignored `.env` as `ANTHROPIC_API_KEY`.
+- Open team calls: commit `data_pipeline/uv.lock` or not; demo hosting (Dijar's server vs M4 Air local), decided at the event.
+
 ## Build order
 
 Each item is done when its check passes.

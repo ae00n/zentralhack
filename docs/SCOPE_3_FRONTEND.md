@@ -129,6 +129,13 @@ Feel: a reading room, not a SaaS dashboard. Warm paper, ink text, the photos and
 - Use the real swisstopo tiles from the start; they need no backend.
 - Switch to `live` as soon as Said's server runs (his fake mode `AGENT_FAKE=1` serves the fixture over real HTTP + SSE first).
 
+## Handover from Data (2026-10-22, state on `main`)
+
+- Offline, only 16 zeitreihen years are cached (one per decade, 18791231 to 20211231, listed in `data/tiles/manifest.json` as `map_years`). Snap the slider to `map_years` from `/health` or `/timeline`, never to a year outside it.
+- Cached tile areas: Schwyz Hauptplatz, Brunnen, Einsiedeln, Rigi Kulm, Grosser Mythen and the 10 demo cards (zeitreihen z12 to 16, swissimage z12 to 17). Outside those areas, offline maps are blank.
+- `mock` mode needs no data. `live` and `demo` need Said's backend with `data/`.
+- Demo hosting (Dijar's server vs M4 Air local) is decided at the event.
+
 ## Build order
 
 Each item is done when its check passes.
