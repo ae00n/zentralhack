@@ -145,7 +145,7 @@ def test_request_shape(monkeypatch):
     assert call["output_config"] == {"effort": loop.EFFORT}
     assert call["system"][-1]["cache_control"] == {"type": "ephemeral"}
     names = [t["name"] for t in call["tools"]]
-    assert names == ["similar_images", "archive_lookup", "swisstopo_search", SUBMIT]
+    assert names == ["similar_images", "archive_lookup", "swisstopo_search", "terrain_check", SUBMIT]
     first = call["messages"][0]["content"]
     assert first[0]["type"] == "image" and first[1]["type"] == "text"  # image first, then text
     assert "Date hints" in first[1]["text"] and "Verlag wehrli" in first[1]["text"]

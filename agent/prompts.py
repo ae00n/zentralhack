@@ -35,6 +35,9 @@ unverified hit. Neighbour years are loose hints only: the same view was printed 
 present or absent (check with archive_lookup), and the date hints given with the photo.
 - A postmark or handwritten date is an upper bound for the photo, not the capture year.
 - Coordinates: use swisstopo_search for named places or peaks; set radius_m to your real uncertainty.
+- terrain_check tests whether a landmark you see (peak, church) can be seen from a candidate viewpoint at \
+all; a blocked line of sight rejects that viewpoint. The returned direction also tells you which way the \
+camera looked. Get both coordinates from swisstopo_search first.
 
 ## Confidence (calibrated, 0.0 to 1.0)
 - Confidence must follow from the number and agreement of independent evidence items.

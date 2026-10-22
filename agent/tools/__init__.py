@@ -6,20 +6,22 @@ The order of definitions() is fixed so the tools block stays byte-identical acro
 
 import time
 
-from . import archive, similar, submit, swisstopo
+from . import archive, similar, submit, swisstopo, terrain
 from .base import ToolContext, ToolOutput
 
 _RUNNERS = {
     "similar_images": similar.run,
     "archive_lookup": archive.run,
     "swisstopo_search": swisstopo.run,
+    "terrain_check": terrain.run,
 }
 
 SUBMIT = submit.NAME
 
 
 def definitions(municipalities: list[str]) -> list[dict]:
-    return [similar.DEFINITION, archive.DEFINITION, swisstopo.DEFINITION, submit.definition(municipalities)]
+    return [similar.DEFINITION, archive.DEFINITION, swisstopo.DEFINITION, terrain.DEFINITION,
+            submit.definition(municipalities)]
 
 
 def run_tool(name: str, tool_input: dict, ctx: ToolContext) -> tuple[ToolOutput, int]:

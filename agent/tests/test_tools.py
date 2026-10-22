@@ -221,3 +221,41 @@ def test_cost_usd():
     expected = (1000 * 4 + 2000 * 4 * 1.25 + 10000 * 4 * 0.1 + 1000 * 20) / 1e6
     assert llm.cost_usd("claude-opus-5-5", usage) == pytest.approx(expected)
     assert llm.price("unknown-model") == max([*config.PRICES.values(), *llm.EXTRA_PRICES.values()])
+
+
+# ---------- terrain_check ----------
+
+from agent.tools import terrain
+
+
+def _profile(heights, step=1000.0):
+    return [{"dist": i * step, "alts": {"COMB": h}, "easting": 2690000 + i * step, "northing": 1200000}
+            for i, h in enumerate(heights)]
+
+
+def test_line_of_sight_free_and_blocked():
+    free = terrain.line_of_sight(_profile([440, 450, 460, 480, 2500]))
+    assert free["visible"] is True and "blocked_at" not in free
+    blocked = terrain.line_of_sight(_profile([440, 450, 1800, 480, 2500]))
+    assert blocked["visible"] is False and blocked["blocked_at"]["height_m"] == 1800
+    assert blocked["blocked_at"]["dist_km"] == 2.0
+
+
+def test_earth_curvature_hides_a_low_far_target():
+    # flat lake level, a 20 m target 60 km away sinks below the horizon of a 2 m eye
+    pts = _profile([434] * 60 + [454])
+    assert terrain.line_of_sight(pts)["visible"] is False
+
+
+def test_terrain_check_tool_uses_the_cache_and_rejects_bad_distances(monkeypatch):
+    calls = []
+    body = _profile([440, 450, 460, 2500], step=3000.0)
+    monkeypatch.setattr(swisstopo.httpx, "get", lambda url, **kw: calls.append(url) or _Resp(body))
+    ctx = ToolContext(photo_id="x", image_path="x.jpg", exclude_ids=["x"])
+    args = dict(from_lat=46.995, from_lon=8.605, to_lat=47.0298, to_lon=8.6838)
+    a = terrain.run(ctx, **args)
+    b = terrain.run(ctx, **args)
+    assert not a.is_error and a.data["visible"] is True and a.data["direction"] == "NO"
+    assert "Sichtlinie frei" in a.summary and len(calls) == 1 and b.data == a.data
+    too_close = terrain.run(ctx, from_lat=47.0, from_lon=8.6, to_lat=47.0, to_lon=8.6)
+    assert too_close.is_error and calls == calls[:1]
