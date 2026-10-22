@@ -172,13 +172,13 @@ def test_tool_definitions_are_strict_and_stable():
     defs = definitions(names)
     assert json.dumps(defs, sort_keys=False) == json.dumps(definitions(names), sort_keys=False)
     for d in defs:
-        assert d["strict"] is True
+        assert d["strict"] is (d["name"] != "submit_result")  # submit_result is too large for strict mode
         for node in _walk(d["input_schema"]):
             if node.get("type") == "object" or (isinstance(node.get("type"), list) and "object" in node["type"]):
                 assert node.get("additionalProperties") is False, d["name"]
                 assert set(node["required"]) == set(node["properties"]), d["name"]
-    muni_enum = defs[-1]["input_schema"]["properties"]["municipality"]["properties"]["value"]["enum"]
-    assert "Ingenbohl" in muni_enum and "Küssnacht (SZ)" in muni_enum and None in muni_enum
+    muni = defs[-1]["input_schema"]["properties"]["municipality"]["properties"]["value"]["anyOf"]
+    assert "Ingenbohl" in muni[0]["enum"] and "Küssnacht (SZ)" in muni[0]["enum"] and muni[1] == {"type": "null"}
     assert len(names) == 30
 
 

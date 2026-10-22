@@ -78,7 +78,8 @@ def definition(names: list[str]) -> dict:
             "type": "object",
             "$defs": {"evidence": _EVIDENCE},
             "properties": {
-                "municipality": _field({"type": ["string", "null"], "enum": [*names, None]},
+                # strict mode rejects an enum on a ["string", "null"] type, so spell it as anyOf
+                "municipality": _field({"anyOf": [{"type": "string", "enum": list(names)}, {"type": "null"}]},
                                        "Gemeinde in Kanton Schwyz, or null if outside or unknown"),
                 "place": _field({"type": ["string", "null"]}, "locality, village part or viewpoint"),
                 "buildings": _field({"type": "array", "items": {"type": "string"}}, "named buildings visible"),
@@ -106,7 +107,9 @@ def definition(names: list[str]) -> dict:
             "required": [*FIELD_NAMES, "year_best", "place_name_printed", "overall_confidence", "rejected_hypotheses"],
             "additionalProperties": False,
         },
-        "strict": True,
+        # Not strict: together with the other strict tools this schema compiles to a grammar the API
+        # rejects as too large (400). normalize() below repairs whatever the model sends instead.
+        "strict": False,
     }
 
 

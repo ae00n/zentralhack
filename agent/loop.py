@@ -109,18 +109,12 @@ class _Run:
                 log.exception("on_event failed")
 
     def _thoughts(self, content, ms: int) -> None:
+        # Only the model's own text goes into the trace: it follows the German instruction, while the
+        # API's thinking summaries come back in English and repeat what the next text block says.
         for b in content:
-            text = ""
-            if b.type == "text":
-                text = b.text or ""
-            elif b.type == "thinking":  # progress notes ("updates") or a summary of the reasoning
-                text = getattr(b, "thinking", "") or ""
-            text = text.strip()
+            text = (b.text or "").strip() if b.type == "text" else ""
             if text:
-                item = {"type": "thought", "text": text[:MAX_THOUGHT_CHARS], "ms": ms}
-                if b.type == "thinking":
-                    item["source"] = "thinking"
-                self.emit(item)
+                self.emit({"type": "thought", "text": text[:MAX_THOUGHT_CHARS], "ms": ms})
                 ms = 0
 
     # ---------- model ----------

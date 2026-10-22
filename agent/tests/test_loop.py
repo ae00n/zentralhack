@@ -116,12 +116,13 @@ def test_scripted_run_is_valid(monkeypatch):
     assert r["estimates"] == {"year": 1903, "place_name_printed": True}
     assert r["rejected_hypotheses"][0]["value"] == "Sisikon"
 
-    # trace: date_hints step, thought, similar_images call, thinking note, final; all emitted live
+    # trace: date_hints step, thought, similar_images call, final; all emitted live. Thinking notes are
+    # left out (the API writes them in English).
     types = [(t["type"], t.get("tool")) for t in r["trace"]]
     assert types == [("tool_call", "date_hints"), ("thought", None), ("tool_call", "similar_images"),
-                     ("thought", None), ("final", None)]
+                     ("final", None)]
     assert events == r["trace"]
-    assert [t["step"] for t in r["trace"]] == [1, 2, 3, 4, 5]
+    assert [t["step"] for t in r["trace"]] == [1, 2, 3, 4]
     sim = r["trace"][2]
     assert sim["input"] == {"k": 8, "sources": None} and isinstance(sim["output_summary"], str)
 
