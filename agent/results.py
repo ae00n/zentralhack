@@ -23,7 +23,13 @@ def load(photo_id: str, model: str | None = None) -> dict | None:
 
 
 def save(result: dict) -> Path:
+    """Write the result. A composite parent carries its parts in "part_results": each part gets its own
+    file (so /results/<id>#1 works) and the parent file keeps only the part ids in composite.parts."""
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    if "part_results" in result:
+        for part in result["part_results"]:
+            save(part)
+        result = {k: v for k, v in result.items() if k != "part_results"}
     p = _path(result["photo_id"])
     tmp = p.with_suffix(".tmp")
     tmp.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")

@@ -48,7 +48,40 @@ def analyze(photo_id: str | None = None, image_path: str | None = None, *,
     if config.FAKE:
         return _fake_result(photo_id, model, on_event)
     client = llm.make_client()
+    parts = _parts(photo_id, image_path)
+    if len(parts) >= 2:
+        return _Composite(photo_id, image_path, parts, model, list(exclude_ids), on_event, client).execute()
     return _Run(photo_id, image_path, model, list(exclude_ids), on_event, client).execute()
+
+
+MAX_PARTS = 12
+
+
+def _parts(photo_id: str | None, image_path: str | None) -> list[tuple[str, str | None]]:
+    """[(part_id, part_image_path or None)] for a composite card, else [].
+
+    Archive cards were split ahead of time by data_pipeline (crop records `<id>#1`, `#2` with parent_id
+    set), so only uploads are split here. A crop is never split again.
+    """
+    if photo_id and "#" in photo_id:
+        return []
+    if photo_id:
+        crops = []
+        for i in range(1, MAX_PARTS + 1):
+            rec = dp.get_record(f"{photo_id}#{i}")
+            if not rec or rec.get("parent_id") != photo_id:
+                break
+            crops.append((rec["id"], None))
+        return crops
+    try:
+        items = dp.split_composite(image_path)
+    except Exception:  # no splitter on this machine: treat the upload as one photo
+        log.warning("split_composite failed for %s", image_path, exc_info=True)
+        return []
+    if len(items) < 2:
+        return []
+    uid = _upload_id(image_path)
+    return [(f"{uid}#{i}", it["path"]) for i, it in enumerate(items[:MAX_PARTS], 1)]
 
 
 def _fake_result(photo_id, model, on_event) -> dict:
@@ -224,8 +257,7 @@ class _Run:
             "run_id": self.run_id,
             "status": "needs_review" if needs_review else "done",
             "model": self.model,
-            # Composite cards (split_composite) come later: the caller runs each part and fills this in.
-            "composite": None,
+            "composite": None,  # a composite parent is built by _Composite from its parts
             "fields": f,
             "overall_confidence": body["overall_confidence"],
             "needs_review": needs_review,
@@ -235,6 +267,63 @@ class _Run:
             "created_at": _now(),
             # extra keys (allowed by CONTRACTS): inputs for data_pipeline.metrics.score
             "estimates": body["estimates"],
+        }
+
+
+class _Composite:
+    """A card with several pictures: each part is analysed on its own, the parent takes the fields of
+    the most confident part and lists all parts in composite.parts (CONTRACTS section 3)."""
+
+    def __init__(self, photo_id, image_path, parts, model, exclude_ids, on_event, client):
+        self.photo_id = photo_id or _upload_id(image_path)
+        self.parts, self.model, self.on_event, self.client = parts, model, on_event, client
+        # siblings and the parent never count as evidence for a part
+        self.exclude_ids = list(dict.fromkeys([self.photo_id, *(p for p, _ in parts), *exclude_ids]))
+        self.trace: list[dict] = []
+
+    def emit(self, item: dict, part: str | None = None) -> None:
+        item = {**item, "step": len(self.trace) + 1}
+        if part:
+            item["part"] = part
+        self.trace.append(item)
+        if self.on_event:
+            try:
+                self.on_event(item)
+            except Exception:
+                log.exception("on_event failed")
+
+    def execute(self) -> dict:
+        n = len(self.parts)
+        part_results = []
+        for i, (pid, path) in enumerate(self.parts, 1):
+            self.emit({"type": "thought", "text": f"Zusammengesetzte Karte: Teil {i} von {n} wird analysiert.",
+                       "ms": 0}, pid)
+            r = _Run(pid, path, self.model, self.exclude_ids, lambda item, pid=pid: self.emit(item, pid),
+                     self.client).execute()
+            part_results.append(r)
+        best_i, best = max(enumerate(part_results, 1), key=lambda x: x[1]["overall_confidence"])
+        self.emit({"type": "final", "ms": 0, "text": f"Zusammengesetzte Karte mit {n} Teilen, Ergebnis vom "
+                   f"sichersten Teil {best_i}: {_final_line(best['fields'], best['overall_confidence'], None)}"})
+        usage = {k: 0 for k in ("input_tokens", "output_tokens", "cache_read_input_tokens",
+                                "cache_creation_input_tokens", "api_calls")}
+        usage.update(cost_usd=0.0, budget_hit=False)
+        for r in part_results:
+            for k in usage:
+                if k == "budget_hit":
+                    usage[k] = usage[k] or r["usage"].get(k, False)
+                elif k == "cost_usd":
+                    usage[k] = round(usage[k] + r["usage"].get(k, 0.0), 6)
+                else:
+                    usage[k] += r["usage"].get(k, 0)
+        return {
+            **best,
+            "photo_id": self.photo_id,
+            "run_id": f"{_now()}-{secrets.token_hex(2)}",
+            "composite": {"is_composite": True, "parts": [r["photo_id"] for r in part_results]},
+            "trace": self.trace,
+            "usage": usage,
+            "created_at": _now(),
+            "part_results": part_results,  # results.save writes each part to its own file
         }
 
 

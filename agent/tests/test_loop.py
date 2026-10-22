@@ -283,3 +283,50 @@ def test_fake_mode_replays_fixture_without_a_client(monkeypatch):
     r = loop.analyze("stasz:1", on_event=events.append)
     assert r["photo_id"] == "stasz:1" and events
     schemas.validate(r, "analysis_result")
+
+
+# ---------- composite cards ----------
+
+
+def _with_crops(monkeypatch, n=2):
+    base = loop.dp.get_record(FIXTURE_ID)
+    crops = {f"{FIXTURE_ID}#{i}": {**base, "id": f"{FIXTURE_ID}#{i}", "parent_id": FIXTURE_ID,
+                                   "crop_bbox": [0, 0, 10, 10]} for i in range(1, n + 1)}
+    monkeypatch.setattr(loop.dp, "get_record", lambda pid: crops.get(pid) or (base if pid == FIXTURE_ID else None))
+
+
+def test_composite_card_runs_each_part_and_parent_takes_the_most_confident(monkeypatch):
+    from agent import results
+
+    _with_crops(monkeypatch)
+    weak = {**submit_input(muni="Schwyz", muni_conf=0.4), "overall_confidence": 0.4}
+    r, fake, events = _run(monkeypatch, [
+        response(tool_use(SUBMIT, weak, "a1")),
+        response(tool_use(SUBMIT, submit_input(), "b1")),
+    ])
+    assert len(fake.calls) == 2
+    assert r["composite"] == {"is_composite": True, "parts": [f"{FIXTURE_ID}#1", f"{FIXTURE_ID}#2"]}
+    assert r["photo_id"] == FIXTURE_ID and r["fields"]["municipality"]["value"] == "Ingenbohl"
+    assert [p["fields"]["municipality"]["value"] for p in r["part_results"]] == ["Schwyz", "Ingenbohl"]
+    assert r["usage"]["cost_usd"] == round(sum(p["usage"]["cost_usd"] for p in r["part_results"]), 6)
+    # one live trace across both parts, numbered through, every part step tagged
+    assert [t["step"] for t in r["trace"]] == list(range(1, len(r["trace"]) + 1)) and events == r["trace"]
+    assert {t.get("part") for t in r["trace"][:-1]} == {f"{FIXTURE_ID}#1", f"{FIXTURE_ID}#2"}
+    assert r["trace"][-1]["type"] == "final" and "Teil 2" in r["trace"][-1]["text"]
+    # parts are saved on their own; the parent file lists them but does not embed them
+    results.save(r)
+    parent = results.load(FIXTURE_ID)
+    assert "part_results" not in parent and parent["composite"]["parts"] == r["composite"]["parts"]
+    schemas.validate(parent, "analysis_result")
+    assert results.load(f"{FIXTURE_ID}#1")["fields"]["municipality"]["value"] == "Schwyz"
+
+
+def test_a_crop_is_never_split_again(monkeypatch):
+    _with_crops(monkeypatch)
+    r, fake, _ = _run(monkeypatch, [response(tool_use(SUBMIT, submit_input(), "c1"))], photo_id=f"{FIXTURE_ID}#1")
+    assert r["composite"] is None and len(fake.calls) == 1
+
+
+def test_single_card_without_crops_is_not_composite(monkeypatch):
+    r, fake, _ = _run(monkeypatch, [response(tool_use(SUBMIT, submit_input(), "d1"))])
+    assert r["composite"] is None and "part_results" not in r
