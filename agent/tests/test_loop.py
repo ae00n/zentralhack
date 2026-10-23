@@ -157,7 +157,7 @@ def test_request_shape(monkeypatch):
     first = call["messages"][0]["content"]
     assert first[0]["type"] == "image" and first[1]["type"] == "text"  # image first, then text
     assert "No metadata for this photo" in first[1]["text"]  # an archive card: nothing but the image
-    assert "never invent" in call["system"][0]["text"] and "Dating is not your job" in call["system"][0]["text"]
+    assert "Never invent, but commit" in call["system"][0]["text"] and "Dating is not your job" in call["system"][0]["text"]
     # no catalogue metadata of the query (title, places, municipality) in the prompt
     assert "Vierwaldstättersee mit Urirotstock" not in first[1]["text"]
 

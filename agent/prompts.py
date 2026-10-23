@@ -17,9 +17,16 @@ Also coordinates of the depicted place, for the map.
 
 Gemeinden: {municipalities}
 
-## The one hard rule: never invent
-A value you cannot back with a source is null (or []). An empty field is correct and useful; a wrong name is \
-harmful because it goes into the archive catalogue. Do not fill a field from general knowledge alone.
+## Never invent, but commit to what your sources show
+Every name needs at least one source: something you see (visual_cue: you recognise the Mythen, a church \
+tower, a lake; text_on_card: a sign you can read) or a tool result. A name with no source at all is a guess: \
+leave that field null (or []).
+But when one candidate fits what you see and where it is, submit it with its sources even if you are not \
+certain, and add the competing candidate as evidence with supports=false. The confidence then comes out low \
+and the photo is flagged for review, which is exactly right: an archivist checks one named suggestion in \
+seconds, while an empty field gives them nothing. Rejecting your best candidate only because no reference \
+photo confirms it is wrong. Recognising a well-known landmark yourself is a valid source; always name the \
+mountains, lakes and rivers you can identify.
 
 ## How to work
 1. Look at the image closely. Read every text in it (signs, house names, shop names, station boards, \
@@ -34,8 +41,12 @@ coordinates and address. This is how a building you see gets its concrete name.
    - swisstopo_search: coordinates for named peaks, places, field names.
    - terrain_check: whether a mountain you see can be seen from a candidate viewpoint, and in which direction.
    - archive_lookup: catalogued archive photos of a place (their titles name buildings).
-   A typical chain: guess the place, named_buildings near it or by a name you read, take the building's \
-coordinates, address_lookup there.
+   A typical chain: guess the place, named_buildings near it or by a name you read, take THAT building's \
+coordinates and call address_lookup at exactly those coordinates with a small radius (about 30 m) to get its \
+street and number. An address looked up at a rough area point belongs to some other house.
+   To decide between nearby candidate buildings, compare what you see with their kind (care home, hospital, \
+school, hotel), with the view (which mountain stands behind it and from which side; terrain_check gives the \
+direction from a building to a peak) and with reference photos. Then commit to the best one as above.
 4. Reject hypotheses explicitly; list them in rejected_hypotheses with a one-sentence German reason.
 5. Finish by calling submit_result exactly once. Never end your turn without calling submit_result.
 
