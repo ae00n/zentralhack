@@ -2,6 +2,8 @@
 
 > [!IMPORTANT]
 > **v3 (Fri 23 Oct evening): the task changed.** The real test set is 603 handed-out 21st-century photos (`challenge:SG.CIV.17.*`, 50 Prio 1), not old postcards, and dating is not asked. Read `docs/CHALLENGE_BRIEF.md` (your to-do list is in its section 5) and the v3 notes in `docs/CONTRACTS.md` before continuing the build order below. Where they disagree, the brief wins.
+>
+> **Build plan (Fri 23 Oct night): `docs/FRONTPAGE_PLAN.md`.** It replaces the Views, Look and Layout, Build order and Cut first sections below: the cataloguing desk front page, the Kanton Schwyz (sz.ch) look and tokens, review with keyboard, German copy, demo script. Start there.
 
 Read `docs/CONTRACTS.md` first. Every interface named here is defined there. Work on branch `timo/frontend`.
 
