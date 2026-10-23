@@ -14,7 +14,7 @@ import sys
 import time
 from pathlib import Path
 
-from . import config, results
+from . import config, consistency, results
 
 OUT = config.CACHE_DIR / "report.html"
 FIELDS = [("locality", "Ortschaft"), ("municipality", "Gemeinde"), ("buildings", "Gebäude"),
@@ -71,6 +71,11 @@ def _card(photo_id: str) -> tuple[str, dict | None]:
     img = _image_src(photo_id)
     pic = f'<img src="{_esc(img)}" alt="" loading="lazy">' if img else '<div class="noimg">kein Bild lokal</div>'
     accepted = not cur.get("needs_review")
+    cons = cur.get("consistency")
+    stable = "" if not cons else (
+        f' <span class="chip stab" title="{_esc(cons.get("runs"))} Läufe, gleicher Ort">stabil</span>'
+        if cons.get("agree") else
+        f' <span class="chip unstable" title="{_esc(" / ".join(consistency.place(v) for v in cons.get("values") or []))}">instabil</span>')
     rows = []
     for name, label in FIELDS:
         v, c = _val(cur, name), _conf(cur, name)
@@ -97,7 +102,7 @@ def _card(photo_id: str) -> tuple[str, dict | None]:
                        for h in (cur.get("rejected_hypotheses") or [])[:4])
     card = f'''<article class="card">
   <header><h2>{_esc(photo_id.split(":", 1)[-1])}</h2>
-    <span class="chip {"ok" if accepted else "review"}">{"akzeptiert" if accepted else "Prüfung nötig"}</span>
+    <span class="chip {"ok" if accepted else "review"}">{"akzeptiert" if accepted else "Prüfung nötig"}</span>{stable}
     <span class="overall num">{cur["overall_confidence"]:.2f}</span>{overall_before}</header>
   <div class="body">
     <div class="pic">{pic}</div>
@@ -121,6 +126,7 @@ def build(ids: list[str], title: str, refresh: int | None = None) -> str:
             done.append(cur)
     accepted = sum(1 for r in done if not r.get("needs_review"))
     changed = sum(1 for pid in ids if len(results.history(pid)) > 1)
+    unstable = sum(1 for r in done if (r.get("consistency") or {}).get("agree") is False)
     cost = sum((r.get("usage") or {}).get("cost_usd", 0) for r in done)
     meta = f'<meta http-equiv="refresh" content="{refresh}">' if refresh else ""
     stamp = time.strftime("%d.%m.%Y %H:%M:%S")
@@ -158,6 +164,7 @@ td {{ padding:3px 0; vertical-align:top; }} td em {{ color:var(--muted); }}
 .pill.low {{ background:var(--low-bg); color:var(--low); }} .pill.none {{ background:var(--none-bg); color:var(--muted); }}
 .chip {{ font-size:.75rem; font-weight:600; padding:2px 8px; border-radius:999px; }}
 .chip.ok {{ background:var(--ok-bg); color:var(--ok); }} .chip.review {{ background:var(--mid-bg); color:var(--mid); }} .chip.none {{ background:var(--none-bg); color:var(--muted); }}
+.chip.stab {{ background:var(--ok-bg); color:var(--ok); }} .chip.unstable {{ background:var(--low-bg); color:var(--low); }}
 .before {{ font-size:.8rem; color:var(--muted); text-decoration:line-through; text-decoration-color:var(--low); }}
 .before .num {{ text-decoration:none; }}
 .why {{ color:var(--muted); font-size:.85rem; margin:8px 0; }}
@@ -172,11 +179,13 @@ ul {{ margin:6px 0 0; padding-left:18px; }} .hist {{ list-style:none; padding:0;
   <div class="stat"><b>{accepted}</b><span>akzeptiert (≥ 0.90)</span></div>
   <div class="stat"><b>{len(done) - accepted}</b><span>Prüfung nötig</span></div>
   <div class="stat"><b>{changed}</b><span>mit Vorher-Nachher</span></div>
+  <div class="stat"><b>{unstable}</b><span>instabil (Läufe uneinig)</span></div>
   <div class="stat"><b>${cost:.2f}</b><span>Kosten aktuelle Läufe</span></div>
 </div>
 <div class="toolbar" role="group" aria-label="Filter">
   <button class="on" data-f="all">Alle</button><button data-f="ok">Akzeptiert</button>
   <button data-f="review">Prüfung nötig</button><button data-f="changed">Vorher-Nachher</button>
+  <button data-f="unstable">Instabil</button>
 </div>
 <div class="grid">{"".join(cards)}</div>
 <script>
@@ -186,7 +195,8 @@ document.querySelectorAll('.toolbar button').forEach(b => b.addEventListener('cl
   const f = b.dataset.f;
   cards.forEach(c => {{
     const show = f === 'all' || (f === 'ok' && c.querySelector('.chip.ok')) ||
-      (f === 'review' && c.querySelector('.chip.review')) || (f === 'changed' && c.querySelector('.delta'));
+      (f === 'review' && c.querySelector('.chip.review')) || (f === 'changed' && c.querySelector('.delta')) ||
+      (f === 'unstable' && c.querySelector('.chip.unstable'));
     c.hidden = !show;
   }});
 }}));

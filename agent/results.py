@@ -36,14 +36,27 @@ def archive(photo_id: str) -> Path | None:
     return dest
 
 
+def add_history(result: dict) -> Path:
+    """Write a run straight into the history without making it the current result (the runs of a
+    consistency check that were not kept). A composite parent's parts go into their own histories."""
+    for part in result.get("part_results") or []:
+        add_history(part)
+    result = {k: v for k, v in result.items() if k != "part_results"}
+    dest = _history_dir(result["photo_id"]) / (_safe(result.get("run_id") or "unknown") + ".json")
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+    return dest
+
+
 def history(photo_id: str) -> list[dict]:
     """Every result of this photo, oldest first, the current one last."""
     out = [json.loads(p.read_text(encoding="utf-8")) for p in _history_dir(photo_id).glob("*.json")] \
         if _history_dir(photo_id).exists() else []
     current = load(photo_id)
-    if current and current.get("run_id") not in {r.get("run_id") for r in out}:
-        out.append(current)
-    return sorted(out, key=lambda r: r.get("created_at") or "")
+    if current:
+        out = [r for r in out if r.get("run_id") != current.get("run_id")]
+    out.sort(key=lambda r: r.get("created_at") or "")
+    return out + [current] if current else out
 
 
 def load(photo_id: str, model: str | None = None) -> dict | None:

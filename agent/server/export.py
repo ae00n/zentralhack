@@ -114,9 +114,12 @@ def _file_name(record: dict, photo_id: str) -> str:
 
 
 def _needs_review(result: dict) -> bool:
-    """v3 rule, also applied to results written before v3: below 0.9, or Ortschaft / Gemeinde unknown."""
+    """v3 rule, also applied to results written before v3: below 0.9, or Ortschaft / Gemeinde unknown,
+    or independent runs of the consistency check named different places (agent.consistency)."""
     core_unknown = any(_field(result, n).get("value") in (None, "") for n in ("locality", "municipality"))
-    return bool(result.get("needs_review")) or (result.get("overall_confidence") or 0) < 0.9 or core_unknown
+    unstable = (result.get("consistency") or {}).get("agree") is False
+    return bool(result.get("needs_review")) or (result.get("overall_confidence") or 0) < 0.9 or core_unknown \
+        or unstable
 
 
 def _cell(col: str, v) -> str:
@@ -152,7 +155,11 @@ METHOD = [
                          "Name geraten; leere Felder stehen in der Spalte Nicht_bestimmbar."),
     ("Konfidenz gesamt", "Der tiefere Wert von Ortschaft und Gemeinde, plus 0.05, wenn auch Gebäude und "
                          "Strasse bestimmt sind."),
-    ("Prüfung nötig", "ja, wenn die Gesamtkonfidenz unter 0.90 liegt oder Ortschaft oder Gemeinde fehlt. "
+    ("Konsistenzprüfung", "Jedes Foto kann mehrmals unabhängig analysiert werden. Nennen die Analysen "
+                          "verschiedene Ortschaften oder Gemeinden, ist die Gesamtkonfidenz auf höchstens 0.60 "
+                          "begrenzt und eine Prüfung nötig; die Begründung nennt beide Orte."),
+    ("Prüfung nötig", "ja, wenn die Gesamtkonfidenz unter 0.90 liegt, Ortschaft oder Gemeinde fehlt oder "
+                      "unabhängige Analysen verschiedene Orte nennen. "
                       "Nach einem Review (bestätigt oder korrigiert) nein; korrigierte Werte ersetzen die "
                       "Vorschläge der KI."),
     ("Zählende Quellen", "Gebäudeadressverzeichnis (swisstopo), benanntes Gebäude aus OSM oder dem "
