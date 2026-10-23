@@ -33,7 +33,7 @@ interface Props {
   fieldKey?: string;
 }
 
-const GRID = "grid grid-cols-[88px_minmax(0,1fr)_56px] items-baseline gap-x-3 sm:grid-cols-[112px_minmax(0,1fr)_56px]";
+const GRID = "grid grid-cols-[100px_minmax(0,1fr)_44px] items-baseline gap-x-3 sm:grid-cols-[112px_minmax(0,1fr)_56px]";
 
 /** Top supporting source kinds, German, without repeats: "Adressverzeichnis · Benanntes Gebäude". */
 function sourceKinds(evidence: Evidence[], max = 3): string[] {

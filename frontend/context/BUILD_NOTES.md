@@ -514,3 +514,14 @@ What was checked on the laptop:
 
 **Not built**
 - Nothing from the item's scope.
+
+## polish item 8: Phone pass at 390 px (24.10.)
+
+**Check:** no horizontal scroll; sticky review bar; kbd hints hidden on touch. Done (headless Chrome 390×844, `isMobile` + `hasTouch`, mock mode): desk and detail are exactly 390 px wide; no `<kbd>` is visible on either page (`pointer: coarse`); with the fields on screen the review bar sits at the bottom (800 to 832 px of 844), Bestätigen stretched with Korrigieren beside it. Desk: 52 px header with the strip, KPIs as one meta line, segmented "Liste | Karte" (map tab 390×591), full-width Excel button, new rows. Detail: toolbar (breadcrumb, then Foto | Vergleich | Karte and ‹ 2 von 3 ›) → photo → inspector → sticky review bar. A `demo` production build passes.
+
+**Special**
+- Most of the phone layout came with items 2 to 7 (each responsive class was written with the phone in mind); this item checked it and fixed one thing: the field row label column was 88 px on the phone, so "See/Fluss/Berg" plus its chevron ran into the value. Now `100px | value | 44px` below `sm` (112 / 56 from `sm`).
+- No filmstrip exists yet; when item 12 adds it, it must be hidden on the phone (polish 6).
+
+**Not built**
+- Nothing from the item's scope.
