@@ -2,7 +2,8 @@
 
 // Analyse / "Ort & Zeit" (build step 3). Layout follows the team mock (question 2.1, 2.10):
 // left = map (step 4) + Zeitreise (step 9), right = photo, result, trace.
-// Mock and demo mode replay the cached trace (step 5); live mode streams it (step 8).
+// Mock and demo mode replay the cached trace (step 5). Live mode shows a cached result at once and
+// streams a new analysis over SSE when asked (step 8); it never starts one on its own (costs money).
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -10,8 +11,19 @@ import MapPanel from "@/components/analyse/MapPanel";
 import PhotoPanel from "@/components/analyse/PhotoPanel";
 import ResultPanel from "@/components/analyse/ResultPanel";
 import TraceLog from "@/components/analyse/TraceLog";
-import { ApiError, MODE, errorText, getDemo, getPhoto, getResult, replayTrace } from "@/lib/api";
+import {
+  ApiError,
+  MODE,
+  errorText,
+  followAnalysis,
+  getDemo,
+  getPhoto,
+  getResult,
+  replayTrace,
+  startAnalysis,
+} from "@/lib/api";
 import { analyseHref } from "@/lib/format";
+import { estimatedYear } from "@/lib/timeline";
 import type { AnalysisResult, PhotoRecord, TraceItem } from "@/lib/types";
 
 function decodeId(raw: string | string[] | undefined): string {
@@ -32,7 +44,52 @@ export default function AnalysePage() {
   const [steps, setSteps] = useState<TraceItem[]>([]);
   const [replaying, setReplaying] = useState(false);
   const [demoIds, setDemoIds] = useState<string[]>([]);
+  // Live mode: an analysis is streaming, or it ended with an error (German text).
+  const [analysing, setAnalysing] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
   const cancelReplay = useRef<(() => void) | undefined>(undefined);
+  const cancelLive = useRef<(() => void) | undefined>(undefined);
+
+  const startLive = useCallback(
+    async (fresh: boolean) => {
+      cancelLive.current?.();
+      let cancelled = false;
+      cancelLive.current = () => {
+        cancelled = true;
+      };
+      setResult(null);
+      setMissing(false);
+      setFailure(null);
+      setSteps([]);
+      setAnalysing(true);
+      try {
+        const job = await startAnalysis(id, fresh);
+        if (cancelled) return;
+        cancelLive.current = followAnalysis(job.job_id, {
+          onTrace: (item) => setSteps((prev) => [...prev, item]),
+          onResult: (res) => {
+            setAnalysing(false);
+            if (res.status === "error") {
+              setFailure(res.error || "Die Analyse ist fehlgeschlagen.");
+              setSteps(res.trace ?? []);
+            } else {
+              setResult(res);
+              setSteps(res.trace ?? []);
+            }
+          },
+          onError: (e) => {
+            setAnalysing(false);
+            setFailure(`Verbindung zur Analyse verloren: ${errorText(e)}.`);
+          },
+        });
+      } catch (e) {
+        if (cancelled) return;
+        setAnalysing(false);
+        setFailure(`Analyse konnte nicht starten: ${errorText(e)}.`);
+      }
+    },
+    [id],
+  );
 
   const startReplay = useCallback((res: AnalysisResult) => {
     cancelReplay.current?.();
@@ -61,6 +118,8 @@ export default function AnalysePage() {
     setMissing(false);
     setError(null);
     setSteps([]);
+    setAnalysing(false);
+    setFailure(null);
 
     Promise.all([getPhoto(id), getResult(id)])
       .then(([rec, res]) => {
@@ -86,6 +145,7 @@ export default function AnalysePage() {
     return () => {
       stale = true;
       cancelReplay.current?.();
+      cancelLive.current?.(); // the job keeps running on the server; only the stream closes
     };
   }, [id, startReplay]);
 
@@ -96,7 +156,8 @@ export default function AnalysePage() {
     setReplaying(false);
   };
 
-  const showResult = result && !replaying;
+  const showResult = result && !replaying && !analysing;
+  const canRunLive = MODE === "live" && record && !analysing;
   // Nothing of the result shows before the replay ends, the map included.
   const coords = showResult ? result.fields.coordinates?.value : null;
   const canReplay = MODE !== "live" && showResult && result.trace?.length > 0;
@@ -115,6 +176,11 @@ export default function AnalysePage() {
               Analyse erneut abspielen
             </button>
           )}
+          {canRunLive && showResult && (
+            <button type="button" onClick={() => startLive(true)} className="hover:text-accent">
+              Neu analysieren
+            </button>
+          )}
           {nextDemo && (
             <Link href={analyseHref(nextDemo)} className="hover:text-accent">
               Nächste Karte →
@@ -131,16 +197,36 @@ export default function AnalysePage() {
           <div className="order-2 lg:order-1">
             <MapPanel
               coords={coords ?? null}
-              emptyText={showResult ? "Keine Koordinaten" : missing ? "Keine Analyse" : "Ort wird bestimmt ..."}
+              emptyText={
+                showResult ? "Keine Koordinaten" : missing || failure ? "Keine Analyse" : "Ort wird bestimmt ..."
+              }
+              startYear={showResult ? estimatedYear(result) : null}
+              photoId={id}
             />
           </div>
 
           <div className="order-1 space-y-6 lg:order-2">
             <PhotoPanel record={record} />
 
-            {missing && <p className="text-ink-muted">Für dieses Foto liegt noch keine Analyse vor.</p>}
+            {missing && (
+              <div className="flex flex-wrap items-baseline justify-between gap-3 border-y border-rule py-3">
+                <p className="text-ink-muted">Für dieses Foto liegt noch keine Analyse vor.</p>
+                {canRunLive && <StartButton onClick={() => startLive(false)}>Analyse starten</StartButton>}
+              </div>
+            )}
 
-            {result && !showResult && (
+            {failure && (
+              <div className="flex flex-wrap items-baseline justify-between gap-3 border-y border-rule py-3">
+                <p className="text-bad">{failure}</p>
+                {canRunLive && <StartButton onClick={() => startLive(true)}>Erneut versuchen</StartButton>}
+              </div>
+            )}
+
+            {analysing && (
+              <p className="border-y border-rule py-3 text-ink-muted">Ort und Zeitraum werden bestimmt ...</p>
+            )}
+
+            {result && replaying && (
               <div className="flex items-baseline justify-between border-y border-rule py-3">
                 <p className="text-ink-muted">Ort und Zeitraum werden bestimmt ...</p>
                 <button type="button" onClick={skipReplay} className="text-meta text-ink-muted hover:text-accent">
@@ -150,10 +236,22 @@ export default function AnalysePage() {
             )}
             {showResult && <ResultPanel result={result} />}
 
-            {steps.length > 0 && <TraceLog items={steps} running={replaying} />}
+            {(steps.length > 0 || analysing) && <TraceLog items={steps} running={replaying || analysing} />}
           </div>
         </div>
       )}
     </main>
+  );
+}
+
+function StartButton({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded border border-ink px-3 py-1.5 text-meta hover:border-accent hover:text-accent"
+    >
+      {children}
+    </button>
   );
 }

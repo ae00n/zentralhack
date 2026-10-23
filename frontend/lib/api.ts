@@ -292,7 +292,91 @@ export async function downloadExport(format: ExportFormat, ids?: string[]): Prom
   return rows;
 }
 
-// --- trace replay (mock + demo mode; live mode streams SSE, build step 8) ---
+// --- live analysis (live mode, build step 8) ---
+
+/** POST /analyze. fresh bypasses the backend cache (a cache hit returns a job that is already done). */
+export async function startAnalysis(photoId: string, fresh = false): Promise<{ job_id: string; photo_id: string }> {
+  const url = `${API_URL}/analyze${query({ fresh: fresh ? 1 : undefined })}`;
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ photo_id: photoId }),
+    });
+  } catch {
+    throw new ApiError(0, url);
+  }
+  if (!res.ok) throw new ApiError(res.status, url);
+  return res.json();
+}
+
+export interface AnalysisHandlers {
+  onTrace: (item: TraceItem) => void;
+  /** The final AnalysisResult; status "error" carries a German message in `error`. */
+  onResult: (result: AnalysisResult) => void;
+  /** Neither the stream nor polling reach the backend any more. */
+  onError: (e: unknown) => void;
+}
+
+const POLL_MS = 1000;
+
+/**
+ * Follows a job: SSE (`event: trace` per step, then `event: result`) on /analyze/{job_id}/events.
+ * If the stream breaks before the result, it falls back to polling GET /analyze/{job_id} every second
+ * (question 3.1). Trace items arrive at most once per step. Returns a cancel function.
+ */
+export function followAnalysis(jobId: string, h: AnalysisHandlers): () => void {
+  let done = false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const seen = new Set<number>();
+
+  const trace = (item: TraceItem) => {
+    if (done || seen.has(item.step)) return;
+    seen.add(item.step);
+    h.onTrace(item);
+  };
+  const finish = (result: AnalysisResult) => {
+    if (done) return;
+    result.trace?.forEach(trace); // steps the stream may have missed
+    done = true;
+    es.close();
+    h.onResult(result);
+  };
+
+  const poll = async () => {
+    if (done) return;
+    try {
+      const snap = await getJson<AnalysisResult>(`${API_URL}/analyze/${enc(jobId)}`);
+      if (snap.status === "running" || snap.status === "queued") {
+        snap.trace?.forEach(trace);
+        timer = setTimeout(poll, POLL_MS);
+      } else finish(snap);
+    } catch (e) {
+      if (done) return;
+      done = true;
+      h.onError(e);
+    }
+  };
+
+  const es = new EventSource(`${API_URL}/analyze/${enc(jobId)}/events`);
+  es.addEventListener("trace", (ev) => trace(JSON.parse((ev as MessageEvent).data)));
+  es.addEventListener("result", (ev) => finish(JSON.parse((ev as MessageEvent).data)));
+  // EventSource would reconnect on its own and replay the job from step 1; poll instead.
+  es.onerror = () => {
+    if (done) return;
+    es.close();
+    poll();
+  };
+
+  return () => {
+    done = true;
+    es.close();
+    if (timer) clearTimeout(timer);
+  };
+}
+
+// --- trace replay (mock + demo mode) ---
 
 // A real trace can have 20+ steps; the pitch cannot wait a minute for it.
 const REPLAY_MAX_MS = 15_000;

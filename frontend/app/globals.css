@@ -70,3 +70,38 @@ body {
 .maplibregl-ctrl-group button + button {
   border-top-color: var(--rule);
 }
+
+/* Zeitreise slider (components/analyse/Zeitreise.tsx): 2px rule track, round accent thumb like the map pin. */
+.zeitreise-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 14px;
+  background: transparent;
+  cursor: pointer;
+}
+.zeitreise-slider::-webkit-slider-runnable-track {
+  height: 2px;
+  background: var(--rule);
+}
+.zeitreise-slider::-moz-range-track {
+  height: 2px;
+  background: var(--rule);
+}
+.zeitreise-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -6px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--paper);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.zeitreise-slider::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--paper);
+  box-shadow: 0 0 0 1px var(--accent);
+}

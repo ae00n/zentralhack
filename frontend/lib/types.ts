@@ -109,6 +109,9 @@ export interface AnalysisResult {
   trace: TraceItem[];
   usage: { input_tokens: number; output_tokens: number; cost_usd: number; budget_hit: boolean } | null;
   created_at: string;
+  /** status "error" only: German message for the UI (Said's jobs.py), plus a technical detail. */
+  error?: string;
+  error_detail?: string;
 }
 
 export interface Health {

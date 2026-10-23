@@ -56,7 +56,7 @@ Keep appending: a new section per step, and update an older section when somethi
 - Jahrzehnt row shows `year_range` too: "1900er · 1898 bis 1907" (question 2.4). Rejected hypotheses on `year_range` are filed under that row.
 - Each row expands (chevron, `aria-expanded`) to its evidence: "dafür" / "dagegen" (dagegen in `--warn`), summary, German kind label, score in mono, "Quelle" link when `url` is set. Rejected values show as a muted "Verworfen: Flüelen, Sisikon" line under the row and with their reasons when expanded. All rejected hypotheses are also in a collapsed "Verworfene Hypothesen (n)" section (view 2 spec).
 - German labels for fields, evidence kinds (incl. the date_hints kinds, question 3.7) and tool names in `lib/labels.ts`; unknown keys show raw.
-- Replay: in mock and demo mode the trace replays step by step and nothing of the result (fields and map coordinates) shows until it ends, so the demo never spoils itself. "Überspringen" cancels the replay and shows everything. Live mode shows the full trace at once until step 8.
+- Replay: in mock and demo mode the trace replays step by step and nothing of the result (fields and map coordinates) shows until it ends, so the demo never spoils itself. "Überspringen" cancels the replay and shows everything. Live mode shows a cached result and its full trace at once (no replay); a new analysis streams (done in step 8).
 - Trace log is a `<details>` open by default ("Analyse läuft" while replaying, then "Analyseschritte (n)"), so it never jumps or remounts when the replay ends.
 - IDs from the URL are decoded with `decodeURIComponent`; a crop-style id (`%231`) round-trips correctly. Unknown id: "Dieses Foto gibt es nicht."
 - `mocks/results.ts`: `stasz:mock-02` gets a low-confidence variant (Gemeinde 0.44, Ort unknown 0.20, Jahrzehnt 0.32, `needs_review: true`, one "dagegen" evidence, matching final trace line). Mock `getResult` also sets `photo_id` to the requested id.
@@ -110,7 +110,7 @@ Keep appending: a new section per step, and update an older section when somethi
 
 ## Step 6: Export buttons (23.10.)
 
-**Check:** the downloaded CSV opens in Excel. Done in mock mode: headless Chrome clicked every button (Archiv all, Archiv selection of 2, Analyse CSV + JSON), 5 files saved, CSVs start with the UTF-8 BOM. Excel (COM, on Timo's laptop) opens `zeitreise-schwyz_alle.csv` as 23 columns, umlauts and the `;`-joined lists inside quotes intact. Not yet checked against Said's real `/export.csv` (backend was not running).
+**Check:** the downloaded CSV opens in Excel. Done in mock mode: headless Chrome clicked every button (Archiv all, Archiv selection of 2, Analyse CSV + JSON), 5 files saved, CSVs start with the UTF-8 BOM. Excel (COM, on Timo's laptop) opens `zeitreise-schwyz_alle.csv` as 23 columns, umlauts and the `;`-joined lists inside quotes intact. Checked in step 8 against Said's real `/export.csv` (fake mode): BOM, `;`, header + one row.
 
 **Special**
 - "CSV herunterladen" / "JSON herunterladen" in one component (`components/ExportButtons.tsx`), used under the result (that photo only) and in the Archiv header.
@@ -149,3 +149,50 @@ Keep appending: a new section per step, and update an older section when somethi
 - The "Noch keine Auswertung" state and the fixture guard are not seen in a test (backend not running).
 - The Fehlerfall link goes to `/analyse/<id>`; whether that page has a cached result for eval photos depends on the backend. In mock mode the fixture id `stasz:361043` does not exist, so the link shows "Dieses Foto gibt es nicht."
 - Year metrics from `metrics` (median year error, range coverage, "≤ Poststempel") and `decade_posted_at_or_before` are not shown. The big decade numbers cover the year side for the jury; add them if the team wants them.
+
+---
+
+## Step 8: Live SSE trace (23.10.)
+
+**Check:** steps fade in as Said's server emits them. Done against Said's server (`said/agent` 4fbd332, `AGENT_FAKE=1 DATA_PIPELINE_STUB=1`) with the frontend in live mode: headless Chrome counted one more trace line about every 300 ms (his fake delay), the result appeared only with the `result` event. Screenshots: no analysis yet, running, done.
+
+**Special**
+- **No auto-start in live mode.** Opening a photo never starts an analysis (each real run costs money and time). Cached result (`/results/{id}`): shown at once with its full trace, plus "Neu analysieren" top right (`POST /analyze?fresh=1`). No result: "Für dieses Foto liegt noch keine Analyse vor." with an "Analyse starten" button. For the pitch this extra click is also the moment the presenter starts the agent.
+- Said's SSE format (`agent/server/app.py`): `event: trace` with one TraceItem, then `event: result` with the full AnalysisResult, `: ping` comments every 15 s. There is no `event: error`: a failed job ends with a `result` whose `status` is `"error"` and whose `error` is a German message (`jobs.py`, e.g. "Kein API-Schlüssel gesetzt", "Kostenlimit erreicht"). The page shows that message in `--bad` with "Erneut versuchen". Question 3.1 answered.
+- `startAnalysis()` + `followAnalysis()` in `lib/api.ts`. `followAnalysis` uses `EventSource` and closes it on `result`; otherwise EventSource would reconnect after the server ends the stream and replay the job from step 1. On a stream error before the result it switches to polling `GET /analyze/{job_id}` every second (question 3.1 default). Trace items are de-duplicated by `step`, and steps from the final result that the stream missed are added.
+- While the stream runs, the result and the map stay hidden ("Ort und Zeitraum werden bestimmt ...", map "Ort wird bestimmt ..."), the same rule as the replay. No "Überspringen" in live mode (nothing to skip to).
+- Leaving the page or switching photos closes the stream only; the job keeps running on the server, and Said's backend shares a running job when the same photo is started again.
+- Starting fails (backend down, 404, 400): "Analyse konnte nicht starten: ..." with "Erneut versuchen". Stream and polling both fail: "Verbindung zur Analyse verloren: Backend nicht erreichbar (...)"; the steps received so far stay visible. Tested by killing the backend mid-stream (fake delay raised to 1.5 s in a scratch copy of Said's code, not in the repo).
+- `AnalysisResult` type gained `error` / `error_detail` (Said's `jobs.py`, not in the contract).
+- Test setup: Next 16 allows one dev server per folder, and Turbopack does not follow a junctioned `node_modules`. The live test ran from a full copy of `frontend/` with its own `npm ci` on port 3001.
+
+**Not built**
+- Polling that recovers (stream breaks, backend still up) is not seen in a test; only the case where both fail.
+- A real (non-fake) run with Claude is not tested: no API key and no `data/` on this laptop. Real traces are longer and slower; the log simply grows.
+- Upload (`POST /analyze` with a file): on the SCOPE_3 cut list (question 2.6).
+
+---
+
+## Step 9: Zeitreise (23.10.)
+
+**Check:** every year from 1864 to today shows a map; snapping never requests an invalid TIME. Done in mock mode (online swisstopo): headless Chrome set the slider to every year from 1864 to 2026 and logged every tile response. 168 tile responses, 0 errors, every requested zeitreihen TIME was in `map_years`, the "© swisstopo · ..." line was there for all 163 years. Screenshots at the start year, 1864, 1900, 1950, 2021, 2026.
+
+**Special**
+- Lives in the Analyse screen under the map (default of question 2.1), not as `/zeitreise`. The base layer of the existing map follows the slider; pin and circle stay.
+- Slider runs from 1864 to the current year, step 1. Snapping (`lib/timeline.ts`, `snapToMap`): the nearest value in `map_years` (a tie goes to the earlier sheet); years after the last sheet (2021) show "Heute" = SWISSIMAGE. Only values from `map_years` are ever requested; without `map_years` (timeline failed) the map stays on SWISSIMAGE. Verified live on 23.10.: an invalid TIME (`19050101`) gets HTTP 400 from swisstopo.
+- **Start year = the analysis' own estimate** (middle of `year_range`, else decade + 5), so the map first shows the time of the photo (fixture: 1903, sheet 1904). No estimate: today.
+- Header line: the slider year big in mono `--accent`, then "Karte von 1904" or "Heute, Luftbild SWISSIMAGE". The map's own line says "© swisstopo · Zeitreise 1904" or "· SWISSIMAGE".
+- Axis under the slider: a thin tick per map sheet, a small dot per archive photo (the nearest one in `--accent`), mono labels every 20 years. No chips.
+- Archive photos of this place from `/timeline` (default radius 1000 m): the nearest to the slider year shown large (title, "1904 · signature · 420 m entfernt", archive credit, "Dieses Foto ansehen →" unless it is the photo under analysis), and below a horizontal strip of all dated ones, captioned "1904 · SG.CIV.12.xxx"; clicking one moves the slider to its year. Photo year = exact year or middle of the range; undated photos are left out (they have no place on the axis). At most 40 photos.
+- Titles, signatures and credits come from `/photos/{id}` per strip photo (`TimelinePhoto` only has id, years, distance). The strip shows ids until the records arrive; missing records stay as ids (mock mode: the fixture timeline points at stasz ids that do not exist in mock).
+- Images use `imageUrl(id)` instead of the timeline's `image_url`: same backend route, and mock mode gets the sample image.
+- `MapView` got `tilesMaxZoom`: zeitreihen is capped at z16 (tiles past z16 are tiny / blank on swisstopo, probed on 23.10.), MapLibre scales z16 up. A source's maxzoom is fixed, so switching between SWISSIMAGE (19) and zeitreihen (16) removes and re-adds the source under the circle; between two zeitreihen years only `setTiles` runs. `raster-fade-duration` 300 ms softens the switch.
+- The map follows the slider 150 ms late, so dragging across many sheets does not request every one on the way.
+- Slider look: custom CSS in `globals.css` (`.zeitreise-slider`): 2 px rule track, round accent thumb like the map pin (the theme has no `rounded-full`).
+- Online the backend only returns 12 `map_years` (its fallback list) although swisstopo has every year 1844 to 2021; offline it returns the cached ones. See question 3.4.
+
+**Not built**
+- While `/timeline` loads, the map briefly shows SWISSIMAGE before it switches to the start year's sheet (no `map_years` yet). Short, and reads as "from today back in time", so left as is.
+- Not tested against Said's `/timeline` (backend not running for this step) or offline tiles (no `data/` on this laptop).
+- Old sheets (1864) look very coarse at the default zoom: the original Dufour map is 1:100 000. No zoom change per sheet.
+- Phone width not checked in a screenshot (same headless limit as step 4).

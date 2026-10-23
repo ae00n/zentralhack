@@ -1,6 +1,7 @@
 "use client";
 
 // MapLibre with one swisstopo raster layer, a pin and the uncertainty circle (radius_m).
+// The layer can change (Zeitreise years, step 9); raster-fade softens the switch.
 // Client only (MapLibre needs window): load it with next/dynamic and ssr: false.
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -11,6 +12,8 @@ export interface MapViewProps {
   center: Coordinates;
   /** Raster template from tileTemplate(). */
   tiles: string;
+  /** Highest zoom the layer has real tiles for; MapLibre scales up beyond it. zeitreihen: 16. */
+  tilesMaxZoom?: number;
   /** Layer name after "© swisstopo", e.g. "SWISSIMAGE". */
   layerLabel: string;
   /** Offline the tile cache only has zoom 12 to 17 around the demo areas (question 4.2). */
@@ -48,12 +51,17 @@ function token(name: string, fallback: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
 }
 
-export default function MapView({ center, tiles, layerLabel, offline }: MapViewProps) {
+function baseSource(tiles: string, maxzoom: number): maplibregl.RasterSourceSpecification {
+  return { type: "raster", tiles: [tiles], tileSize: 256, maxzoom };
+}
+
+export default function MapView({ center, tiles, tilesMaxZoom = 19, layerLabel, offline }: MapViewProps) {
+  const sourceMaxZoom = Math.min(tilesMaxZoom, offline ? 17 : 19);
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const marker = useRef<maplibregl.Marker | null>(null);
   // What the map shows now, so the effects below only act on real changes (not on mount).
-  const shown = useRef({ center, tiles });
+  const shown = useRef({ center, tiles, sourceMaxZoom });
 
   // Create once; the effects below follow prop changes.
   useEffect(() => {
@@ -64,11 +72,11 @@ export default function MapView({ center, tiles, layerLabel, offline }: MapViewP
       style: {
         version: 8,
         sources: {
-          base: { type: "raster", tiles: [tiles], tileSize: 256, maxzoom: offline ? 17 : 19 },
+          base: baseSource(tiles, sourceMaxZoom),
           uncertainty: { type: "geojson", data: circleData(center) },
         },
         layers: [
-          { id: "base", type: "raster", source: "base" },
+          { id: "base", type: "raster", source: "base", paint: { "raster-fade-duration": 300 } },
           {
             id: "uncertainty-fill",
             type: "fill",
@@ -98,7 +106,7 @@ export default function MapView({ center, tiles, layerLabel, offline }: MapViewP
     pin.className = "map-pin";
     marker.current = new maplibregl.Marker({ element: pin }).setLngLat([center.lon, center.lat]).addTo(m);
     map.current = m;
-    shown.current = { center, tiles };
+    shown.current = { center, tiles, sourceMaxZoom };
     // The container can still change size while the page lays out; fit once more when the map is ready.
     m.once("load", () => {
       m.resize();
@@ -129,12 +137,24 @@ export default function MapView({ center, tiles, layerLabel, offline }: MapViewP
 
   useEffect(() => {
     const m = map.current;
-    if (!m || shown.current.tiles === tiles) return;
+    if (!m || (shown.current.tiles === tiles && shown.current.sourceMaxZoom === sourceMaxZoom)) return;
+    const sameZoom = shown.current.sourceMaxZoom === sourceMaxZoom;
     shown.current.tiles = tiles;
-    const apply = () => (m.getSource("base") as maplibregl.RasterTileSource | undefined)?.setTiles([tiles]);
+    shown.current.sourceMaxZoom = sourceMaxZoom;
+    const apply = () => {
+      if (sameZoom) {
+        (m.getSource("base") as maplibregl.RasterTileSource | undefined)?.setTiles([tiles]);
+        return;
+      }
+      // A source's maxzoom is fixed, so swapping SWISSIMAGE (19) and zeitreihen (16) rebuilds it.
+      m.removeLayer("base");
+      m.removeSource("base");
+      m.addSource("base", baseSource(tiles, sourceMaxZoom));
+      m.addLayer({ id: "base", type: "raster", source: "base", paint: { "raster-fade-duration": 300 } }, "uncertainty-fill");
+    };
     if (m.isStyleLoaded()) apply();
     else m.once("load", apply);
-  }, [tiles]);
+  }, [tiles, sourceMaxZoom]);
 
   return (
     <div className="relative h-full w-full">

@@ -92,6 +92,7 @@ Default: mock layout, archive-look styling as in SCOPE_3. Confirm the team still
 - Cache hit: does the stream send all trace items then `result` immediately? Default: yes, and the frontend replays them with delays itself.
 - Heartbeats / reconnect? Default: no reconnect; on error fall back to polling `GET /analyze/{job_id}` every 1 s.
 Blocks: step 8.
+Answered (23.10., Said's code on `said/agent` 4fbd332): `event: trace` and `event: result` as in the default, `: ping` every 15 s, no `event: error` (a failed job sends `result` with `status: "error"` and a German `error`). Cache hit sends all trace items, then `result`. Built in step 8, with the polling fallback.
 
 **3.2 IDs in URL paths.** IDs contain `:` and crops contain `#` (`stasz:514200#1`). An unencoded `#` is cut off as a fragment.
 Default: frontend sends `encodeURIComponent(id)` in every path (`stasz%3A514200%231`). Backend must decode. Please confirm with a crop id.
@@ -106,6 +107,7 @@ Blocks: offline demo.
 **3.4 Which `map_years` does `/timeline` return offline?**
 Online the contract says GetCapabilities values (many years). The offline cache has only 16 TIMEs, one per decade, 1870s to 2020s (`data/tiles/manifest.json`). If `/timeline` returns the online list while offline, the slider asks for tiles that are not cached and the map goes blank.
 Ask: when `offline: true`, return the manifest years. Default: frontend snaps to whatever `map_years` it gets; in demo mode the slider moves in decade steps.
+Answered (23.10., Said's code on `said/agent` 4fbd332): `/timeline` always returns the manifest years when `data/tiles/manifest.json` exists, else a fixed list of 12 (1864 to 2021), online too. Offline is safe. Online the slider only uses those 12 sheets although swisstopo has all 178 years 1844 to 2021 (checked in GetCapabilities on 23.10.); returning the full list online would be Said's change, the frontend needs none.
 
 **3.5 `status: "needs_review"` vs `needs_review: true`.** Which does a finished result have?
 Default: frontend treats either as "Prüfung nötig".
@@ -133,6 +135,7 @@ Default: no search box at first; frontend sorts nothing itself.
 **3.11 Upload flow (only if 2.6 is yes).** `photo_id` of an upload (`upload:<sha1>`?), are `/photos/{id}` and `/images/{id}` available for it afterwards, max size, formats.
 
 **3.12 When is `AGENT_FAKE=1` running on :8000?** It is the first thing that lets the frontend leave mock mode. Needed before the Fri 23:00 checkpoint at the latest.
+Answered (23.10.): runs from `said/agent` with `AGENT_FAKE=1 DATA_PIPELINE_STUB=1 uvicorn agent.server.app:app --port 8000`; step 8 was tested against it.
 
 **3.13 `/export.json` row shape.** No fixture. Default: same keys as the CSV header.
 Answered (23.10., Said's code on `said/agent` 4fbd332): same keys as the CSV header. Built that way in step 6.
