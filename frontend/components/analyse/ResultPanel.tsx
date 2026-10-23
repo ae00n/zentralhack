@@ -52,7 +52,8 @@ function Editor({ k, edit }: { k: ReviewField; edit: EditState }) {
       list={GEMEINDE_FIELDS.includes(k) ? "gemeinden-list" : undefined}
       placeholder="nicht bestimmbar"
       autoComplete="off"
-      className="w-full rounded border border-ink-muted px-2 py-1 text-base focus-visible:border-ink-muted focus-visible:ring-2 focus-visible:ring-focus/50"
+      // Same width in every row: the value column of the field grid (polish 4, field input recipe).
+      className="h-8 w-full rounded border border-rule/[0.12] bg-paper px-2 text-base text-ink outline-none transition-colors duration-hover placeholder:text-ink-muted hover:border-rule/20 focus-visible:ring-2 focus-visible:ring-focus/50"
     />
   );
 }
@@ -66,17 +67,23 @@ export default function ResultPanel({ result, edit }: { result: AnalysisResult; 
 
   return (
     <section className="fade-in">
-      <h2 id="erschliessung-heading" tabIndex={-1} className="text-h3">
-        Erschliessung
-      </h2>
-
-      <div className="mt-3">
-        <p className="text-ui text-ink-muted">Titel</p>
-        <p className="text-h2 font-normal">{title ?? "nicht bestimmbar"}</p>
-        <p className="mt-0.5 text-meta text-ink-muted">{provenance(result)}</p>
+      <div className="flex items-baseline justify-between gap-3">
+        <h2
+          id="erschliessung-heading"
+          tabIndex={-1}
+          className="rounded-sm text-meta font-medium uppercase tracking-[0.06em] text-ink-muted"
+        >
+          Erschliessung
+        </h2>
+        <p className="text-meta text-ink-muted">{provenance(result)}</p>
       </div>
 
-      <div className="mt-4 divide-y divide-rule/[0.08] border-y border-rule/[0.12]">
+      {/* Suggested title in the archive pattern "Objekt, Ort" (Titel). */}
+      <p className="mt-1 text-h1 text-ink" title="Titel (Vorschlag)">
+        {title ?? <span className="text-ink-muted">nicht bestimmbar</span>}
+      </p>
+
+      <div className="mt-3 border-t border-rule/[0.06]">
         {rows.map(({ key, label }) => {
           const field = result.fields[key];
           const corrected = isReviewField(key) && isCorrected(result, key);
@@ -111,12 +118,12 @@ export default function ResultPanel({ result, edit }: { result: AnalysisResult; 
 
       {rejected.length > 0 && (
         <details className="group mt-3">
-          <summary className="cursor-pointer text-ui text-ink-muted hover:text-ink-strong">
+          <summary className="cursor-pointer list-none text-meta text-ink-muted hover:text-ink">
             Verworfene Hypothesen ({rejected.length})
           </summary>
           <ul className="mt-2 space-y-1.5">
             {rejected.map((r, i) => (
-              <li key={i} className="grid grid-cols-[112px_1fr] gap-3 text-ui">
+              <li key={i} className="grid grid-cols-[88px_1fr] gap-3 text-ui sm:grid-cols-[112px_1fr]">
                 <span className="text-ink-muted">{fieldLabel(r.field)}</span>
                 <span>
                   <span className="font-medium">{formatAny(r.value)}</span>
@@ -132,19 +139,19 @@ export default function ResultPanel({ result, edit }: { result: AnalysisResult; 
   );
 }
 
-/** sz.ch .box: paper-2 with a 4px left border; cert-check when the photo needs review. */
+/** Begründung box (polish 4): soft paper-2, 2 px left border in cert-check, or cert-sure when sicher. */
 function Begruendung({ result, review }: { result: AnalysisResult; review: boolean }) {
   const sure = !review && result.overall_confidence >= SURE;
   return (
-    <div className={`mt-4 border-l-4 bg-paper-2 px-4 py-3 ${sure ? "border-ink-muted" : "border-cert-check"}`}>
-      <p className="text-base">
-        Modell-Sicherheit gesamt <span className="font-mono">{formatPct(result.overall_confidence)}</span>
+    <div className={`mt-4 rounded border-l-2 bg-paper-2/70 px-3 py-2.5 text-base ${sure ? "border-cert-sure" : "border-cert-check"}`}>
+      <p>
+        Modell-Sicherheit gesamt <span className="tnum font-medium">{formatPct(result.overall_confidence)}</span>
         {" · "}
         {sure ? <span>sicher</span> : <span className="text-warn">Prüfung nötig</span>}
         {result.usage?.budget_hit && <span className="text-warn"> · Budget erreicht</span>}
       </p>
       {result.confidence_explanation && (
-        <p className="mt-1 text-ui">
+        <p className="mt-1">
           <span className="text-ink-muted">Begründung: </span>
           {result.confidence_explanation}
         </p>

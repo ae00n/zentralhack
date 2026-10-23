@@ -499,3 +499,18 @@ What was checked on the laptop:
 
 **Not built**
 - Nothing from the item's scope (field rows and the Excel-Zeile layout are item 7).
+
+## polish item 7: Field rows + edit mode (24.10.)
+
+**Check:** K turns all 5 values into equal-width inputs; Excel-Zeile shows all columns without horizontal scroll. Done (mock mode, SG.CIV.17.12): after K the five inputs are 215 px each; the Excel-Zeile lists all 9 columns as key/value pairs and its width equals its client width (407 px, no scroll); after correcting Gemeinde to "Arth" and Enter, the cells Gemeinde, Pruefung_noetig and Review_Status flash and the row shows "~~Ingenbohl~~ → Arth" with "korrigiert · KI: Ingenbohl". No console errors.
+
+**Special**
+- `FieldRow.tsx` follows the polish field row recipe: one grid `112px | minmax(0,1fr) | 56px` (88 px label on the phone) for the label, the value with its meta line(s) under it, and the percentage right-aligned; hairline `rule/[0.06]` between rows; hover `paper-2/50` on rows that expand. The chevron moved next to the label (12 px, rotates 90° when open) because the recipe has no fourth column. The evidence list opens under the value in the same grid (300 ms fade).
+- Edit mode uses the same grid, so every input sits in the value column at the same width: `h-8 rounded border rule/[0.12] px-2 text-base`, blue ring on focus-visible; "KI: {value}" under it.
+- `Confidence.tsx`: Inter `text-ui tnum` (was mono), warn below 0.9.
+- Erschliessung head: section label "ERSCHLIESSUNG" with the provenance on the right ("KI-Vorschlag · ungeprüft" / "geprüft · bestätigt …"), then the suggested title as `text-h1` (title attribute "Titel (Vorschlag)"; the separate "Titel" label is gone, as in the polish sketch).
+- Begründung box: `rounded bg-paper-2/70 px-3 py-2.5 text-base`, 2 px left border `cert-check`, or `cert-sure` when sicher (was ink-muted); the overall percentage in tnum medium.
+- `ExcelRow.tsx`: a two-column `<dl>` (136 px mono keys, mono values that wrap) instead of the horizontal table; a changed value flashes from `accent-soft/[0.06]` in 400 ms (same `cell-flash`, now on the soft accent).
+
+**Not built**
+- Nothing from the item's scope.
