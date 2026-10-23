@@ -164,9 +164,10 @@ METHOD = [
                       "Vorschläge der KI."),
     ("Zählende Quellen", "Gebäudeadressverzeichnis (swisstopo), benanntes Gebäude aus OSM oder dem "
                          "Gebäuderegister GWR, geometrisch verifiziertes "
-                         "Referenzfoto (LightGlue) aus Staatsarchiv / E-Pics / Smapshot / LUBIS (ein nur "
-                         "ähnliches Foto zählt nicht), Archivdatensatz, "
-                         "swisstopo-Ortsname, Geländeprüfung (Sichtlinie), Text im Bild, Bildinhalt, "
+                         "Referenzfoto (LightGlue) aus Staatsarchiv / E-Pics / Smapshot / LUBIS / Wikimedia Commons, "
+                         "oder ein Referenzfoto mit bekanntem Aufnahmeort am vermuteten Ort, das dieselben Gebäude "
+                         "zeigt (ein nur ähnliches Foto zählt nicht), Archivdatensatz, "
+                         "swisstopo-Ortsname, Geländeprüfung (Sichtlinie oder Blickpunkt aus den sichtbaren Bergen), Text im Bild, Bildinhalt, "
                          "Session-Foto (gleiche Kamera, unter 30 Minuten), EXIF-GPS. Werkzeug-Quellen zählen "
                          "nur, wenn das Werkzeug in dieser Analyse wirklich aufgerufen wurde."),
     ("Einordnung", "Die Skala ist eine begründete Selbsteinschätzung, keine gemessene Trefferquote. Die "

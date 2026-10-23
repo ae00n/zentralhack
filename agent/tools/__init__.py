@@ -6,7 +6,7 @@ The order of definitions() is fixed so the tools block stays byte-identical acro
 
 import time
 
-from . import archive, places, similar, submit, swisstopo, terrain
+from . import archive, nearby, places, similar, submit, swisstopo, terrain, viewpoint
 from .base import ToolContext, ToolOutput
 
 _RUNNERS = {
@@ -16,6 +16,8 @@ _RUNNERS = {
     "terrain_check": terrain.run,
     "address_lookup": places.run_address_lookup,
     "named_buildings": places.run_named_buildings,
+    "viewpoint_search": viewpoint.run,
+    "photos_near": nearby.run,
 }
 
 SUBMIT = submit.NAME
@@ -23,7 +25,8 @@ SUBMIT = submit.NAME
 
 def definitions(municipalities: list[str]) -> list[dict]:
     return [similar.DEFINITION, places.NAMED_BUILDINGS, places.ADDRESS_LOOKUP, swisstopo.DEFINITION,
-            archive.DEFINITION, terrain.DEFINITION, submit.definition(municipalities)]
+            viewpoint.DEFINITION, nearby.DEFINITION, archive.DEFINITION, terrain.DEFINITION,
+            submit.definition(municipalities)]
 
 
 def run_tool(name: str, tool_input: dict, ctx: ToolContext) -> tuple[ToolOutput, int]:

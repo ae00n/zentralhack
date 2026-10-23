@@ -92,6 +92,11 @@ def _isolated(monkeypatch, tmp_path):
     monkeypatch.setattr(llm, "_degraded", False)
     monkeypatch.setattr(config, "FAKE", False)
     monkeypatch.setattr(config, "CACHE_DIR", tmp_path / "cache")
+    # the automatic register check after the answer: silent by default (no register data at the point)
+    monkeypatch.setattr(loop.dp, "address_lookup", lambda lat, lon, **kw: {})
+
+
+REGISTER = {"ortschaft": "Brunnen", "municipality": "Ingenbohl", "in_canton": True, "addresses": []}
 
 
 def _run(monkeypatch, responses, errors=(), **kw):
@@ -152,8 +157,8 @@ def test_request_shape(monkeypatch):
     assert call["output_config"] == {"effort": loop.EFFORT}
     assert call["system"][-1]["cache_control"] == {"type": "ephemeral"}
     names = [t["name"] for t in call["tools"]]
-    assert names == ["similar_images", "named_buildings", "address_lookup", "swisstopo_search", "archive_lookup",
-                     "terrain_check", SUBMIT]
+    assert names == ["similar_images", "named_buildings", "address_lookup", "swisstopo_search", "viewpoint_search",
+                     "photos_near", "archive_lookup", "terrain_check", SUBMIT]
     first = call["messages"][0]["content"]
     assert first[0]["type"] == "image" and first[1]["type"] == "text"  # image first, then text
     assert "No metadata for this photo" in first[1]["text"]  # an archive card: nothing but the image
@@ -389,3 +394,39 @@ def test_session_and_exif_evidence_do_not_count_without_a_source(monkeypatch):
     sub["municipality"]["evidence"] += [ev("session_photo", "Session-Foto"), ev("exif", "EXIF-GPS")]
     r, _, _ = _run(monkeypatch, [response(tool_use(SUBMIT, sub, "t1"))], photo_id="challenge:SG.CIV.17.3")
     assert r["fields"]["municipality"]["confidence"] == 0.5
+
+
+# ---------- automatic register check after the answer ----------
+
+
+def test_register_check_adds_a_source_when_it_agrees(monkeypatch):
+    monkeypatch.setattr(loop.dp, "address_lookup", lambda lat, lon, **kw: dict(REGISTER))
+    r, _, events = _run(monkeypatch, [response(tool_use(SUBMIT, submit_input(sources=1), "t1"))])
+    # 1 own source + the official register at the answer's point = 2 sources
+    assert r["fields"]["municipality"]["confidence"] == 0.7
+    assert any(t.get("tool") == "address_lookup" and t["input"].get("auto") for t in r["trace"])
+
+
+def test_register_check_caps_a_contradicted_answer(monkeypatch):
+    monkeypatch.setattr(loop.dp, "address_lookup", lambda lat, lon, **kw: {"ortschaft": "Gersau", "municipality": "Gersau"})
+    r, _, _ = _run(monkeypatch, [response(tool_use(SUBMIT, submit_input(), "t1"))])
+    assert r["fields"]["municipality"]["confidence"] == 0.6 and r["needs_review"] is True
+    against = [e for e in r["fields"]["municipality"]["evidence"] if e["supports"] is False]
+    assert against and "Gersau" in against[0]["summary"]
+
+
+def test_register_check_skips_rough_coordinates(monkeypatch):
+    calls = []
+    monkeypatch.setattr(loop.dp, "address_lookup", lambda lat, lon, **kw: calls.append(1) or dict(REGISTER))
+    sub = submit_input()
+    sub["coordinates"]["value"]["radius_m"] = 5000
+    _run(monkeypatch, [response(tool_use(SUBMIT, sub, "t1"))])
+    assert calls == []
+
+
+def test_exif_focal_length_reaches_the_tools(monkeypatch):
+    _challenge(monkeypatch)
+    rec = loop.dp.get_record("challenge:SG.CIV.17.3")
+    rec["raw"]["exif"]["focal_35mm"] = 50
+    run = loop._Run("challenge:SG.CIV.17.3", None, config.MODEL, [], None, None)
+    assert run.ctx.focal_35mm == 50.0

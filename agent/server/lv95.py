@@ -9,3 +9,11 @@ def wgs84_to_lv95(lat: float, lon: float) -> tuple[float, float]:
     n = (1200147.07 + 308807.95 * p + 3745.25 * l ** 2 + 76.63 * p ** 2
          - 194.56 * l ** 2 * p + 119.79 * p ** 3)
     return e, n
+
+
+def lv95_to_wgs84(e: float, n: float) -> tuple[float, float]:
+    """(lat, lon) in degrees, the inverse swisstopo approximate formulas."""
+    y, x = (e - 2600000) / 1e6, (n - 1200000) / 1e6
+    lon = 2.6779094 + 4.728982 * y + 0.791484 * y * x + 0.1306 * y * x * x - 0.0436 * y ** 3
+    lat = 16.9023892 + 3.238272 * x - 0.270978 * y * y - 0.002528 * x * x - 0.0447 * y * y * x - 0.0140 * x ** 3
+    return lat * 100 / 36, lon * 100 / 36

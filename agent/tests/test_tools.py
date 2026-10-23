@@ -185,7 +185,8 @@ def test_tool_definitions_are_strict_and_stable():
     assert json.dumps(defs, sort_keys=False) == json.dumps(definitions(names), sort_keys=False)
     for d in defs:
         # submit_result is too large for strict mode; the v3 places tools stay non-strict to keep the grammar small
-        assert d.get("strict", False) is (d["name"] not in ("submit_result", "named_buildings", "address_lookup"))
+        assert d.get("strict", False) is (d["name"] not in ("submit_result", "named_buildings", "address_lookup",
+                                                            "viewpoint_search", "photos_near"))
         for node in _walk(d["input_schema"]):
             if node.get("type") == "object" or (isinstance(node.get("type"), list) and "object" in node["type"]):
                 assert node.get("additionalProperties") is False, d["name"]
@@ -260,3 +261,62 @@ def test_terrain_check_tool_uses_the_cache_and_rejects_bad_distances(monkeypatch
     assert "Sichtlinie frei" in a.summary and len(calls) == 1 and b.data == a.data
     too_close = terrain.run(ctx, from_lat=47.0, from_lon=8.6, to_lat=47.0, to_lon=8.6)
     assert too_close.is_error and calls == calls[:1]
+
+
+# ---------- viewpoint_search and photos_near ----------
+
+import math as _math
+
+from agent.server.lv95 import lv95_to_wgs84, wgs84_to_lv95
+from agent.tools import nearby, viewpoint
+
+
+def _flat_profile(url, **kw):
+    return [{"dist": i * 100.0, "alts": {"COMB": 435.0 if i < 50 else 2000.0}, "easting": 0, "northing": 0}
+            for i in range(51)]
+
+
+def test_viewpoint_recovers_a_known_camera_spot(monkeypatch):
+    monkeypatch.setattr(viewpoint, "cached_get", _flat_profile)
+    monkeypatch.setattr(viewpoint.dp, "address_lookup", lambda lat, lon, **kw: {"ortschaft": "Brunnen", "municipality": "Ingenbohl", "in_canton": True})
+    true_e, true_n = wgs84_to_lv95(46.9962, 8.6058)          # Brunnen lakeshore
+    heading, focal = 200.0, 28.0
+    fov = viewpoint.field_of_view(focal)
+    marks = []
+    for name, bearing, dist in (("A", 185.0, 10000), ("B", 200.0, 15000), ("C", 220.0, 8000)):
+        e = true_e + dist * _math.sin(_math.radians(bearing))
+        n = true_n + dist * _math.cos(_math.radians(bearing))
+        lat, lon = lv95_to_wgs84(e, n)
+        theta = _math.radians(bearing - heading)
+        x = 0.5 + _math.tan(theta) / (2 * _math.tan(fov / 2))
+        marks.append({"name": name, "lat": lat, "lon": lon, "x": x})
+    ctx = ToolContext(photo_id="x", image_path="x.jpg", exclude_ids=["x"], focal_35mm=focal)
+    out = viewpoint.run(ctx, landmarks=marks)
+    best = out.data["spots"][0]
+    be, bn = wgs84_to_lv95(best["lat"], best["lon"])
+    assert _math.hypot(be - true_e, bn - true_n) < 500 and best["error_deg"] < 1.0
+    assert abs(best["heading_deg"] - heading) <= 3 and best["direction"] == "S"
+    assert out.data["focal_source"] == "exif" and "Brunnen" in out.summary
+
+
+def test_viewpoint_needs_two_landmarks():
+    ctx = ToolContext(photo_id="x", image_path="x.jpg")
+    assert viewpoint.run(ctx, landmarks=[{"name": "A", "lat": 47.0, "lon": 8.6, "x": 0.5}]).is_error
+
+
+def test_field_of_view_of_a_35mm_lens():
+    assert round(_math.degrees(viewpoint.field_of_view(35.0)), 1) == 54.4
+    assert viewpoint.field_of_view(35.0, portrait=True) < viewpoint.field_of_view(35.0)
+
+
+def test_photos_near_sorts_excludes_the_photo_and_allows_citing(monkeypatch):
+    recs = [(47.0001, 8.6001, {"id": "commons:1", "source": "commons", "title": "Kirche"}),
+            (47.0010, 8.6000, {"id": "epics:2", "source": "epics", "title": "Dorf"}),
+            (47.0000, 8.6000, {"id": "challenge:SG.CIV.17.3", "source": "commons"}),
+            (47.1000, 8.7000, {"id": "commons:far", "source": "commons"})]
+    monkeypatch.setattr(nearby, "_index", lambda: tuple(recs))
+    monkeypatch.setattr(nearby.dp, "image_file", lambda rec: None)
+    ctx = ToolContext(photo_id="challenge:SG.CIV.17.3", image_path="x.jpg", exclude_ids=["challenge:SG.CIV.17.3"])
+    out = nearby.run(ctx, lat=47.0, lon=8.6, radius_m=300)
+    assert [p["id"] for p in out.data["photos"]] == ["commons:1", "epics:2"]
+    assert "commons:1" in ctx.verified_refs and "Kirche" in out.summary

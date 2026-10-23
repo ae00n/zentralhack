@@ -52,11 +52,17 @@ def _known(value) -> bool:
     return value not in (None, "", [])
 
 
+# a terrain source can come from either geometry tool; a similar_image also from photos_near
+ALSO_FROM = {"terrain": {"viewpoint_search"}, "similar_image": {"photos_near"}}
+
+
 def _real(e: dict, tools_called: set[str], allowed: set[str], verified: set[str]) -> bool:
     """Is this evidence backed by something that really happened in this analysis?"""
+    if e.get("auto"):  # added by our own check after the answer (loop._register_check)
+        return True
     kind = e.get("kind")
     tool = NEEDS_TOOL.get(kind)
-    if tool and tool not in tools_called:
+    if tool and tool not in tools_called and not (ALSO_FROM.get(kind, set()) & tools_called):
         return False
     if kind in ("session_photo", "exif") and kind not in allowed:
         return False
@@ -81,7 +87,8 @@ def counted(evidence: list[dict], tools_called: set[str], allowed: set[str] = fr
         if e.get("supports") is False or not _real(e, tools_called, allowed, verified):
             continue
         kind = e.get("kind")
-        key = (kind, e.get("ref_id") or e.get("url") or "")
+        key = (kind, e.get("ref_id") or e.get("url") or "")  # the auto register check and the model's own
+                                                             # address_lookup are the same source: counted once
         if key in seen:
             continue
         seen.add(key)

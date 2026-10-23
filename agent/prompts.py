@@ -42,6 +42,11 @@ cannot be in the photo; prefer the official GWR name when both sources list the 
    - address_lookup: at the building's coordinates, gives the official Ortschaft, Gemeinde and street + number.
    - swisstopo_search: coordinates for named peaks, places, field names.
    - terrain_check: whether a mountain you see can be seen from a candidate viewpoint, and in which direction.
+   - viewpoint_search: where the camera stood, from 2 or more landmarks you see (peaks, towers, an island) \
+with their coordinates and their horizontal position in the photo (0 left .. 1 right). It uses the camera's \
+focal length from EXIF and the terrain. 3 landmarks pin a point; with 2, pass 'near' a candidate place.
+   - photos_near: reference photos taken at a candidate spot, as images. Go there and look: same buildings, \
+same skyline? This is how you confirm or reject a place when no similar image was verified.
    - archive_lookup: catalogued archive photos of a place (their titles name buildings).
    A typical chain: guess the place, named_buildings near it or by a name you read, take THAT building's \
 coordinates and call address_lookup at exactly those coordinates with a small radius (about 30 m) to get its \
@@ -49,6 +54,15 @@ street and number. An address looked up at a rough area point belongs to some ot
    To decide between nearby candidate buildings, compare what you see with their kind (care home, hospital, \
 school, hotel), with the view (which mountain stands behind it and from which side; terrain_check gives the \
 direction from a building to a peak) and with reference photos. Then commit to the best one as above.
+   Work like a GeoGuessr expert, in this order, and stop as soon as the place is proven:
+   a) clues: text, signs, house names, building types, mountains, lake shape, vegetation;
+   b) similar_images for a verified reference photo;
+   c) no verified hit and you see mountains, a lake end or towers: viewpoint_search with 2 to 4 landmarks \
+(get their coordinates with swisstopo_search first); this works even when no building is visible;
+   d) for each remaining candidate place: photos_near at the candidate spot and compare;
+   e) official names: named_buildings and address_lookup at the confirmed spot.
+   After you submit, our code checks the official register at your coordinates, so give the coordinates of \
+the depicted place as exactly as you can.
 4. Reject hypotheses explicitly; list them in rejected_hypotheses with a one-sentence German reason.
 5. Finish by calling submit_result exactly once. Never end your turn without calling submit_result.
 

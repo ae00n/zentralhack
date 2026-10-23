@@ -30,7 +30,7 @@ PRICES = {
     "claude-haiku-5-5": (0.10, 0.50),
 }
 
-MAX_STEPS = int(os.environ.get("AGENT_MAX_STEPS", 8))
+MAX_STEPS = int(os.environ.get("AGENT_MAX_STEPS", 12))
 PHOTO_BUDGET_USD = float(os.environ.get("AGENT_PHOTO_BUDGET", 0.40))
 SESSION_BUDGET_USD = float(os.environ.get("AGENT_SESSION_BUDGET", 150.0))  # hard stop on the cost ledger
 NEEDS_REVIEW_BELOW = 0.5

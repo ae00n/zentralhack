@@ -20,7 +20,10 @@ class ToolContext:
     exclude_ids: list[str] = field(default_factory=list)  # always includes photo_id when set
     tools_called: set[str] = field(default_factory=set)   # filled by run_tool; confidence only counts
                                                           # tool-backed evidence when the tool really ran
-    verified_refs: set[str] = field(default_factory=set)  # ids of similar_images hits with verified=true
+    verified_refs: set[str] = field(default_factory=set)  # similar_images hits with verified=true, and
+                                                          # photos_near references at a known position
+    focal_35mm: float | None = None  # EXIF 35 mm equivalent focal length (viewpoint_search)
+    portrait: bool = False           # image taller than wide: the long sensor side is vertical
 
     def excluded_bases(self) -> set[str]:
         return {base_id(i) for i in self.exclude_ids}

@@ -125,6 +125,11 @@ class _Run:
         self.photo_id = photo_id or _upload_id(self.image_path)
         excl = ([photo_id] if photo_id else []) + [i for i in exclude_ids if i]
         self.ctx = ToolContext(photo_id=photo_id, image_path=self.image_path, exclude_ids=list(dict.fromkeys(excl)))
+        exif = ((self.record or {}).get("raw") or {}).get("exif") or {}
+        if isinstance(exif.get("focal_35mm"), (int, float)) and exif["focal_35mm"] > 0:
+            self.ctx.focal_35mm = float(exif["focal_35mm"])
+        size = (self.record or {}).get("image") or {}
+        self.ctx.portrait = bool(size.get("height") and size.get("width") and size["height"] > size["width"])
         self.run_id = f"{_now()}-{secrets.token_hex(2)}"
         self.trace: list[dict] = []
         self.usage = {"input_tokens": 0, "output_tokens": 0, "cache_read_input_tokens": 0,
@@ -237,6 +242,35 @@ class _Run:
 
         return self._result(submitted, reason, names)
 
+    def _register_check(self, f: dict) -> None:
+        """Our own check after the answer (no model call): what does the official register say at the
+        answer's coordinates? The same Ortschaft / Gemeinde adds a source, a different one is a real
+        counter-source. Skipped when the coordinates are too rough to decide."""
+        c = (f.get("coordinates") or {}).get("value") or {}
+        if c.get("lat") is None or (c.get("radius_m") or 0) > REGISTER_CHECK_MAX_RADIUS_M:
+            return
+        try:
+            a = dp.address_lookup(c["lat"], c["lon"], radius_m=100, limit=1)
+        except Exception:
+            log.warning("register check failed", exc_info=True)
+            return
+        if not (a.get("ortschaft") or a.get("municipality")):
+            return  # nothing at that point to compare with
+        for name, official in (("locality", a.get("ortschaft")), ("municipality", a.get("municipality"))):
+            given = f[name]["value"]
+            if not given or not official:
+                continue
+            same = _same_place(given, official)
+            label = "Ortschaft" if name == "locality" else "Gemeinde"
+            summary = (f"Automatische Prüfung: das amtliche Verzeichnis nennt am Antwortpunkt dieselbe {label} ({official})."
+                       if same else
+                       f"Automatische Prüfung: das amtliche Verzeichnis nennt am Antwortpunkt {label} {official}, nicht {given}.")
+            # "auto": run by our code, so it counts without the model having called address_lookup
+            f[name]["evidence"].append({"kind": "address_register", "summary": summary, "supports": same, "auto": True})
+        self.emit({"type": "tool_call", "tool": "address_lookup", "input": {"lat": c["lat"], "lon": c["lon"], "auto": True},
+                   "output_summary": f"Automatische Prüfung am Antwortpunkt: {a.get('ortschaft') or '?'}, "
+                                     f"Gemeinde {a.get('municipality') or '?'}", "ms": 0})
+
     def _context(self) -> str:
         """Facts about the photo that are not the answer: file name, EXIF date and camera, EXIF GPS, and the
         results of photos from the same session. Catalogue titles and places are never given (they are
@@ -282,6 +316,8 @@ class _Run:
     def _result(self, submitted: dict | None, reason: str | None, names: list[str]) -> dict:
         body = submit.normalize(submitted, names) if submitted is not None else submit.fallback(reason)
         f = body["fields"]
+        if submitted is not None:
+            self._register_check(f)
         allowed = getattr(self, "allowed", set())
         verified = self.ctx.verified_refs
         scored = confidence.apply(f, self.ctx.tools_called, allowed, verified)
@@ -369,6 +405,17 @@ class _Composite:
             "created_at": _now(),
             "part_results": part_results,  # results.save writes each part to its own file
         }
+
+
+REGISTER_CHECK_MAX_RADIUS_M = 1500  # coarser coordinates cannot decide a Gemeinde boundary
+
+
+def _same_place(a: str, b: str) -> bool:
+    """'Küssnacht (SZ)' == 'Küssnacht', 'Stoos SZ' == 'Stoos'."""
+    def norm(x: str) -> str:
+        x = x.casefold().replace("(sz)", "").strip()
+        return x[:-3].strip() if x.endswith(" sz") else x
+    return norm(a) == norm(b)
 
 
 def _final_line(f: dict, overall: float, reason: str | None) -> str:
