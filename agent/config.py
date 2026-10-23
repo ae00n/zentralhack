@@ -32,5 +32,5 @@ PRICES = {
 
 MAX_STEPS = int(os.environ.get("AGENT_MAX_STEPS", 8))
 PHOTO_BUDGET_USD = float(os.environ.get("AGENT_PHOTO_BUDGET", 0.40))
-SESSION_BUDGET_USD = 80.0
+SESSION_BUDGET_USD = float(os.environ.get("AGENT_SESSION_BUDGET", 150.0))  # hard stop on the cost ledger
 NEEDS_REVIEW_BELOW = 0.5
