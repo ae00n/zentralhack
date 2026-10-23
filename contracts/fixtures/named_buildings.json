@@ -1,0 +1,4 @@
+[
+  {"name": "Alterszentrum Acherhof", "kind": "Alters-/Pflegeheim", "lat": 47.01837, "lon": 8.65724, "address": "Grundstrasse 32", "municipality": "Schwyz", "osm": "https://www.openstreetmap.org/way/0", "wikidata": null, "alt_names": [], "tags": {"amenity": "nursing_home", "building": "yes"}, "distance_m": 0},
+  {"name": "Pfarrkirche St. Martin", "kind": "Kirche/Kapelle", "lat": 47.0207, "lon": 8.6541, "address": null, "municipality": "Schwyz", "osm": "https://www.openstreetmap.org/way/0", "wikidata": null, "alt_names": [], "tags": {"amenity": "place_of_worship", "religion": "christian"}, "distance_m": 380}
+]

@@ -1,5 +1,8 @@
 # SCOPE 1: Data (owner: Dijar)
 
+> [!IMPORTANT]
+> **v3 (Fri 23 Oct evening): the task changed.** The real test set is 603 handed-out 21st-century photos (`challenge:SG.CIV.17.*`, 50 Prio 1), not old postcards, and dating is not asked. Read `docs/CHALLENGE_BRIEF.md` (your to-do list is in its section 5) and the v3 notes in `docs/CONTRACTS.md` before continuing the build order below. Where they disagree, the brief wins.
+
 Read `docs/CONTRACTS.md` first. Every interface named here is defined there. Work on branch `dijar/data`.
 
 ## Goal
@@ -41,6 +44,8 @@ Give the agent and the frontend clean, fast, honest data:
 | CONTRACTS section 4 functions + `DATA_PIPELINE_STUB=1` stub | `api.py`, `stub.py`, `__init__.py` | done, 24 tests pass |
 | Composite splitter (Claude Haiku boxes) | `split.py` | done: recall 0.90, precision 0.90 on 76 labelled cards; all 6,017 SG.CIV.12 cards split ($0.82): 543 composites, 1,851 crops in `records/crops.jsonl` |
 | Offline tile cache + laptop bundle | `tiles.py`, `bundle.py` | done: 27,178 tiles (3.9 GB): zeitreihen, one TIME per decade 1870s to 2020s (16 `map_years` in `data/tiles/manifest.json`), + swissimage, around 15 demo areas. `bundle` writes `~/zh-bundle/zh-data.tar` (10.6 GB: data without raw + model weights); unpacked, every section 4 call works with no network |
+| Challenge photos (v3) | `scrapers/challenge.py` | done: 603 records in `records/challenge.jsonl` (50 Prio 1), EXIF date on 601, real GPS on 1, `raw.session` groups (267 photos), images in `images/challenge/`. Not indexed |
+| Ortschaft / Gemeinde / Strasse / named buildings (v3) | `places.py` | done: `address_lookup` (swisstopo Ortschaftenverzeichnis, swissBOUNDARIES3D, Gebäudeadressverzeichnis, disk-cached) and `named_buildings` (OSM via Overpass, `python -m data_pipeline.places build`, offline after) |
 | Remote data mode (no local `data/`) | `serve.py`, `remote.py` | done: `https://zhdata.vatra.sh` (Dijar's server, bearer token, temporary until 24 Oct). Client env `DATA_PIPELINE_URL` + `DATA_PIPELINE_TOKEN`: small files mirrored into `ZH_DATA_DIR`, images fetched on first use, `similar_images` / `date_hints` / `split_composite` run on the server. Parity run: 16 of 16 calls identical to local. The server needs `ANTHROPIC_API_KEY` or the splitter falls back to OpenCV |
 
 ## Inputs
@@ -88,6 +93,13 @@ Wow, after the musts: a retrieval chart for the pitch (CLIP vs MegaLoc vs fused 
 - **Leakage:** `similar_images(exclude_ids=[...])` also excludes crops (`id#n`) and the parent; `archive_lookup` never returns an eval id. Tests cover this.
 - **Attribution:** every record keeps `license.credit` ("Staatsarchiv Schwyz, <Signatur>", "ETH-Bibliothek Zürich, Bildarchiv / ...", "© swisstopo").
 - **Paths:** image paths are relative to `data/`; `ZH_DATA_DIR` overrides the location.
+
+## v3 build order (Fri 23 Oct onward)
+
+1. Challenge records. Done.
+2. `address_lookup`, `named_buildings`. Done (buildings.json needs the Overpass download once).
+3. Saturday morning: `splits/challenge_qc.jsonl` from the team's hand check of about 20 Prio-1 results.
+4. Data fixes for agent failures on challenge photos (wrong building names, missing OSM names).
 
 ## Event days (Fri 23 Oct 19:00 to Sat 24 Oct 17:00)
 
