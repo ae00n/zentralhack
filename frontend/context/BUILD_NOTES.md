@@ -452,3 +452,19 @@ What was checked on the laptop:
 
 **Not built**
 - Nothing from the item's scope.
+
+## polish item 4: Desk layout (24.10.)
+
+**Check:** 1440×900 desk has no page scroll; 50 rows scroll inside the panel; KPI click filters. Done against the item-4 fake backend in live mode (and in mock mode): `scrollHeight − innerHeight = 0`; the panel sits at x 12, y 66, 400 px wide down to y 888; the list `<ul>` holds 50 rows and scrolls itself; the map fills 1440×846 under the header; clicking "Prüfung nötig" filters to 44 rows (pressed state shown), again to clear; the Radix sort select lists the 4 sorts and "Nach Signatur" reorders; a selected row gets `bg-accent-soft/[0.06]` and the 2 px red bar.
+
+**Special**
+- `app/page.tsx` (lg and up): `<main>` is `100vh − 54px`, overflow hidden; the map is absolute full-bleed on `canvas`; the list panel floats at `left-3 top-3 bottom-3`, 400 px, `rounded-lg`, hairline border, `shadow-panel`, column flex: head (DeskBand) → controls → count line → list (`flex-1 overflow-y-auto`). Below lg the old phone layout stays (tabs, list first, map 70 vh in its tab), restyled.
+- `DeskBand.tsx` is now the panel head: "Erschliessung SG.CIV.17" (h3), meta line, three KPI buttons (`text-kpi tnum`, label `text-meta`, pressed = paper-2 fill; still the filters; the old notes "ab 90 %" etc. moved into `title`), progress bar `h-1` on paper-2 with an ink fill and a 500 ms width transition, "0 / 50" and "Prio 1 geprüft · 0 % · 0 bestätigt · 0 korrigiert". Phone: counters as one meta line, full-width Excel button.
+- `components/ui/Segmented.tsx` (polish recipe; `role="tab"` for Liste | Karte, `aria-pressed` buttons for Prio 1 | Alle) and `components/ui/Select.tsx` (Radix Select from `radix-ui` 1.8.1, client component, trigger like the search field, popper content `rounded-lg shadow-panel`, items h-8 with highlighted paper-2 and a check). Sort and Filter use it; Filter shows "Filter: Alle".
+- Rows (`PhotoRow.tsx`): `grid-cols-[64px_minmax(0,1fr)]`, hairline divider `rule/[0.06]`, hover `paper-2/70` (also when the map hovers its pin), 64×44 `object-cover` thumbnail, 6 px status dot (`rounded-dot`; reviewed = filled + 1 px ring, open = hollow), mono signature 13 px, "Serie (n)", meta 12 px `truncate tnum` with only "Prüfung nötig" in warn. Selected: soft accent fill + `before:` 2 px red bar; the "Erneut klicken oder Enter öffnet das Foto" hint stays (11 px). Focus ring inset so it is not clipped by the panel.
+- Legend: a floating card bottom centre of the free map area (`left: calc(50% + 206px)`), `bg-paper/90 backdrop-blur`, h-8, with the "N Fotos ohne Ort" filter link.
+- Empty list: one centred muted sentence.
+- The desk page sets `scroll-gutter: auto` on `<html>` while mounted: the global `scrollbar-gutter: stable` (polish tokens) otherwise leaves a 15 px blank strip right of the full-bleed map.
+
+**Not built**
+- Nothing from the item's scope.

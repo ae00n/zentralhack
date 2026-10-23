@@ -1,12 +1,16 @@
 "use client";
 
 // Arbeitsplatz (FRONTPAGE_PLAN 4): the whole SG.CIV.17 set after the agent processed it. Counters band,
-// Excel button, and the photo list (Prio 1 | Alle, 4 sorts, filter via counters, search from the red band).
-// Map left (55 %), list right (45 %); hover and selection are synced both ways (plan 4, Behaviour).
+// Excel button, and the photo list (Prio 1 | Alle, 4 sorts, filter via counters, search from the header).
+// FRONTPAGE_POLISH 5: one viewport, the map fills it and the list floats on the left as a 400px panel.
+// Hover and selection are synced both ways (FRONTPAGE_PLAN 4, Behaviour).
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import DeskBand from "@/components/desk/DeskBand";
+import { FOCUS_RING } from "@/components/ui/button";
+import Segmented from "@/components/ui/Segmented";
+import Select from "@/components/ui/Select";
 import PhotoRow, { rowId } from "@/components/desk/PhotoRow";
 import { errorText, exportXlsxUrl, getTilesUrl, listChallenge, listResults, tileTemplate } from "@/lib/api";
 import {
@@ -24,6 +28,7 @@ import {
   type SortKey,
 } from "@/lib/desk";
 import { useReviewStore, withLocalReview } from "@/lib/reviewQueue";
+import { cn } from "@/lib/cn";
 import { analyseHref } from "@/lib/format";
 import type { AnalysisResult, PhotoRecord } from "@/lib/types";
 
@@ -71,6 +76,15 @@ function Arbeitsplatz() {
 
   useEffect(() => {
     getTilesUrl().then(setTiles);
+  }, []);
+
+  // The desk never scrolls: drop the reserved scrollbar gutter (globals.css) so the map reaches the edge.
+  useEffect(() => {
+    const html = document.documentElement;
+    html.style.scrollbarGutter = "auto";
+    return () => {
+      html.style.scrollbarGutter = "";
+    };
   }, []);
 
   useEffect(() => {
@@ -133,40 +147,24 @@ function Arbeitsplatz() {
 
   return (
     <>
-      <DeskBand
-        meta={meta}
-        counts={counts}
-        prio={prio}
-        filter={filter}
-        onFilter={setFilter}
-        excelUrl={exportXlsxUrl({ split: "challenge", priority: scope === "prio1" ? 1 : undefined })}
-      />
-
-      <div className="wrapper pt-4 lg:hidden">
-        <div role="tablist" aria-label="Ansicht" className="flex rounded border border-ink-muted">
-          {(
-            [
-              ["list", "Liste"],
-              ["map", "Karte"],
-            ] as const
-          ).map(([key, label]) => (
-            <button
-              key={key}
-              type="button"
-              role="tab"
-              aria-selected={view === key}
-              onClick={() => setView(key)}
-              className={`flex-1 py-2 text-ui font-semibold transition-colors duration-fade ${view === key ? "bg-ink text-white" : "text-ink-muted"}`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+      {/* Phone: list and map are tabs, list first. From lg the map fills the page and the list floats. */}
+      <div className="px-3 pt-3 lg:hidden">
+        <Segmented
+          role="tab"
+          label="Ansicht"
+          value={view}
+          onChange={setView}
+          options={[
+            { key: "list", label: "Liste" },
+            { key: "map", label: "Karte" },
+          ]}
+          className="w-full grid-cols-2"
+        />
       </div>
 
-      <main className="wrapper grid gap-8 py-6 lg:grid-cols-[minmax(0,55fr)_minmax(0,45fr)]">
-        <div className={`lg:sticky lg:top-4 lg:block lg:self-start ${view === "map" ? "" : "hidden"}`}>
-          <div className="h-[70vh] bg-paper-2 lg:h-[calc(100vh-120px)]">
+      <main className="relative lg:h-[calc(100vh-54px)] lg:overflow-hidden">
+        <div className={cn("relative h-[70vh] lg:absolute lg:inset-0 lg:block lg:h-auto", view === "map" ? "block" : "hidden")}>
+          <div className="absolute inset-0 bg-canvas">
             {tiles && (
               <DeskMap
                 places={places}
@@ -180,8 +178,8 @@ function Arbeitsplatz() {
               />
             )}
           </div>
-          <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-meta text-ink-muted">
-            <span>Legende:</span>
+          {/* Legend: a small floating card, centred in the free map area right of the panel. */}
+          <div className="absolute bottom-3 left-1/2 z-10 flex h-8 max-w-[calc(100%-24px)] -translate-x-1/2 items-center gap-3 overflow-x-auto whitespace-nowrap rounded border border-rule/[0.08] bg-paper/90 px-2.5 text-meta text-ink-muted backdrop-blur lg:left-[calc(50%+206px)]">
             {LEGEND.map((l) => (
               <span key={l.cls} className="inline-flex items-center gap-1.5">
                 <span className={`cert-dot cert-dot-${l.cls}`} aria-hidden />
@@ -189,94 +187,76 @@ function Arbeitsplatz() {
               </span>
             ))}
             {withoutPlace > 0 && (
-              <button type="button" onClick={() => setFilter("noplace")} className="underline hover:text-ink-strong">
+              <button
+                type="button"
+                onClick={() => setFilter("noplace")}
+                className={cn("rounded-sm underline decoration-rule/20 underline-offset-2 hover:text-ink", FOCUS_RING)}
+              >
                 {withoutPlace === 1 ? "1 Foto ohne Ort" : `${withoutPlace} Fotos ohne Ort`}
               </button>
             )}
-          </p>
-        </div>
-
-        <div className={`min-w-0 lg:block ${view === "list" ? "" : "hidden"}`}>
-        {error && <p className="mb-4 text-bad">Server nicht erreichbar oder Fehler: {error}</p>}
-
-        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b border-rule/[0.12] pb-3">
-          <div role="group" aria-label="Umfang" className="inline-flex rounded border border-ink-muted">
-            {(
-              [
-                ["prio1", "Prio 1"],
-                ["all", `Alle ${records?.length ?? ""}`.trim()],
-              ] as [Scope, string][]
-            ).map(([key, label]) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setScope(key)}
-                aria-pressed={scope === key}
-                className={`px-3 py-1.5 text-ui font-semibold transition-colors duration-fade ${scope === key ? "bg-ink text-white" : "text-ink-muted hover:text-ink-strong"}`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex flex-wrap items-center gap-4 text-ui">
-            <label className="flex items-center gap-2">
-              <span className="text-ink-muted">Sortierung</span>
-              <select
-                value={sort}
-                onChange={(e) => setSort(e.target.value as SortKey)}
-                className="rounded border border-ink-muted bg-paper px-2 py-1"
-              >
-                {SORTS.map((s) => (
-                  <option key={s.key} value={s.key}>
-                    {s.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex items-center gap-2">
-              <span className="text-ink-muted">Filter</span>
-              <select
-                value={filter}
-                onChange={(e) => setFilter(e.target.value as FilterKey)}
-                className="rounded border border-ink-muted bg-paper px-2 py-1"
-              >
-                {FILTERS.map((f) => (
-                  <option key={f.key} value={f.key}>
-                    {f.label}
-                  </option>
-                ))}
-              </select>
-            </label>
           </div>
         </div>
 
-        <p className="mt-3 text-ui text-ink-muted" aria-live="polite">
-          {shown.length} von {items.length} Fotos
-          {q && (
-            <>
-              {" · "}Suche «{q}»{" · "}
-              <a href="/" className="underline hover:text-ink-strong">
-                zurücksetzen
-              </a>
-            </>
+        <div
+          className={cn(
+            "flex-col bg-paper lg:absolute lg:bottom-3 lg:left-3 lg:top-3 lg:z-10 lg:flex lg:w-[400px] lg:overflow-hidden lg:rounded-lg lg:border lg:border-rule/[0.08] lg:shadow-panel",
+            view === "list" ? "flex" : "hidden",
           )}
-          {loadingResults && " · lade Ergebnisse ..."}
-        </p>
+        >
+          <DeskBand
+            meta={meta}
+            counts={counts}
+            prio={prio}
+            filter={filter}
+            onFilter={setFilter}
+            excelUrl={exportXlsxUrl({ split: "challenge", priority: scope === "prio1" ? 1 : undefined })}
+          />
 
-        {records && shown.length === 0 && <p className="mt-6 text-ink-muted">Keine Fotos für diese Auswahl.</p>}
-        <ul className="mt-2">
-          {shown.map((item) => (
-            <PhotoRow
-              key={item.record.id}
-              item={item}
-              hovered={hoveredIds.has(item.record.id)}
-              selected={selected === item.record.id}
-              onHover={setHoveredPhoto}
-              onSelect={select}
+          <div className="flex flex-wrap items-center gap-2 border-b border-rule/[0.08] px-3 py-2">
+            <Segmented
+              label="Umfang"
+              value={scope}
+              onChange={setScope}
+              options={[
+                { key: "prio1", label: "Prio 1" },
+                { key: "all", label: `Alle ${records?.length ?? ""}`.trim() },
+              ]}
             />
-          ))}
-        </ul>
+            <Select label="Sortierung" value={sort} onChange={setSort} options={SORTS} />
+            <Select label="Filter" prefix value={filter} onChange={setFilter} options={FILTERS} />
+          </div>
+
+          <p className="px-3 pt-2 text-meta tnum text-ink-muted" aria-live="polite">
+            {shown.length} von {items.length} Fotos
+            {q && (
+              <>
+                {" · "}Suche «{q}»{" · "}
+                <a href="/" className="underline decoration-rule/20 underline-offset-2 hover:text-ink">
+                  zurücksetzen
+                </a>
+              </>
+            )}
+            {loadingResults && " · lade Ergebnisse ..."}
+          </p>
+          {error && <p className="px-3 pt-2 text-ui text-bad">Server nicht erreichbar oder Fehler: {error}</p>}
+
+          {records && shown.length === 0 ? (
+            <p className="py-10 text-center text-ui text-ink-muted">Keine Fotos für diese Auswahl.</p>
+          ) : (
+            <ul className="mt-1 min-h-0 flex-1 overflow-y-auto">
+              {shown.map((item) => (
+                <PhotoRow
+                  key={item.record.id}
+                  item={item}
+                  hovered={hoveredIds.has(item.record.id)}
+                  selected={selected === item.record.id}
+                  onHover={setHoveredPhoto}
+                  onSelect={select}
+                />
+              ))}
+            </ul>
+          )}
         </div>
       </main>
     </>

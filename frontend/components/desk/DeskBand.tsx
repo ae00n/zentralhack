@@ -1,7 +1,9 @@
-// Context band of the Arbeitsplatz (FRONTPAGE_PLAN 4, sz.ch "Mehr zum Thema" band): title, meta,
-// Excel button, and the counters. The three model counters are filters; review progress is Prio 1 only.
+// Head of the desk list panel (FRONTPAGE_POLISH 5): title, meta, the three model counters as a compact
+// KPI strip (still the filters), and the Prio-1 review progress. Phone: counters as one meta line and the
+// full-width Excel button (the header hides it there).
 import { Download } from "lucide-react";
-import { buttonClass } from "@/components/ui/button";
+import { FOCUS_RING, buttonClass } from "@/components/ui/button";
+import { cn } from "@/lib/cn";
 import type { Counts, FilterKey } from "@/lib/desk";
 import { formatPct } from "@/lib/format";
 
@@ -15,29 +17,21 @@ interface Props {
   excelUrl: string;
 }
 
-function Counter({
-  value,
-  label,
-  note,
-  active,
-  onClick,
-}: {
-  value: number;
-  label: string;
-  note: string;
-  active: boolean;
-  onClick: () => void;
-}) {
+function Kpi({ value, label, note, active, onClick }: { value: number; label: string; note: string; active: boolean; onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`rounded border-b-2 px-1 pb-1 text-left transition-colors duration-fade hover:border-ink-muted ${active ? "border-ink-strong" : "border-transparent"}`}
+      title={note}
+      className={cn(
+        "rounded px-2 py-1.5 text-left transition-colors duration-hover hover:bg-paper-2",
+        FOCUS_RING,
+        active && "bg-paper-2",
+      )}
     >
-      <span className="block text-kpi">{value}</span>
-      <span className="block text-base">{label}</span>
-      <span className="block text-meta text-ink-muted">{note}</span>
+      <span className="block text-kpi tnum text-ink">{value}</span>
+      <span className="block text-meta text-ink-muted">{label}</span>
     </button>
   );
 }
@@ -46,65 +40,43 @@ export default function DeskBand({ meta, counts, prio, filter, onFilter, excelUr
   const toggle = (f: FilterKey) => onFilter(filter === f ? "all" : f);
   const share = prio.total ? prio.reviewed / prio.total : 0;
   return (
-    <section className="bg-paper-2">
-      <div className="wrapper py-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h1 className="text-[30px] font-normal leading-9 md:text-h1">Erschliessung SG.CIV.17</h1>
-            <p className="mt-1 text-ui text-ink-muted">{meta}</p>
-          </div>
-          <a
-            href={excelUrl}
-            download
-            // Desktop: the Excel button lives in the header. Phone keeps this full-width one (plan 5).
-            className={buttonClass("primary", "h-10 w-full sm:hidden")}
-          >
-            <Download size={18} strokeWidth={1.5} aria-hidden />
-            Excel herunterladen
-          </a>
-        </div>
+    <section className="border-b border-rule/[0.08] p-3">
+      <h1 className="text-h3 text-ink">Erschliessung SG.CIV.17</h1>
+      <p className="mt-0.5 text-meta tnum text-ink-muted">{meta}</p>
 
-        {/* Phone: the counters collapse into one meta line (plan 4). */}
-        <p className="mt-4 text-ui sm:hidden">
-          {counts.sure} sicher · <span className="text-warn">{counts.check} Prüfung nötig</span> · {counts.open} nicht
-          bestimmbar
-          <span className="block text-ink-muted">
-            {prio.reviewed} von {prio.total} Prio 1 geprüft · {prio.corrected} korrigiert
-          </span>
-        </p>
-        <div className="mt-6 hidden flex-wrap items-end gap-x-10 gap-y-4 sm:flex">
-          <Counter value={counts.sure} label="sicher" note="ab 90 %" active={filter === "sure"} onClick={() => toggle("sure")} />
-          <Counter
-            value={counts.check}
-            label="Prüfung nötig"
-            note="unter 90 %"
-            active={filter === "check"}
-            onClick={() => toggle("check")}
-          />
-          <Counter
-            value={counts.open}
-            label="nicht bestimmbar"
-            note={counts.withoutResult ? `Ort offen · ${counts.withoutResult} ohne Ergebnis` : "Ort offen"}
-            active={filter === "open"}
-            onClick={() => toggle("open")}
-          />
-          <div className="min-w-[220px] px-1 pb-1">
-            <span className="block text-kpi">
-              {prio.reviewed} <span className="text-base text-ink-muted">von {prio.total}</span>
-            </span>
-            <span className="block text-base">Prio 1 geprüft</span>
-            <span className="mt-1 flex items-center gap-2">
-              <span className="relative h-1 w-32 bg-rule/[0.08]" aria-hidden>
-                <span className="absolute inset-y-0 left-0 bg-ink" style={{ width: `${share * 100}%` }} />
-              </span>
-              <span className="font-mono text-meta">{formatPct(share)}</span>
-            </span>
-            <span className="block text-meta text-ink-muted">
-              {prio.confirmed} bestätigt · {prio.corrected} korrigiert
-            </span>
-          </div>
-        </div>
+      {/* Phone: the counters collapse into one meta line (plan 4). */}
+      <p className="mt-2 text-meta tnum sm:hidden">
+        {counts.sure} sicher · <span className="text-warn">{counts.check} Prüfung nötig</span> · {counts.open} nicht
+        bestimmbar
+      </p>
+      <div className="-mx-2 mt-2 hidden grid-cols-3 gap-1 sm:grid">
+        <Kpi value={counts.sure} label="sicher" note="ab 90 %" active={filter === "sure"} onClick={() => toggle("sure")} />
+        <Kpi value={counts.check} label="Prüfung nötig" note="unter 90 %" active={filter === "check"} onClick={() => toggle("check")} />
+        <Kpi
+          value={counts.open}
+          label="nicht bestimmbar"
+          note={counts.withoutResult ? `Ort offen · ${counts.withoutResult} ohne Ergebnis` : "Ort offen"}
+          active={filter === "open"}
+          onClick={() => toggle("open")}
+        />
       </div>
+
+      <div className="mt-3 flex items-center gap-2">
+        <span className="relative h-1 flex-1 overflow-hidden rounded-sm bg-paper-2" aria-hidden>
+          <span className="absolute inset-y-0 left-0 bg-ink transition-[width] duration-500 ease-calm" style={{ width: `${share * 100}%` }} />
+        </span>
+        <span className="text-meta tnum text-ink">
+          {prio.reviewed} / {prio.total}
+        </span>
+      </div>
+      <p className="mt-1 text-meta tnum text-ink-muted">
+        Prio 1 geprüft · {formatPct(share)} · {prio.confirmed} bestätigt · {prio.corrected} korrigiert
+      </p>
+
+      <a href={excelUrl} download className={buttonClass("primary", "mt-3 h-10 w-full sm:hidden")}>
+        <Download size={16} strokeWidth={1.75} aria-hidden />
+        Excel herunterladen
+      </a>
     </section>
   );
 }
