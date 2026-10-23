@@ -32,6 +32,8 @@ def _records() -> dict[str, dict]:
     recs = {r["id"]: r for r in read_jsonl(RECORDS / "all.jsonl")}
     for r in read_jsonl(RECORDS / "crops.jsonl"):  # written by the composite splitter, if present
         recs[r["id"]] = r
+    for r in read_jsonl(RECORDS / "challenge.jsonl"):  # the event photos (scrapers/challenge.py), not indexed
+        recs[r["id"]] = r
     # Smapshot ids that were merged into an E-Pics record still resolve
     for r in list(recs.values()):
         for alias in (r.get("raw") or {}).get("merged_from", []):

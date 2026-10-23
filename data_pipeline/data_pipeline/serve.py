@@ -30,7 +30,7 @@ from pathlib import Path
 
 from .paths import DATA_DIR
 
-MIRROR = ["records/all.jsonl", "records/crops.jsonl", "splits", "gazetteer", "index/best.json",
+MIRROR = ["records/all.jsonl", "records/crops.jsonl", "records/challenge.jsonl", "splits", "gazetteer", "index/best.json",
           "tiles/manifest.json"]
 SERVED = ("records/", "splits/", "gazetteer/", "images/", "tiles/", "index/best.json")
 RPC = ("similar_images", "date_hints", "split_composite")

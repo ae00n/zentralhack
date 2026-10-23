@@ -1,6 +1,7 @@
 """Scope 1 (Data): records, splits, similarity search and archive lookups for the agent.
 
     from data_pipeline import get_record, similar_images, archive_lookup, timeline
+    from data_pipeline import address_lookup, named_buildings   # Ortschaft, Gemeinde, Strasse, Gebaeude
 
 Set DATA_PIPELINE_STUB=1 to answer everything from contracts/fixtures/ instead of data/.
 Set DATA_PIPELINE_URL + DATA_PIPELINE_TOKEN to use a data server instead of a local data/ (remote.py).
@@ -13,11 +14,12 @@ if os.environ.get("DATA_PIPELINE_URL") and os.environ.get("DATA_PIPELINE_STUB") 
     _remote.install()  # before the import below, so it picks up the remote functions
 
 if os.environ.get("DATA_PIPELINE_STUB") == "1":
-    from .stub import (archive_lookup, eval_ids, gazetteer, get_record, image_file, reload,
-                       similar_images, split_composite, timeline)
+    from .stub import (address_lookup, archive_lookup, eval_ids, gazetteer, get_record, image_file,
+                       named_buildings, reload, similar_images, split_composite, timeline)
 else:
     from .api import (archive_lookup, eval_ids, gazetteer, get_record, image_file, reload,
                       similar_images, split_composite, timeline)
+    from .places import address_lookup, named_buildings
 
 # `data_pipeline.gazetteer` is both the helper module (scrapers use gazetteer.resolve) and the
 # contract function gazetteer(). Make the module callable so both keep working.
@@ -37,6 +39,6 @@ _gaz_module.__class__ = _CallableModule
 gazetteer = _gaz_module
 
 __all__ = [
-    "archive_lookup", "eval_ids", "gazetteer", "get_record", "image_file", "reload",
+    "address_lookup", "named_buildings", "archive_lookup", "eval_ids", "gazetteer", "get_record", "image_file", "reload",
     "similar_images", "split_composite", "timeline",
 ]
