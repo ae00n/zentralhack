@@ -26,7 +26,7 @@ export default function PhotoCard({ record, selected = false, onToggle }: Props)
             />
           </div>
           <figcaption className="mt-2">
-            <p className="text-sm font-medium group-hover:text-accent">{title}</p>
+            <p className="text-body font-bold group-hover:text-ink-strong">{title}</p>
             <p className="mt-0.5 font-mono text-meta text-ink-muted">{metaLine(record)}</p>
           </figcaption>
         </figure>

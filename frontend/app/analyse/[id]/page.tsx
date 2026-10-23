@@ -165,24 +165,24 @@ export default function AnalysePage() {
   const nextDemo = demoIndex >= 0 ? demoIds[demoIndex + 1] : undefined;
 
   return (
-    <main className="mx-auto max-w-[1440px] px-4 py-6 md:px-8">
+    <main className="wrapper py-6">
       <div className="flex items-baseline justify-between gap-4 text-meta text-ink-muted">
-        <Link href="/" className="hover:text-accent">
+        <Link href="/" className="hover:text-ink-strong">
           ← Archiv
         </Link>
         <div className="flex items-baseline gap-4">
           {canReplay && (
-            <button type="button" onClick={() => startReplay(result)} className="hover:text-accent">
+            <button type="button" onClick={() => startReplay(result)} className="hover:text-ink-strong">
               Analyse erneut abspielen
             </button>
           )}
           {canRunLive && showResult && (
-            <button type="button" onClick={() => startLive(true)} className="hover:text-accent">
+            <button type="button" onClick={() => startLive(true)} className="hover:text-ink-strong">
               Neu analysieren
             </button>
           )}
           {nextDemo && (
-            <Link href={analyseHref(nextDemo)} className="hover:text-accent">
+            <Link href={analyseHref(nextDemo)} className="hover:text-ink-strong">
               Nächste Karte →
             </Link>
           )}
@@ -229,7 +229,7 @@ export default function AnalysePage() {
             {result && replaying && (
               <div className="flex items-baseline justify-between border-y border-rule py-3">
                 <p className="text-ink-muted">Ort und Zeitraum werden bestimmt ...</p>
-                <button type="button" onClick={skipReplay} className="text-meta text-ink-muted hover:text-accent">
+                <button type="button" onClick={skipReplay} className="text-meta text-ink-muted hover:text-ink-strong">
                   Überspringen
                 </button>
               </div>
@@ -249,7 +249,7 @@ function StartButton({ onClick, children }: { onClick: () => void; children: Rea
     <button
       type="button"
       onClick={onClick}
-      className="rounded border border-ink px-3 py-1.5 text-meta hover:border-accent hover:text-accent"
+      className="rounded border border-ink px-3 py-1.5 text-meta hover:border-accent hover:text-ink-strong"
     >
       {children}
     </button>

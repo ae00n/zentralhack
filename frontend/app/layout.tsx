@@ -1,29 +1,33 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Mono, IBM_Plex_Sans, Source_Serif_4 } from "next/font/google";
+import { Barlow, IBM_Plex_Mono } from "next/font/google";
+import SearchBand from "@/components/SearchBand";
+import SiteFooter from "@/components/SiteFooter";
 import SiteHeader from "@/components/SiteHeader";
 import "./globals.css";
 
 // next/font downloads at build time and self-hosts, so the built app runs offline.
-const serif = Source_Serif_4({ subsets: ["latin"], variable: "--font-serif", display: "swap" });
-const sans = IBM_Plex_Sans({
+// Barlow stands in for sz.ch's Trade Gothic Next (commercial licence, not used).
+const barlow = Barlow({
   subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  variable: "--font-sans",
+  weight: ["300", "400", "500", "700"],
+  variable: "--font-barlow",
   display: "swap",
 });
-const mono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-mono", display: "swap" });
+const mono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-plex-mono", display: "swap" });
 
 export const metadata: Metadata = {
-  title: "Zeitreise Schwyz",
-  description: "Historische Fotos mit Ort, Zeitraum, Evidenz und Konfidenz",
+  title: "Erschliessung SG.CIV.17 · Staatsarchiv Schwyz (Prototyp)",
+  description: "Erschliessungs-Assistent für die Fotos SG.CIV.17: Ort, Gebäude und Strasse mit Quellen und Modell-Sicherheit",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="de" className={`${serif.variable} ${sans.variable} ${mono.variable}`}>
-      <body className="min-h-screen bg-paper text-ink">
+    <html lang="de" className={`${barlow.variable} ${mono.variable}`}>
+      <body className="flex min-h-screen flex-col bg-paper text-ink">
         <SiteHeader />
-        {children}
+        <SearchBand />
+        <div className="flex-1">{children}</div>
+        <SiteFooter />
       </body>
     </html>
   );

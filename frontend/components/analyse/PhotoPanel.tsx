@@ -10,7 +10,7 @@ export default function PhotoPanel({ record }: { record: PhotoRecord }) {
         <img src={imageUrl(record.id, 1024)} alt={photoTitle(record)} className="max-h-[48vh] max-w-full object-contain" />
       </div>
       <figcaption className="mt-2">
-        <p className="font-serif text-section">{photoTitle(record)}</p>
+        <p className="text-h3">{photoTitle(record)}</p>
         <p className="mt-0.5 font-mono text-meta text-ink-muted">{metaLine(record)}</p>
         {record.license && <p className="mt-0.5 text-meta text-ink-muted">{record.license.credit}</p>}
       </figcaption>

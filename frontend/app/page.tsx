@@ -56,10 +56,10 @@ export default function ArchivPage() {
   const undated = cards.filter(isUndated).length;
 
   return (
-    <main className="mx-auto max-w-[1440px] px-4 py-8 md:px-8">
+    <main className="wrapper py-8">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4 border-b border-rule pb-4">
         <div>
-          <h1 className="font-serif text-page">Archiv</h1>
+          <h1 className="text-page">Archiv</h1>
           <p className="mt-1 text-meta text-ink-muted">
             {cards.length > 0
               ? `${cards.length} von ${Math.max(total, cards.length)} Karten · ${undated} ohne Datum`
@@ -71,7 +71,7 @@ export default function ArchivPage() {
             {selected.length > 0 ? (
               <>
                 Export: {selected.length} ausgewählt ·{" "}
-                <button type="button" onClick={() => setSelected([])} className="hover:text-accent">
+                <button type="button" onClick={() => setSelected([])} className="hover:text-ink-strong">
                   Auswahl aufheben
                 </button>
               </>

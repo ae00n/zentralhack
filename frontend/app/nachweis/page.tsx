@@ -16,7 +16,7 @@ function Big({ label, value, note }: { label: string; value: string; note?: stri
   return (
     <div>
       <p className="text-meta text-ink-muted">{label}</p>
-      <p className="mt-1 font-serif text-[56px] leading-none">{value}</p>
+      <p className="mt-1 font-light text-[56px] leading-none">{value}</p>
       {note && <p className="mt-2 text-meta text-ink-muted">{note}</p>}
     </div>
   );
@@ -25,7 +25,7 @@ function Big({ label, value, note }: { label: string; value: string; note?: stri
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="border-t border-rule pt-4">
-      <h2 className="font-serif text-section">{title}</h2>
+      <h2 className="text-h3">{title}</h2>
       <div className="mt-3">{children}</div>
     </section>
   );
@@ -77,9 +77,9 @@ export default function NachweisPage() {
   }, []);
 
   return (
-    <main className="mx-auto max-w-[1100px] px-4 py-8 md:px-8">
+    <main className="wrapper max-w-[1100px] py-8">
       <div className="border-b border-rule pb-4">
-        <h1 className="font-serif text-page">Nachweis</h1>
+        <h1 className="text-page">Nachweis</h1>
         <p className="mt-1 text-meta text-ink-muted">
           Wie oft der Agent richtig liegt, gemessen an Fotos, deren Ort und Datum das Archiv kennt.
         </p>
@@ -225,7 +225,7 @@ function Report({ s }: { s: EvalSummary }) {
                 <p className="mt-3 text-meta text-ink-muted">
                   <span className="font-mono">{failure.photo_id}</span>
                   {" · "}
-                  <Link href={analyseHref(failure.photo_id)} className="hover:text-accent">
+                  <Link href={analyseHref(failure.photo_id)} className="hover:text-ink-strong">
                     Analyse ansehen
                   </Link>
                   {s.failures.length > 1 && ` · ${s.failures.length - 1} weitere Fehler in der Auswertung`}

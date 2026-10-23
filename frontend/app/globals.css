@@ -2,15 +2,36 @@
 @tailwind components;
 @tailwind utilities;
 
+/* sz.ch family tokens (docs/FRONTPAGE_PLAN.md section 2.1). Token names kept from the archive look. */
 :root {
-  --paper: #f5f0e6;
-  --paper-2: #ece4d4;
-  --rule: #d6cbb6;
-  --ink: #1e1a15;
-  --ink-muted: #6a6054;
-  --accent: #9a3324;
-  --warn: #a8690f;
-  --bad: #9b2c1f;
+  /* surfaces (sz.ch neutral ramp) */
+  --paper: #ffffff; /* page background            sz --clr-neutral-100 */
+  --paper-2: #f5f5f5; /* bands, footer, photo mats  sz --clr-neutral-200 */
+  --rule: #dcdcdc; /* 1px dividers, borders      sz --clr-neutral-300 */
+  --ink: #191919; /* body text                  sz --clr-neutral-800 */
+  --ink-muted: #545454; /* meta lines, labels, input borders  sz --clr-neutral-400 */
+  --ink-strong: #000000; /* link hover                 sz --clr-neutral-900 */
+
+  /* brand (sparingly) */
+  --accent: #e2001a; /* sz --clr-brand: header band, primary button, links, selected pin ring */
+  --accent-hover: #c10319; /* sz .btn:hover */
+  --accent-dark: #b50616; /* sz mobile nav panel */
+  --accent-light: #f17a7c; /* sz --clr-brand-light: underline of the search field on red */
+
+  /* attention text (not brand red) */
+  --warn: #9a4a05; /* "Prüfung nötig" word, 6.3:1 on white */
+  --bad: #c10319; /* errors only, 6.4:1 on white */
+
+  /* certainty scale for map + list markers (blue/orange, colour-blind safe, brand red kept out) */
+  --cert-confirmed: #0b3c5d; /* archivist confirmed or corrected (filled + outer ring) */
+  --cert-sure: #1d4e89; /* overall >= 0.90, 8.4:1 on white */
+  --cert-check: #b35806; /* 0.50 to 0.89, 4.9:1 on white */
+  --cert-open: #595959; /* < 0.50: hollow circle, grey stroke */
+
+  /* focus (sz.ch inputs/buttons) */
+  --focus-ring: rgba(21, 156, 228, 0.4);
+
+  --radius: 4px; /* sz --border-radius-400 (0.19em) */
 }
 
 html,
@@ -20,15 +41,35 @@ body {
 }
 
 body {
-  font-family: var(--font-sans), system-ui, sans-serif;
-  font-size: 14px;
-  line-height: 20px;
+  font-family: var(--font-barlow), Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 24px;
   -webkit-font-smoothing: antialiased;
 }
 
+/* sz.ch focus: blue ring, and the outline stays. */
 :focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  outline: 1px solid var(--ink-strong);
+  outline-offset: 1px;
+  box-shadow: 0 0 0 4px var(--focus-ring);
+}
+
+/* sz .wrapper: 92% wide, max 1520px (16px gutter on a 390px phone). */
+.wrapper {
+  width: 92%;
+  max-width: 1520px;
+  margin-inline: auto;
+}
+
+/* Body links: red and underlined, black on hover (sz.ch). */
+.link {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 400ms ease;
+}
+.link:hover {
+  color: var(--ink-strong);
 }
 
 @keyframes fade-in {
@@ -50,7 +91,7 @@ body {
   }
 }
 
-/* Map (components/map/MapView.tsx). The pin is the one round shape; the theme has no rounded-full. */
+/* Map (components/map/MapView.tsx). Round shapes live here in CSS; the Tailwind theme stops at 4px. */
 .map-pin {
   width: 14px;
   height: 14px;
@@ -104,4 +145,13 @@ body {
   background: var(--accent);
   border: 2px solid var(--paper);
   box-shadow: 0 0 0 1px var(--accent);
+}
+
+/* Search field on the red band (components/SearchBand.tsx). */
+.search-band-input::placeholder {
+  color: rgba(255, 255, 255, 0.85);
+}
+.search-band-input:focus-visible {
+  border-bottom-color: #fff;
+  outline-color: #fff;
 }

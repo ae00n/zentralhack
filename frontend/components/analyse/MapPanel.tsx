@@ -108,7 +108,7 @@ export default function MapPanel({ coords, emptyText, startYear, photoId }: Prop
           </div>
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-            <p className="font-serif text-section">Karte</p>
+            <p className="text-h3">Karte</p>
             <p className="mt-1 text-meta text-ink-muted">{emptyText}</p>
           </div>
         )}

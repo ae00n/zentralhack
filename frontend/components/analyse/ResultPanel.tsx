@@ -14,7 +14,7 @@ export default function ResultPanel({ result }: { result: AnalysisResult }) {
   return (
     <section className="fade-in">
       <div className="flex items-baseline justify-between gap-4">
-        <h2 className="font-serif text-section">Ergebnis</h2>
+        <h2 className="text-h3">Ergebnis</h2>
         <p className="text-meta text-ink-muted">
           Gesamt <span className="font-mono">{result.overall_confidence.toFixed(2)}</span>
           {review && <span className="text-warn"> · Prüfung nötig</span>}

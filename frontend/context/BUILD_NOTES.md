@@ -12,7 +12,7 @@ Keep appending: a new section per step, and update an older section when somethi
 
 **Special**
 - Versions: Next.js 16, React 19, Tailwind 3.4 (SCOPE_3 asks for `tailwind.config`; v4 configures in CSS), TypeScript 5 (not 7.0, the new native compiler, Next support unproven).
-- `tailwind.config.ts` replaces (not extends) colours, radius, shadows and font weights: there is no `rounded-full`, no shadow and no weight above 600, so the archive-look rules are enforced by the theme. If a circle is ever needed (slider thumb), use custom CSS.
+- `tailwind.config.ts` replaces (not extends) colours, radius, shadows and font weights: there is no full-radius class, no shadow and no weight above 600, so the archive-look rules are enforced by the theme. If a circle is ever needed (slider thumb), use custom CSS.
 - Custom type sizes: `text-page` 28, `text-section` 18, `text-body` 14, `text-meta` 12. Tailwind's default sizes (`text-sm` etc.) still exist.
 - Fonts via `next/font/google`: downloaded at build time and self-hosted. Build once with internet, then it runs offline.
 - `next.config.ts`: `images.unoptimized`; images are plain `<img>` from the backend (or fixtures), no next/image pipeline.
@@ -79,7 +79,7 @@ Keep appending: a new section per step, and update an older section when somethi
 - Layer in step 4: SWISSIMAGE `current` (cached offline at z12 to 17). The zeitreihen layer needs `map_years` and comes with the slider in step 9.
 - Tile URLs: `getTilesUrl()` + `tileTemplate()` in `lib/api.ts`. Online WMTS shape `.../{layer}/default/{time}/3857/{z}/{x}/{y}.{ext}`, offline the backend shape `/tiles/{layer}/{time}/{z}/{x}/{y}.{ext}` (question 3.3; Said's route accepts the extension). If `/health` fails, the map falls back to swisstopo directly. Mock `tiles_url` is now `https://wmts.geo.admin.ch/1.0.0`, the same value Said's `/health` returns online.
 - Offline (`/health` `offline: true`): `minZoom` 12, `maxZoom` 17, the cached range (question 4.2). Online 7 to 19. No `maxBounds` yet.
-- Pin = 14 px `--accent` dot with a paper ring (custom CSS `.map-pin`, the theme has no `rounded-full`). Circle = `radius_m` polygon, accent line 1.5 px + 12 % fill. MapLibre paint reads the colours from the CSS variables.
+- Pin = 14 px `--accent` dot with a paper ring (custom CSS `.map-pin`, the theme has no full-radius class). Circle = `radius_m` polygon, accent line 1.5 px + 12 % fill. MapLibre paint reads the colours from the CSS variables.
 - Own "© swisstopo · SWISSIMAGE" line in the bottom-right corner instead of MapLibre's attribution control (which has its own look). Zoom buttons restyled to paper + rule, no shadow. No rotation, no pitch.
 - The map stays hidden until the replay ends (same rule as the result fields); the panel says "Ort wird bestimmt ...", "Keine Koordinaten" or "Keine Analyse".
 - Gotcha: `maplibre-gl.css` sets `.maplibregl-map { position: relative }`, which beats Tailwind's `absolute inset-0` and gave the map height 0. The map container is sized with `h-full w-full` inside a positioned parent.
@@ -188,7 +188,7 @@ Keep appending: a new section per step, and update an older section when somethi
 - Images use `imageUrl(id)` instead of the timeline's `image_url`: same backend route, and mock mode gets the sample image.
 - `MapView` got `tilesMaxZoom`: zeitreihen is capped at z16 (tiles past z16 are tiny / blank on swisstopo, probed on 23.10.), MapLibre scales z16 up. A source's maxzoom is fixed, so switching between SWISSIMAGE (19) and zeitreihen (16) removes and re-adds the source under the circle; between two zeitreihen years only `setTiles` runs. `raster-fade-duration` 300 ms softens the switch.
 - The map follows the slider 150 ms late, so dragging across many sheets does not request every one on the way.
-- Slider look: custom CSS in `globals.css` (`.zeitreise-slider`): 2 px rule track, round accent thumb like the map pin (the theme has no `rounded-full`).
+- Slider look: custom CSS in `globals.css` (`.zeitreise-slider`): 2 px rule track, round accent thumb like the map pin (the theme has no full-radius class).
 - Online the backend only returns 12 `map_years` (its fallback list) although swisstopo has every year 1844 to 2021; offline it returns the cached ones. See question 3.4.
 
 **Not built**
@@ -196,3 +196,29 @@ Keep appending: a new section per step, and update an older section when somethi
 - Not tested against Said's `/timeline` (backend not running for this step) or offline tiles (no `data/` on this laptop).
 - Old sheets (1864) look very coarse at the default zoom: the original Dufour map is 1:100 000. No zoom change per sheet.
 - Phone width not checked in a screenshot (same headless limit as step 4).
+
+---
+
+# FRONTPAGE_PLAN v3 (from 23.10. evening)
+
+`docs/FRONTPAGE_PLAN.md` replaces the Views, Look and Build order of SCOPE_3. Sections below follow its section 10 (Build order), one per item. Steps 1 to 9 above stay as the history of the code that is kept.
+
+## v3 item 1: Re-skin (23.10.)
+
+**Check:** `/` and `/analyse/x` render the white/red sz.ch look; no shield anywhere; `grep -r "rounded-full"` empty. Done: headless Chrome at 1440 and 390 px on both pages: white page, red band `rgb(226, 0, 26)`, body font Barlow, browser title "Erschliessung SG.CIV.17 · Staatsarchiv Schwyz (Prototyp)", "Prototyp" tag + footer sentence present, no image named wappen/logo/shield, no horizontal scroll at 390 px, no console errors. `grep -rn "rounded-full"` over `frontend/` (without node_modules / .next) is empty.
+
+**Special**
+- Token names kept (`paper`, `ink`, `accent`, ...), values swapped to plan 2.1; new tokens `ink-strong`, `accent-hover/-dark/-light`, `cert-*`, `focus-ring`. `tailwind.config.ts` is the plan's block verbatim (still replaces Tailwind's defaults); `maxWidth.wrapper` and `transitionDuration.fade` sit in `extend` so Tailwind's other max widths keep working.
+- Fonts: Barlow 300/400/500/700 (`--font-barlow`) and IBM Plex Mono 400/500 (`--font-plex-mono`) via `next/font`; Source Serif 4 and IBM Plex Sans dropped. Body 16/24.
+- Class sweep for the dropped theme keys: `font-serif text-page` → `text-page` (Light 300), `font-serif text-section` → `text-h3` (Bold 700), the Zeitreise year `font-mono text-section` → `font-mono text-h3 font-normal`, Nachweis big numbers `font-serif` → `font-light`, card title `text-sm font-medium` → `text-body font-bold`. Muted links hover to black (`hover:text-ink-strong`, sz.ch) instead of red.
+- `.wrapper` utility in `globals.css` (92 % wide, max 1520 px) for header, band, footer and all pages; Nachweis keeps its 1100 px reading width inside it.
+- `.link` utility for red underlined body links (black on hover, 400 ms); not used yet, item 3 uses it for source links.
+- Focus: global `:focus-visible` = 1 px black outline + the sz.ch blue 4 px ring (`--focus-ring`). Outlines are never removed; on the red band the outline and underline turn white.
+- Header (`SiteHeader.tsx`): "Staatsarchiv Schwyz" + " · Erschliessungs-Assistent" (Light, muted; second line on phone), right "Nachweis", "Methode" (→ `/nachweis#methode`, the anchor comes with item 9) and the `Prototyp` tag (`rounded px-1.5 h-5 text-[11px]` on `paper-2`). Mock mode adds a second tag "Beispieldaten" in warn.
+- Red band (`SearchBand.tsx`): white search icon (lucide, stroke 1.5), Light input with `accent-light` underline, placeholder "Signatur, Ort oder Gebäude suchen". Submitting goes to `/?q=...`; the desk list reads it in item 4.
+- Footer (`SiteFooter.tsx`): `paper-2`, 2 px rule top border, 14 px, the three plan sentences joined by " · ".
+- Comments that named the forbidden class were reworded so the grep check is literally empty.
+
+**Not built**
+- Pages inside keep their old structure (Archiv grid, Ergebnis panel); the plan rebuilds them in items 3 and 4. The detail map pin and uncertainty circle are now bright brand red because they use `--accent`; plan 2 says brand red never encodes data, so item 3 should recolour them.
+- Header on phone is the plain wrapped version (no "[=]" menu); the phone pass is item 10.

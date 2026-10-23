@@ -37,9 +37,9 @@ export default function Zeitreise({ year, onYear, mapTime, mapYears, photos, nea
   return (
     <section className="mt-6">
       <div className="flex items-baseline justify-between gap-4">
-        <h2 className="font-serif text-section">Zeitreise</h2>
+        <h2 className="text-h3">Zeitreise</h2>
         <p className="text-meta text-ink-muted">
-          <span className="font-mono text-section text-accent">{year}</span>
+          <span className="font-mono text-h3 font-normal text-accent">{year}</span>
           {" · "}
           {mapTime.kind === "heute" ? "Heute, Luftbild SWISSIMAGE" : `Karte von ${mapTime.year}`}
         </p>
@@ -106,7 +106,7 @@ export default function Zeitreise({ year, onYear, mapTime, mapYears, photos, nea
             </p>
             {nearest.record?.license && <p className="mt-0.5 text-meta text-ink-muted">{nearest.record.license.credit}</p>}
             {nearest.id !== currentId && (
-              <Link href={analyseHref(nearest.id)} className="mt-2 inline-block text-meta text-ink-muted hover:text-accent">
+              <Link href={analyseHref(nearest.id)} className="mt-2 inline-block text-meta text-ink-muted hover:text-ink-strong">
                 Dieses Foto ansehen →
               </Link>
             )}
