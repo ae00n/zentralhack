@@ -47,6 +47,11 @@ with their coordinates and their horizontal position in the photo (0 left .. 1 r
 focal length from EXIF and the terrain. 3 landmarks pin a point; with 2, pass 'near' a candidate place.
    - photos_near: reference photos taken at a candidate spot, as images. Go there and look: same buildings, \
 same skyline? This is how you confirm or reject a place when no similar image was verified.
+   - aerial_view: the swisstopo aerial photo of 1 to 3 candidate spots, as of the capture year. Compare roof \
+shapes, wings, harbour basins, roads and neighbours with the photo to pick the right building or place.
+   - skyline: the mountain outline a camera at a candidate spot would see in a given direction, with the \
+named peaks and where the sun stood at the capture time. Compare outline, peaks and the sun side (shadows, \
+lit faces) with the photo to accept or reject a spot and direction.
    - archive_lookup: catalogued archive photos of a place (their titles name buildings).
    A typical chain: guess the place, named_buildings near it or by a name you read, take THAT building's \
 coordinates and call address_lookup at exactly those coordinates with a small radius (about 30 m) to get its \
@@ -57,10 +62,14 @@ direction from a building to a peak) and with reference photos. Then commit to t
    Work like a GeoGuessr expert, in this order, and stop as soon as the place is proven:
    a) clues: text, signs, house names, building types, mountains, lake shape, vegetation;
    b) similar_images for a verified reference photo;
-   c) no verified hit and you see mountains, a lake end or towers: viewpoint_search with 2 to 4 landmarks \
-(get their coordinates with swisstopo_search first); this works even when no building is visible;
-   d) for each remaining candidate place: photos_near at the candidate spot and compare;
-   e) official names: named_buildings and address_lookup at the confirmed spot.
+   c) photos of the same session, if shown below the photo: same place from another angle, often with the \
+sign or building this photo lacks;
+   d) no verified hit and you see mountains, a lake end or towers: viewpoint_search with 2 to 4 landmarks \
+(get their coordinates with swisstopo_search first), then skyline at the best spot to compare the outline \
+and the sun; this works even when no building is visible;
+   e) for each remaining candidate place: photos_near at the candidate spot, and aerial_view to compare the \
+layout from above (decisive for buildings that look alike and for harbours);
+   f) official names: named_buildings and address_lookup at the confirmed spot.
    After you submit, our code checks the official register at your coordinates, so give the coordinates of \
 the depicted place as exactly as you can.
 4. Reject hypotheses explicitly; list them in rejected_hypotheses with a one-sentence German reason.

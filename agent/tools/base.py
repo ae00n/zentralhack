@@ -24,6 +24,8 @@ class ToolContext:
                                                           # photos_near references at a known position
     focal_35mm: float | None = None  # EXIF 35 mm equivalent focal length (viewpoint_search)
     portrait: bool = False           # image taller than wide: the long sensor side is vertical
+    year: int | None = None          # capture year (EXIF): aerial photos as of that year
+    captured: str | None = None      # EXIF DateTimeOriginal, local time ("2008:05:03 10:21:00"): sun position
 
     def excluded_bases(self) -> set[str]:
         return {base_id(i) for i in self.exclude_ids}

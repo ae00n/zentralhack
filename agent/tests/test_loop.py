@@ -158,7 +158,7 @@ def test_request_shape(monkeypatch):
     assert call["system"][-1]["cache_control"] == {"type": "ephemeral"}
     names = [t["name"] for t in call["tools"]]
     assert names == ["similar_images", "named_buildings", "address_lookup", "swisstopo_search", "viewpoint_search",
-                     "photos_near", "archive_lookup", "terrain_check", SUBMIT]
+                     "photos_near", "aerial_view", "skyline", "archive_lookup", "terrain_check", SUBMIT]
     first = call["messages"][0]["content"]
     assert first[0]["type"] == "image" and first[1]["type"] == "text"  # image first, then text
     assert "No metadata for this photo" in first[1]["text"]  # an archive card: nothing but the image
@@ -430,3 +430,25 @@ def test_exif_focal_length_reaches_the_tools(monkeypatch):
     rec["raw"]["exif"]["focal_35mm"] = 50
     run = loop._Run("challenge:SG.CIV.17.3", None, config.MODEL, [], None, None)
     assert run.ctx.focal_35mm == 50.0
+
+
+def test_session_photos_are_shown_as_images_and_count(monkeypatch):
+    _challenge(monkeypatch)  # the record has session sibling challenge:SG.CIV.17.408, not analysed yet
+    real_get = loop.dp.get_record
+    sample = config.FIXTURES / "sample.jpg"
+    monkeypatch.setattr(loop.dp, "get_record", lambda pid: {"id": pid, "image": {"path": "sample.jpg"}} if pid.endswith(".408") else real_get(pid))
+    monkeypatch.setattr(loop.dp, "image_file", lambda rec: sample)
+    sub = submit_input(sources=1)
+    sub["municipality"]["evidence"].append(ev("session_photo", "Session-Foto zeigt dasselbe Schild"))
+    r, fake, _ = _run(monkeypatch, [response(tool_use(SUBMIT, sub, "t1"))], photo_id="challenge:SG.CIV.17.3")
+    content = fake.calls[0]["messages"][0]["content"]
+    assert [b["type"] for b in content] == ["image", "text", "text", "image"]
+    assert "Session-Foto challenge:SG.CIV.17.408" in content[2]["text"]
+    assert r["fields"]["municipality"]["confidence"] == 0.7  # the shown sibling counts as a source
+
+
+def test_capture_year_and_time_reach_the_tools(monkeypatch):
+    rec = _challenge(monkeypatch)
+    rec["raw"]["exif"]["datetime"] = "2005:02:24 10:39:27"
+    run = loop._Run("challenge:SG.CIV.17.3", None, config.MODEL, [], None, None)
+    assert run.ctx.year == 2005 and run.ctx.captured == "2005:02:24 10:39:27"

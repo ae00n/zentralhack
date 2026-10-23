@@ -186,7 +186,7 @@ def test_tool_definitions_are_strict_and_stable():
     for d in defs:
         # submit_result is too large for strict mode; the v3 places tools stay non-strict to keep the grammar small
         assert d.get("strict", False) is (d["name"] not in ("submit_result", "named_buildings", "address_lookup",
-                                                            "viewpoint_search", "photos_near"))
+                                                            "viewpoint_search", "photos_near", "aerial_view", "skyline"))
         for node in _walk(d["input_schema"]):
             if node.get("type") == "object" or (isinstance(node.get("type"), list) and "object" in node["type"]):
                 assert node.get("additionalProperties") is False, d["name"]
@@ -325,3 +325,45 @@ def test_photos_near_uses_data_pipeline_excludes_the_photo_and_allows_citing(mon
     assert [p["id"] for p in out.data["photos"]] == ["commons:1", "epics:2"]
     assert out.data["photos"][0]["looking"] == "S" and seen == {"radius": 300, "exclude": ["challenge:SG.CIV.17.3"]}
     assert "commons:1" in ctx.verified_refs and "Kirche" in out.summary
+
+
+
+# ---------- sun, aerial_view, skyline ----------
+
+from datetime import datetime, timezone
+
+from agent.tools import sun, views
+
+
+def test_sun_position_at_midsummer_noon():
+    az, el = sun.position(47.02, 8.65, datetime(2023, 6, 21, 11, 27, tzinfo=timezone.utc))  # solar noon in Schwyz
+    assert abs(az - 180) < 3 and abs(el - 66.4) < 0.5
+    assert sun.parse_exif("2008:05:03 10:21:00") == datetime(2008, 5, 3, 8, 21, tzinfo=timezone.utc)  # CEST
+    assert sun.relative(180, 180).startswith("Sonne vor") and sun.relative(180, 0).startswith("Sonne im Rücken")
+    assert "rechts" in sun.relative(90, 0)
+
+
+def test_aerial_view_uses_the_capture_year_and_shows_each_candidate(monkeypatch):
+    calls = []
+    monkeypatch.setattr(views.dp, "aerial_image", lambda lat, lon, radius_m=80, year=None: calls.append(year) or
+                        {"path": "sample.jpg", "year": year, "meters_per_pixel": 0.2})
+    ctx = ToolContext(photo_id="x", image_path="x.jpg", year=2005)
+    out = views.run_aerial(ctx, candidates=[{"name": "Acherhof", "lat": 47.018, "lon": 8.657},
+                                            {"name": "Spital", "lat": 47.016, "lon": 8.659}])
+    assert calls == [2005, 2005] and len(out.images) == 4 and "Acherhof, Spital" in out.summary
+    assert views.run_aerial(ctx, candidates=[]).is_error
+
+
+def test_skyline_adds_the_sun_and_uses_the_exif_field_of_view(monkeypatch):
+    seen = {}
+
+    def horizon(lat, lon, heading_deg, fov_deg=60):
+        seen["fov"] = fov_deg
+        return {"path": "sample.jpg", "camera_height_m": 440, "heading_deg": heading_deg,
+                "peaks": [{"name": "Grosser Mythen", "visible": True}]}
+
+    monkeypatch.setattr(views.dp, "horizon", horizon)
+    ctx = ToolContext(photo_id="x", image_path="x.jpg", focal_35mm=50.0, captured="2008:05:03 10:21:00")
+    out = views.run_skyline(ctx, lat=47.0, lon=8.6, heading_deg=120)
+    assert round(seen["fov"], 1) == 39.6 and out.data["fov_source"] == "exif"
+    assert out.data["sun"]["elevation_deg"] > 30 and "Grosser Mythen" in out.summary and len(out.images) == 2

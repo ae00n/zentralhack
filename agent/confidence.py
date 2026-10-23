@@ -53,7 +53,7 @@ def _known(value) -> bool:
 
 
 # a terrain source can come from either geometry tool; a similar_image also from photos_near
-ALSO_FROM = {"terrain": {"viewpoint_search"}, "similar_image": {"photos_near"}}
+ALSO_FROM = {"terrain": {"viewpoint_search", "skyline"}, "similar_image": {"photos_near"}}
 
 
 def _real(e: dict, tools_called: set[str], allowed: set[str], verified: set[str]) -> bool:

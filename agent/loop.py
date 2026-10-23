@@ -130,6 +130,9 @@ class _Run:
             self.ctx.focal_35mm = float(exif["focal_35mm"])
         size = (self.record or {}).get("image") or {}
         self.ctx.portrait = bool(size.get("height") and size.get("width") and size["height"] > size["width"])
+        if (self.record or {}).get("source") == "challenge":  # the EXIF date of a handed-out photo
+            self.ctx.year = ((self.record.get("date") or {}).get("year_from"))
+            self.ctx.captured = exif.get("datetime")
         self.run_id = f"{_now()}-{secrets.token_hex(2)}"
         self.trace: list[dict] = []
         self.usage = {"input_tokens": 0, "output_tokens": 0, "cache_read_input_tokens": 0,
@@ -190,6 +193,7 @@ class _Run:
         messages = [{"role": "user", "content": [
             image_block(self.image_path, IMAGE_PX, 90),  # image first, then text
             {"type": "text", "text": prompts.first_turn(self._context(), kind, MAX_STEPS)},
+            *self._session_images(),
         ]}]
 
         steps_used, final_turn, submitted, reason = 0, False, None, None
@@ -241,6 +245,23 @@ class _Run:
             messages.append({"role": "user", "content": results})
 
         return self._result(submitted, reason, names)
+
+    def _session_images(self) -> list[dict]:
+        """The other photos of the same session (same camera, under 30 minutes): usually the same place from
+        another angle, often with the sign or building this photo lacks. Shown as images, answered or not."""
+        out = []
+        for sid in ((self.record or {}).get("raw") or {}).get("session", [])[:SESSION_IMAGES]:
+            try:
+                path = dp.image_file(dp.get_record(sid))
+            except Exception:
+                path = None
+            if path and path.exists():
+                out += [{"type": "text", "text": f"Session-Foto {sid} (gleiche Kamera, unter 30 Minuten Abstand; "
+                                                 "evidence kind session_photo mit ref_id, wenn es den Ort belegt):"},
+                        image_block(path, SESSION_PX, 80)]
+        if out:
+            self.allowed.add("session_photo")
+        return out
 
     def _register_check(self, f: dict) -> None:
         """Our own check after the answer (no model call): what does the official register say at the
@@ -407,6 +428,7 @@ class _Composite:
         }
 
 
+SESSION_IMAGES, SESSION_PX = 3, 640
 REGISTER_CHECK_MAX_RADIUS_M = 1500  # coarser coordinates cannot decide a Gemeinde boundary
 
 
