@@ -329,3 +329,16 @@ Keep appending: a new section per step, and update an older section when somethi
 
 **Not built**
 - Nothing from the item's scope.
+
+## v3 item 7: Das Archiv kennt diesen Ort (23.10.)
+
+**Check:** a Prio-1 photo with a match shows both images + meta line; one without shows nothing. Done in mock mode: SG.CIV.17.12 shows its photo and the reference card side by side (both images loaded), captions "2007 · SG.CIV.17.12" and "vor 13.6.1907 · PK_020566 · ETH-Bibliothek Zürich", meta "Bildabgleich verifiziert · 212 übereinstimmende Punkte" + the evidence summary, and "Referenzfoto im Katalog" to the record's `source_url`; SG.CIV.17.3 and SG.CIV.17.40 render no section at all. Not tried with real results (no `verified` / `inliers` from Said yet).
+
+**Special**
+- `components/analyse/ArchiveMatch.tsx`, under the photo in the left column, only after the result shows.
+- Match = `bestReferenceMatch()` (item 2): the first `similar_image` with `ref_id` and `verified: true`, else the highest score. Only a verified match says "Bildabgleich verifiziert" (+ "{n} übereinstimmende Punkte" when `inliers` is set); otherwise the meta says "ähnliches Referenzfoto" (plan 9 fallback until Said adds the keys).
+- The reference record comes from `/photos/{ref_id}`; if it is missing, nothing renders (no broken box). Both images at equal height (192 px, `object-contain` on paper-2); the reference image links to the catalogue.
+- Caption year: the exact year when `year_from == year_to`, else the catalogue's own wording (`date.raw`, e.g. "vor 13.6.1907"), else "keine Angabe". Source label from `record.source` ("Staatsarchiv Schwyz", "ETH-Bibliothek Zürich", ...).
+
+**Not built**
+- Nothing from the item's scope.

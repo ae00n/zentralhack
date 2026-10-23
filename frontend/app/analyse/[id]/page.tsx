@@ -8,6 +8,7 @@ import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import ArchiveMatch from "@/components/analyse/ArchiveMatch";
 import ExcelRow from "@/components/analyse/ExcelRow";
 import MapPanel from "@/components/analyse/MapPanel";
 import PhotoPanel from "@/components/analyse/PhotoPanel";
@@ -473,7 +474,10 @@ export default function AnalysePage() {
         {record && (
           <>
             <div className="grid gap-10 lg:grid-cols-2">
-              <PhotoPanel record={record} />
+              <div className="min-w-0">
+                <PhotoPanel record={record} />
+                {showResult && <ArchiveMatch record={record} result={shown} />}
+              </div>
 
               <div className="space-y-6">
                 {missing && (
