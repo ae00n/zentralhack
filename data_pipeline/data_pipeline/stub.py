@@ -93,3 +93,8 @@ def photos_near(lat: float, lon: float, radius_m: int = 500, max_precision_m: in
         return []
     return [{"id": r["id"], "source": r["source"], "title": r.get("title"), "year": r["date"]["year_from"],
              "distance_m": 120, "precision_m": 50, "heading_deg": 135, "image_path": r["image"]["path"]}][:limit]
+
+
+def aerial_image(lat: float, lon: float, radius_m: float = 80, year: int | None = None) -> dict:
+    return {"path": "sample.jpg", "year": year, "meters_per_pixel": 0.2, "width": 800, "height": 800,
+            "radius_m": radius_m}
