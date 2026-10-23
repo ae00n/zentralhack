@@ -1,6 +1,5 @@
 // Erschliessung (FRONTPAGE_PLAN 5): suggested title, the brief's five fields in fixed order with
 // "nicht bestimmbar", per-field Modell-Sicherheit and provenance, then the Begründung box.
-import ExportButtons from "@/components/ExportButtons";
 import { formatAny, formatField, formatPct, isEmptyValue } from "@/lib/format";
 import { FIELD_ROWS, fieldLabel } from "@/lib/labels";
 import { REVIEW_FIELDS, SURE, effectiveValue, formatValue, isCorrected, provenance, suggestedTitle } from "@/lib/review";
@@ -14,7 +13,51 @@ function isReviewField(key: FieldKey): key is ReviewField {
   return (REVIEW_FIELDS as string[]).includes(key);
 }
 
-export default function ResultPanel({ result }: { result: AnalysisResult }) {
+/** Korrigieren in place (plan 5, review rule 3): one input per brief field, prefilled with the value that counts. */
+export interface EditState {
+  drafts: Record<ReviewField, string>;
+  /** Field that gets focus and selection. */
+  focus: ReviewField;
+  onChange: (key: ReviewField, value: string) => void;
+  onSave: () => void;
+  onCancel: () => void;
+  /** Ortschaft / Gemeinde suggestions: the 30 Gemeinden. */
+  gemeinden: string[];
+}
+
+const GEMEINDE_FIELDS: ReviewField[] = ["locality", "municipality"];
+
+function Editor({ k, edit }: { k: ReviewField; edit: EditState }) {
+  return (
+    <input
+      value={edit.drafts[k]}
+      onChange={(e) => edit.onChange(k, e.target.value)}
+      onKeyDown={(e) => {
+        if (e.nativeEvent.isComposing) return;
+        if (e.key === "Enter") {
+          e.preventDefault();
+          edit.onSave();
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          edit.onCancel();
+        }
+      }}
+      ref={(el) => {
+        if (el && k === edit.focus && document.activeElement !== el && !el.dataset.focused) {
+          el.dataset.focused = "1";
+          el.focus();
+          el.select();
+        }
+      }}
+      list={GEMEINDE_FIELDS.includes(k) ? "gemeinden-list" : undefined}
+      placeholder="nicht bestimmbar"
+      autoComplete="off"
+      className="w-full rounded border border-ink-muted px-2 py-1 text-body focus:border-ink-strong focus:shadow-focus"
+    />
+  );
+}
+
+export default function ResultPanel({ result, edit }: { result: AnalysisResult; edit?: EditState | null }) {
   const review = needsReview(result);
   const rejected = result.rejected_hypotheses ?? [];
   const title = suggestedTitle(result);
@@ -23,7 +66,9 @@ export default function ResultPanel({ result }: { result: AnalysisResult }) {
 
   return (
     <section className="fade-in">
-      <h2 className="text-h3">Erschliessung</h2>
+      <h2 id="erschliessung-heading" tabIndex={-1} className="text-h3">
+        Erschliessung
+      </h2>
 
       <div className="mt-3">
         <p className="text-small text-ink-muted">Titel</p>
@@ -47,10 +92,20 @@ export default function ResultPanel({ result }: { result: AnalysisResult }) {
               evidence={field?.evidence ?? []}
               rejected={rejected.filter((r) => (ROW_OF[r.field] ?? r.field) === key)}
               provenance={isReviewField(key) ? provenance(result, key) : "KI-Vorschlag"}
+              fieldKey={isReviewField(key) ? key : undefined}
+              editor={edit && isReviewField(key) ? <Editor k={key} edit={edit} /> : undefined}
             />
           );
         })}
       </div>
+
+      {edit && (
+        <datalist id="gemeinden-list">
+          {edit.gemeinden.map((g) => (
+            <option key={g} value={g} />
+          ))}
+        </datalist>
+      )}
 
       <Begruendung result={result} review={review} />
 
@@ -73,7 +128,6 @@ export default function ResultPanel({ result }: { result: AnalysisResult }) {
         </details>
       )}
 
-      <ExportButtons ids={[result.photo_id]} className="mt-4" />
     </section>
   );
 }

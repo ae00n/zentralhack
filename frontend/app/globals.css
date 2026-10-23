@@ -179,3 +179,21 @@ body {
   background: transparent;
   border: 1.5px solid var(--cert-open);
 }
+
+/* Excel-Zeile: a changed cell fades in from paper-2 (components/analyse/ExcelRow.tsx). */
+@keyframes cell-flash {
+  from {
+    background: var(--paper-2);
+  }
+  to {
+    background: transparent;
+  }
+}
+.cell-flash {
+  animation: cell-flash 400ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cell-flash {
+    animation: none;
+  }
+}

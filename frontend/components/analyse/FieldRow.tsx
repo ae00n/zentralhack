@@ -4,7 +4,7 @@
 // a meta line with the top source kinds and the provenance, and the evidence list on expand.
 import { ChevronDown } from "lucide-react";
 import Link from "next/link";
-import { useId, useState } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { analyseHref, formatAny } from "@/lib/format";
 import { evidenceLabel } from "@/lib/labels";
 import type { AnalysisResult, Evidence } from "@/lib/types";
@@ -24,6 +24,10 @@ interface Props {
   rejected: Rejected[];
   /** "KI-Vorschlag · ungeprüft", "korrigiert · KI: Brunnen", ... */
   provenance: string;
+  /** Korrigieren: an input that replaces the value in place. */
+  editor?: ReactNode;
+  /** Review field key, so the page can focus this row (weakest field, keys 1 to 5). */
+  fieldKey?: string;
 }
 
 /** Top supporting source kinds, German, without repeats: "Adressverzeichnis · Benanntes Gebäude". */
@@ -31,15 +35,41 @@ function sourceKinds(evidence: Evidence[], max = 3): string[] {
   return [...new Set(evidence.filter((e) => e.supports !== false).map((e) => evidenceLabel(e.kind)))].slice(0, max);
 }
 
-export default function FieldRow({ label, value, empty, aiValue, confidence, evidence, rejected, provenance }: Props) {
+export default function FieldRow({
+  label,
+  value,
+  empty,
+  aiValue,
+  confidence,
+  evidence,
+  rejected,
+  provenance,
+  editor,
+  fieldKey,
+}: Props) {
   const [open, setOpen] = useState(false);
   const panelId = useId();
   const expandable = evidence.length > 0 || rejected.length > 0;
   const meta = [...sourceKinds(evidence), provenance].join(" · ");
 
+  if (editor) {
+    return (
+      <div className="py-3">
+        <label className="grid w-full grid-cols-[112px_1fr_auto_16px] items-baseline gap-3">
+          <span className="text-small text-ink-muted">{label}</span>
+          {editor}
+          {empty ? <span /> : <Confidence value={confidence} />}
+          <span />
+        </label>
+        <p className="ml-[124px] mt-0.5 text-meta text-ink-muted">KI: {aiValue ?? value}</p>
+      </div>
+    );
+  }
+
   return (
     <div className="py-3">
       <button
+        data-review-field={fieldKey}
         type="button"
         onClick={() => expandable && setOpen((o) => !o)}
         aria-expanded={expandable ? open : undefined}

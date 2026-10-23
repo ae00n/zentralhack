@@ -20,6 +20,7 @@ import {
   type FilterKey,
   type SortKey,
 } from "@/lib/desk";
+import { useReviewStore, withLocalReview } from "@/lib/reviewQueue";
 import type { AnalysisResult, PhotoRecord } from "@/lib/types";
 
 type Scope = "prio1" | "all";
@@ -42,6 +43,7 @@ function Arbeitsplatz() {
   const [sort, setSort] = useState<SortKey>("unsure");
   const [filter, setFilter] = useState<FilterKey>("all");
   const [loadingResults, setLoadingResults] = useState(false);
+  useReviewStore(); // decisions made on the detail page count here at once
 
   useEffect(() => {
     listChallenge()
@@ -66,7 +68,7 @@ function Arbeitsplatz() {
     };
   }, [records, scope]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const toItems = (rs: PhotoRecord[]): DeskItem[] => rs.map((record) => ({ record, result: results.get(record.id) ?? null }));
+  const toItems = (rs: PhotoRecord[]): DeskItem[] => rs.map((record) => ({ record, result: withLocalReview(results.get(record.id) ?? null) }));
   const items = toItems(scoped);
   const counts = countItems(items);
   const prio = countItems(toItems(prioRecords));
