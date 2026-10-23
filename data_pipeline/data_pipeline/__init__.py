@@ -2,6 +2,7 @@
 
     from data_pipeline import get_record, similar_images, archive_lookup, timeline
     from data_pipeline import address_lookup, named_buildings   # Ortschaft, Gemeinde, Strasse, Gebaeude
+    from data_pipeline import photos_near                       # reference photos taken near a point
 
 Set DATA_PIPELINE_STUB=1 to answer everything from contracts/fixtures/ instead of data/.
 Set DATA_PIPELINE_URL + DATA_PIPELINE_TOKEN to use a data server instead of a local data/ (remote.py).
@@ -15,9 +16,9 @@ if os.environ.get("DATA_PIPELINE_URL") and os.environ.get("DATA_PIPELINE_STUB") 
 
 if os.environ.get("DATA_PIPELINE_STUB") == "1":
     from .stub import (address_lookup, archive_lookup, eval_ids, gazetteer, get_record, image_file,
-                       named_buildings, reload, similar_images, split_composite, timeline)
+                       named_buildings, photos_near, reload, similar_images, split_composite, timeline)
 else:
-    from .api import (archive_lookup, eval_ids, gazetteer, get_record, image_file, reload,
+    from .api import (archive_lookup, eval_ids, gazetteer, get_record, image_file, photos_near, reload,
                       similar_images, split_composite, timeline)
     from .places import address_lookup, named_buildings
 
@@ -39,6 +40,6 @@ _gaz_module.__class__ = _CallableModule
 gazetteer = _gaz_module
 
 __all__ = [
-    "address_lookup", "named_buildings", "archive_lookup", "eval_ids", "gazetteer", "get_record", "image_file", "reload",
+    "address_lookup", "named_buildings", "photos_near", "archive_lookup", "eval_ids", "gazetteer", "get_record", "image_file", "reload",
     "similar_images", "split_composite", "timeline",
 ]

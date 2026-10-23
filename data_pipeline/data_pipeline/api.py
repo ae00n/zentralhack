@@ -205,3 +205,37 @@ def timeline(lat: float, lon: float, radius_m: int = 1000) -> list[dict]:
                         "distance_m": round(dist), "image_path": r["image"]["path"]})
     out.sort(key=lambda x: (x["year_from"], x["distance_m"], x["id"]))
     return out
+
+
+def photos_near(lat: float, lon: float, radius_m: int = 500, max_precision_m: int = 500,
+                sources: list[str] | None = None, exclude_ids: list[str] = (), limit: int = 12) -> list[dict]:
+    """Reference photos taken near a point, nearest first ("walk around" a candidate spot).
+
+    [{id, source, title, year, distance_m, precision_m, heading_deg, image_path}]
+    Every source with a position counts (Commons, E-Pics/Smapshot, LUBIS, Staatsarchiv, NB). Only
+    positions at least as precise as max_precision_m: Staatsarchiv cards placed at their municipality
+    (1 to 3 km) are left out by default. heading_deg is the camera's viewing direction (0 = north,
+    90 = east) where a pose is known (Smapshot, E-Pics, LUBIS), else null. Never returns eval cards,
+    challenge photos, crops, or anything in exclude_ids.
+    """
+    ev = eval_ids()
+    excluded = {_base(i) for i in exclude_ids}
+    out = []
+    for r in _records().values():
+        if r["source"] == "challenge" or "#" in r["id"] or r["id"] in ev or r["id"] in excluded:
+            continue
+        loc = r.get("location")
+        if not loc or (loc.get("precision_m") or 10**6) > max_precision_m or not (r.get("image") or {}).get("path"):
+            continue
+        if sources and r["source"] not in sources:
+            continue
+        dist = _haversine_m(lat, lon, loc["lat"], loc["lon"])
+        if dist > radius_m:
+            continue
+        az = (r.get("camera") or {}).get("azimuth")
+        out.append({"id": r["id"], "source": r["source"], "title": r.get("title"),
+                    "year": (r.get("date") or {}).get("year_from"), "distance_m": round(dist),
+                    "precision_m": loc.get("precision_m"), "heading_deg": round(az % 360) if az is not None else None,
+                    "image_path": r["image"]["path"]})
+    out.sort(key=lambda x: (x["distance_m"], x["id"]))
+    return out[:limit]
