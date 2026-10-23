@@ -62,7 +62,15 @@ export default function DeskBand({ meta, counts, prio, filter, onFilter, excelUr
           </a>
         </div>
 
-        <div className="mt-6 flex flex-wrap items-end gap-x-10 gap-y-4">
+        {/* Phone: the counters collapse into one meta line (plan 4). */}
+        <p className="mt-4 text-small sm:hidden">
+          {counts.sure} sicher · <span className="text-warn">{counts.check} Prüfung nötig</span> · {counts.open} nicht
+          bestimmbar
+          <span className="block text-ink-muted">
+            {prio.reviewed} von {prio.total} Prio 1 geprüft · {prio.corrected} korrigiert
+          </span>
+        </p>
+        <div className="mt-6 hidden flex-wrap items-end gap-x-10 gap-y-4 sm:flex">
           <Counter value={counts.sure} label="sicher" note="ab 90 %" active={filter === "sure"} onClick={() => toggle("sure")} />
           <Counter
             value={counts.check}

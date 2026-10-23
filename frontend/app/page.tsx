@@ -66,6 +66,8 @@ function Arbeitsplatz() {
   const [hoveredPhoto, setHoveredPhoto] = useState<string | null>(null);
   const [hoveredPlace, setHoveredPlace] = useState<number | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
+  // Phone: list and map are tabs, list first (plan 4). From lg both show side by side.
+  const [view, setView] = useState<"list" | "map">("list");
 
   useEffect(() => {
     getTilesUrl().then(setTiles);
@@ -118,7 +120,12 @@ function Arbeitsplatz() {
     setTimeout(() => document.getElementById(rowId(photoId))?.scrollIntoView({ block: "nearest" }), 0);
   };
   // Clicking a pin: the first click selects, a second click on the same photo opens it.
-  const pickFromMap = (photoId: string) => (selected === photoId ? router.push(analyseHref(photoId)) : select(photoId));
+  const pickFromMap = (photoId: string) => {
+    if (selected === photoId) return router.push(analyseHref(photoId));
+    // On the phone the list is the other tab: show the picked row there.
+    if (!window.matchMedia("(min-width: 1024px)").matches) setView("list");
+    select(photoId);
+  };
 
   const meta = records
     ? [`${records.length} Fotos`, `${prioRecords.length} Prio 1`, yearSpan(records)].filter(Boolean).join(" · ")
@@ -135,9 +142,31 @@ function Arbeitsplatz() {
         excelUrl={exportXlsxUrl({ split: "challenge", priority: scope === "prio1" ? 1 : undefined })}
       />
 
+      <div className="wrapper pt-4 lg:hidden">
+        <div role="tablist" aria-label="Ansicht" className="flex rounded border border-ink-muted">
+          {(
+            [
+              ["list", "Liste"],
+              ["map", "Karte"],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={view === key}
+              onClick={() => setView(key)}
+              className={`flex-1 py-2 text-small font-bold transition-colors duration-fade ${view === key ? "bg-ink text-white" : "text-ink-muted"}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <main className="wrapper grid gap-8 py-6 lg:grid-cols-[minmax(0,55fr)_minmax(0,45fr)]">
-        <div className="lg:sticky lg:top-4 lg:self-start">
-          <div className="h-[420px] bg-paper-2 lg:h-[calc(100vh-120px)]">
+        <div className={`lg:sticky lg:top-4 lg:block lg:self-start ${view === "map" ? "" : "hidden"}`}>
+          <div className="h-[70vh] bg-paper-2 lg:h-[calc(100vh-120px)]">
             {tiles && (
               <DeskMap
                 places={places}
@@ -167,7 +196,7 @@ function Arbeitsplatz() {
           </p>
         </div>
 
-        <div className="min-w-0">
+        <div className={`min-w-0 lg:block ${view === "list" ? "" : "hidden"}`}>
         {error && <p className="mb-4 text-bad">Server nicht erreichbar oder Fehler: {error}</p>}
 
         <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b border-rule pb-3">

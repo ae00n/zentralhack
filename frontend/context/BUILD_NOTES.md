@@ -356,3 +356,18 @@ What was checked on the laptop:
 2. `NEXT_PUBLIC_MODE=demo NEXT_PUBLIC_API_URL=http://localhost:8000 npm run build && npm start` (README), built once online (fonts).
 3. Wi-Fi off, then plan 11: desk map + counters → SG.CIV.17.3 (replay) → fields + Begründung → photo with a match → low-confidence photo: K, fix Gemeinde, Enter, Excel-Zeile → Enter, Enter → Excel herunterladen → Nachweis.
 4. Watch for: grey map tiles offline (Dijar's cache), `/review` writes into the cached results (a second POST overwrites, so re-running the demo needs a reset of the reviews or fresh copies of `data/results/`).
+
+## v3 item 10: Phone pass at 390 px (23.10.)
+
+**Check:** no horizontal scroll; list/map tabs; sticky review bar. Done (headless Chrome, 390×844, `isMobile`, mock mode): desk and detail page are exactly 390 px wide; desk shows the "Liste* | Karte" tabs with the list first, the map tab renders a 359×591 map; the detail page stacks photo → fields → review bar → "Das Archiv kennt diesen Ort" → trace (collapsed) → Excel-Zeile → map; while the fields are on screen the review bar sits at the bottom of the viewport (790 to 832 px of 844). Desktop re-checked after the change (items 5 and 7 flows unchanged).
+
+**Special**
+- Header on the phone: "Staatsarchiv Schwyz [Prototyp]" / "Erschliessungs-Assistent" with a menu button (lucide Menu / X, `aria-expanded`); Nachweis and Methode (and the mock tag) open in a `paper-2` panel under the header. `SiteHeader` is a client component now.
+- Desk: the four counters collapse into one meta line ("1 sicher · 1 Prüfung nötig · 1 nicht bestimmbar" / "1 von 3 Prio 1 geprüft · 0 korrigiert"); on the phone they are not filters (the Filter select still is). Segmented tabs "Liste | Karte" (4 px radius, `role="tab"`), hidden from 1024 px where both show. The map is 70 vh in its tab. A pin picked in the map tab switches to the list so the selected row is visible. The map resizes itself when its tab shows (ResizeObserver; MapLibre measures 0 in a hidden container).
+- Detail: grid items reordered so the DOM order is photo, Erschliessung, archive match (phone order of plan 5); on desktop the archive match is placed back under the photo with explicit grid rows. Grids use `minmax(0, 1fr)` columns: without it the Excel-Zeile table widened the single phone column to 977 px.
+- Review bar: on the phone a `sticky bottom-0` bar with a rule on top; "Bestätigen" stretches, "Korrigieren" beside it, "Überspringen" hidden (N still works with a keyboard).
+- The finished trace starts collapsed below 1024 px (`TraceLog defaultOpen`); while it runs it is always open.
+- Field rows: label column 88 px on the phone (112 px from `sm`).
+
+**Not built**
+- The plan's phone order puts the Begründung box after the review buttons; here it stays directly under the fields (it is part of the Erschliessung panel), so the bar follows it.

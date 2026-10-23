@@ -228,10 +228,15 @@ export default function DeskMap({
         .addTo(m);
     });
 
+    // The phone tabs hide the map (display: none); resize when it shows again.
+    const ro = new ResizeObserver(() => m.resize());
+    ro.observe(container.current);
+
     map.current = m;
     // Test hook for the headless checks (dev only): read feature-state and project pins to pixels.
     if (process.env.NODE_ENV !== "production") (window as unknown as { __deskMap?: maplibregl.Map }).__deskMap = m;
     return () => {
+      ro.disconnect();
       ready.current = false;
       counts.current.forEach((c) => c.remove());
       counts.current = [];

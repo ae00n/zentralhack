@@ -55,13 +55,13 @@ export default function FieldRow({
   if (editor) {
     return (
       <div className="py-3">
-        <label className="grid w-full grid-cols-[112px_1fr_auto_16px] items-baseline gap-3">
+        <label className="grid w-full grid-cols-[88px_1fr_auto_16px] sm:grid-cols-[112px_1fr_auto_16px] items-baseline gap-3">
           <span className="text-small text-ink-muted">{label}</span>
           {editor}
           {empty ? <span /> : <Confidence value={confidence} />}
           <span />
         </label>
-        <p className="ml-[124px] mt-0.5 text-meta text-ink-muted">KI: {aiValue ?? value}</p>
+        <p className="ml-[100px] sm:ml-[124px] mt-0.5 text-meta text-ink-muted">KI: {aiValue ?? value}</p>
       </div>
     );
   }
@@ -74,7 +74,7 @@ export default function FieldRow({
         onClick={() => expandable && setOpen((o) => !o)}
         aria-expanded={expandable ? open : undefined}
         aria-controls={expandable ? panelId : undefined}
-        className={`grid w-full grid-cols-[112px_1fr_auto_16px] items-baseline gap-3 text-left ${expandable ? "cursor-pointer" : "cursor-default"}`}
+        className={`grid w-full grid-cols-[88px_1fr_auto_16px] sm:grid-cols-[112px_1fr_auto_16px] items-baseline gap-3 text-left ${expandable ? "cursor-pointer" : "cursor-default"}`}
       >
         <span className="text-small text-ink-muted">{label}</span>
         <span className="min-w-0">
@@ -99,13 +99,13 @@ export default function FieldRow({
         )}
       </button>
 
-      <p className="ml-[124px] mt-0.5 text-meta text-ink-muted">{meta}</p>
+      <p className="ml-[100px] sm:ml-[124px] mt-0.5 text-meta text-ink-muted">{meta}</p>
       {rejected.length > 0 && !open && (
-        <p className="ml-[124px] text-meta text-ink-muted">Verworfen: {rejected.map((r) => formatAny(r.value)).join(", ")}</p>
+        <p className="ml-[100px] sm:ml-[124px] text-meta text-ink-muted">Verworfen: {rejected.map((r) => formatAny(r.value)).join(", ")}</p>
       )}
 
       {open && (
-        <div id={panelId} className="fade-in ml-[124px] mt-2 space-y-2">
+        <div id={panelId} className="fade-in ml-[100px] sm:ml-[124px] mt-2 space-y-2">
           {evidence.length > 0 && (
             <ul className="space-y-1.5">
               {evidence.map((e, i) => (

@@ -36,13 +36,13 @@ export default function ReviewBar({ editing, decided, onConfirm, onCorrect, onSk
   }
   return (
     <div className="flex flex-wrap gap-2">
-      <button type="button" onClick={onConfirm} className={PRIMARY}>
+      <button type="button" onClick={onConfirm} className={`${PRIMARY} flex-1 justify-center sm:flex-none`}>
         {decided ? "Weiter" : "Bestätigen"} <Key k="⏎" light />
       </button>
       <button type="button" onClick={onCorrect} className={SECONDARY}>
         Korrigieren <Key k="K" />
       </button>
-      <button type="button" onClick={onSkip} className={SECONDARY}>
+      <button type="button" onClick={onSkip} className={`${SECONDARY} hidden sm:inline-flex`}>
         Überspringen <Key k="N" />
       </button>
     </div>

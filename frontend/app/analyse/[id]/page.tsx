@@ -102,6 +102,9 @@ export default function AnalysePage() {
   const [edit, setEdit] = useState<{ drafts: Record<ReviewField, string>; focus: ReviewField } | null>(null);
   const [ended, setEnded] = useState(false);
   const [announce, setAnnounce] = useState("");
+  // Phone: the finished trace starts collapsed (plan 5). Read once on the client.
+  const [wide, setWide] = useState(true);
+  useEffect(() => setWide(window.matchMedia("(min-width: 1024px)").matches), []);
   const lastKey = useRef(0);
   const focusedFor = useRef<string | null>(null);
 
@@ -473,13 +476,14 @@ export default function AnalysePage() {
 
         {record && (
           <>
-            <div className="grid gap-10 lg:grid-cols-2">
-              <div className="min-w-0">
+            {/* Desktop: photo + archive match left, Erschliessung right. Phone order (plan 5): photo,
+                fields, review bar, then the archive match. */}
+            <div className="grid grid-cols-[minmax(0,1fr)] gap-x-10 gap-y-6 lg:grid-cols-2">
+              <div className="min-w-0 lg:col-start-1 lg:row-start-1">
                 <PhotoPanel record={record} />
-                {showResult && <ArchiveMatch record={record} result={shown} />}
               </div>
 
-              <div className="space-y-6">
+              <div className="min-w-0 space-y-6 lg:col-start-2 lg:row-span-2 lg:row-start-1">
                 {missing && (
                   <div className="flex flex-wrap items-baseline justify-between gap-3 border-y border-rule py-3">
                     <p className="text-ink-muted">Noch kein Ergebnis für dieses Foto</p>
@@ -509,6 +513,8 @@ export default function AnalysePage() {
 
                 {showResult && <ResultPanel result={shown} edit={editState} />}
                 {showResult && (
+                  // Phone: a bar stuck to the bottom while the fields are on screen (plan 5).
+                  <div className="sticky bottom-0 z-10 border-t border-rule bg-paper py-3 lg:static lg:border-0 lg:py-0">
                   <ReviewBar
                     editing={!!edit}
                     decided={decided}
@@ -518,8 +524,14 @@ export default function AnalysePage() {
                     onSave={saveEdit}
                     onCancel={cancelEdit}
                   />
+                  </div>
                 )}
               </div>
+              {showResult && (
+                <div className="min-w-0 lg:col-start-1 lg:row-start-2 lg:-mt-2">
+                  <ArchiveMatch record={record} result={shown} />
+                </div>
+              )}
             </div>
 
             {!running && steps.length > 0 && (
@@ -536,12 +548,12 @@ export default function AnalysePage() {
                     </button>
                   )}
                 </div>
-                <TraceLog items={steps} running={false} />
+                <TraceLog items={steps} running={false} defaultOpen={wide} />
               </section>
             )}
 
             {showResult && (
-              <section className="mt-10 grid gap-8 border-t border-rule pt-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,480px)]">
+              <section className="mt-10 grid grid-cols-[minmax(0,1fr)] gap-8 border-t border-rule pt-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,480px)]">
                 <ExcelRow record={record} result={shown} />
                 <div>
                 <h2 className="text-h3">Karte</h2>

@@ -7,9 +7,11 @@ import type { TraceItem } from "@/lib/types";
 interface Props {
   items: TraceItem[];
   running: boolean;
+  /** Collapsed on the phone once the analysis is done. */
+  defaultOpen?: boolean;
 }
 
-export default function TraceLog({ items, running }: Props) {
+export default function TraceLog({ items, running, defaultOpen = true }: Props) {
   const list = (
     <ol className="mt-2 space-y-1.5">
       {items.map((item) => (
@@ -23,7 +25,7 @@ export default function TraceLog({ items, running }: Props) {
   );
 
   return (
-    <details open>
+    <details open={running || defaultOpen}>
       <summary className="cursor-pointer text-h3 hover:text-ink-strong">
         So entsteht das Ergebnis{running ? " ..." : ` · ${items.length} Schritte`}
       </summary>
