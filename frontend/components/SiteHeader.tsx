@@ -12,6 +12,9 @@ export default function SiteHeader() {
           <Link href="/" className="hover:text-accent">
             Archiv
           </Link>
+          <Link href="/nachweis" className="hover:text-accent">
+            Nachweis
+          </Link>
           {MODE === "mock" && <span className="font-mono text-meta text-warn">Beispieldaten</span>}
         </nav>
       </div>

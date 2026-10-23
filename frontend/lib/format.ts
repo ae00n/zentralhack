@@ -51,6 +51,11 @@ export function formatAny(value: unknown): string {
   return String(value);
 }
 
+/** Share 0..1 as "71 %" (narrow no-break space, Swiss style); null as "–". */
+export function formatPct(x: number | null | undefined): string {
+  return x === null || x === undefined ? "–" : `${Math.round(x * 100)} %`;
+}
+
 export function formatDate(iso: string): string {
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString("de-CH");

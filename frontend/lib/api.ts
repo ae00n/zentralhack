@@ -12,6 +12,7 @@ import type {
   TraceItem,
 } from "./types";
 import { MOCK_DEMO_IDS, MOCK_PHOTOS } from "@/mocks/photos";
+import { mockEvalExtras } from "@/mocks/eval";
 import { MOCK_RESULT_VARIANTS } from "@/mocks/results";
 
 export type Mode = "mock" | "live" | "demo";
@@ -151,10 +152,15 @@ export async function getTimeline(lat: number, lon: number, radiusM = 1000): Pro
   return backend<Timeline>(`/timeline${query({ lat, lon, radius_m: radiusM })}`);
 }
 
+/**
+ * Real eval numbers, or null when there are none yet. Said's /eval/summary serves the made-up fixture
+ * until the first eval run (marked by _fixture_note); outside mock mode that counts as none (question 3.9).
+ */
 export async function getEvalSummary(): Promise<EvalSummary | null> {
-  if (MODE === "mock") return fixture<EvalSummary>("eval_summary.json");
+  if (MODE === "mock") return mockEvalExtras(await fixture<EvalSummary>("eval_summary.json"));
   try {
-    return await backend<EvalSummary>("/eval/summary");
+    const s = await backend<EvalSummary>("/eval/summary");
+    return s._fixture_note ? null : s;
   } catch (e) {
     if (e instanceof ApiError && e.status === 404) return null;
     throw e;

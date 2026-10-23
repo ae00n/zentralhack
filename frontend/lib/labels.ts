@@ -55,3 +55,14 @@ export function toolLabel(tool: string | undefined): string {
   if (!tool) return "Werkzeug";
   return TOOL_LABELS[tool] ?? tool;
 }
+
+/** Eval subsets (CONTRACTS section 2). */
+export const SUBSET_LABELS: Record<string, string> = {
+  card_exact: "Ansichtskarten, nicht gelaufen",
+  card_posted: "Ansichtskarten, gelaufen",
+  photo_dated: "Fotos mit Aufnahmedatum",
+};
+
+export function subsetLabel(key: string): string {
+  return SUBSET_LABELS[key] ?? key;
+}

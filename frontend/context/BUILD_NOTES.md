@@ -126,3 +126,26 @@ Keep appending: a new section per step, and update an older section when somethi
 - The empty-export message is not seen in a test: in mock mode every id has a result.
 - No production build run for this step (`npm run dev` was running in the same folder); typecheck passes.
 - Excel was only tried with the laptop's own regional settings. With a decimal comma locale (de-DE) Excel may read `0.82` as text; Swiss settings (de-CH) use a point. Not a frontend fix, the file comes from the backend.
+
+---
+
+## Step 7: Nachweis page (23.10.)
+
+**Check:** shows the numbers from `eval_summary.json`. Done in mock mode (headless screenshots at 1440 and 800 px, no console errors besides the missing favicon). Not checked against a real eval: Said's run is planned for Friday night.
+
+**Special**
+- `/nachweis`, linked in the site header next to "Archiv".
+- Order on the page: meta line (n, model, date, cost), four big numbers (Gemeinde richtig, Jahrzehnt richtig, Jahrzehnt ±1, Fotos ausgewertet), then "Agent gegen reine Bildähnlichkeit", "Wann die Gemeinde stimmt", "Konfidenz", "Nach Gemeinde", and one "Ehrlicher Fehlerfall" at the end.
+- Shares are shown as percentages ("71 %", narrow no-break space), not as `0.71` like confidences: these are measured hit rates, and the jury reads percent faster. Bars are the same 2 px ink bars as the confidence, 120 px, never amber.
+- Said's eval code (`said/agent` 4fbd332, `agent/eval/summary.py`) writes more than CONTRACTS section 7: `decade_n`, `decade_posted_at_or_before`, `coord_n`, `n_eval`, `n_missing`, `mean_confidence` per calibration bin, `confidence` / `subset` per failure, and `metrics` = `data_pipeline.metrics.score()` (`all` + one entry per subset). `lib/types.ts` follows his code; all extra keys are optional, so the page also works with the plain contract shape.
+- **Fixture guard:** Said's `/eval/summary` serves the made-up fixture when no eval has run yet. In live and demo mode `getEvalSummary()` treats a summary with `_fixture_note` as "no eval" and the page says "Noch keine Auswertung", so invented numbers can never reach the pitch (question 3.9). Only mock mode shows them, with an amber "Beispieldaten" line.
+- "Wann die Gemeinde stimmt": printed vs not printed place name and the three subsets from `metrics` (German labels in `lib/labels.ts`: "Ansichtskarten, nicht gelaufen", "Ansichtskarten, gelaufen", "Fotos mit Aufnahmedatum"). Hidden when `metrics` is missing.
+- "Konfidenz": one sentence per level from `metrics` ("Ab 0.8: 40 % der Fotos, davon 90 % richtig"), then the calibration bins as a table. The chart is step 10.
+- Fehlerfall: the first entry of `failures`. Said sorts them by confidence, highest first, so it is the most confident mistake. Thumbnail, expected vs got, confidence, his German `why`, link to the Analyse screen, count of the other mistakes.
+- `mocks/eval.ts` adds Said's extra keys and an invented `metrics` block to the fixture in mock mode, so every section can be built and seen.
+- The baseline sentence says "x Prozentpunkte besser"; if the agent is ever worse, the number is negative (honest, but reword it then).
+
+**Not built**
+- The "Noch keine Auswertung" state and the fixture guard are not seen in a test (backend not running).
+- The Fehlerfall link goes to `/analyse/<id>`; whether that page has a cached result for eval photos depends on the backend. In mock mode the fixture id `stasz:361043` does not exist, so the link shows "Dieses Foto gibt es nicht."
+- Year metrics from `metrics` (median year error, range coverage, "≤ Poststempel") and `decade_posted_at_or_before` are not shown. The big decade numbers cover the year side for the jury; add them if the team wants them.

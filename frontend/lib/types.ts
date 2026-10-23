@@ -142,6 +142,29 @@ export interface DemoItem {
   record: PhotoRecord;
 }
 
+/** Municipality metrics from data_pipeline.metrics.score. */
+export interface MuniMetrics {
+  n: number;
+  accuracy: number | null;
+  accuracy_printed?: number | null;
+  n_printed?: number;
+  accuracy_not_printed?: number | null;
+  n_not_printed?: number;
+  /** keys "conf_0.7", "conf_0.8", "conf_0.9" */
+  [conf: `conf_${string}`]: { coverage: number | null; accuracy: number | null } | undefined;
+}
+
+/** EvalSummary.metrics: "all" plus one entry per eval subset (card_exact, card_posted, photo_dated). */
+export interface EvalMetrics {
+  n_truth?: number;
+  n_scored?: number;
+  [subset: string]: { municipality: MuniMetrics; year?: Record<string, number | null> } | number | undefined;
+}
+
+/**
+ * Optional keys beyond CONTRACTS section 7 are what Said's agent/eval/summary.py writes (said/agent 4fbd332).
+ * _fixture_note marks the made-up fixture, which /eval/summary also serves before the first eval run.
+ */
 export interface EvalSummary {
   n: number;
   model: string;
@@ -149,13 +172,27 @@ export interface EvalSummary {
   municipality_accuracy: number;
   decade_accuracy: number;
   decade_within_one: number;
-  median_coord_error_km: number;
-  calibration: { bin: string; n: number; accuracy: number }[];
+  decade_n?: number;
+  decade_posted_at_or_before?: number | null;
+  median_coord_error_km: number | null;
+  coord_n?: number;
+  calibration: { bin: string; n: number; accuracy: number | null; mean_confidence?: number | null }[];
   by_municipality: { municipality: string; n: number; accuracy: number }[];
-  baseline: { similarity_only_municipality_accuracy: number };
-  failures: { photo_id: string; expected: string; got: string; why: string }[];
+  baseline: { similarity_only_municipality_accuracy?: number; n?: number };
+  failures: {
+    photo_id: string;
+    expected: string;
+    got: string;
+    why: string;
+    confidence?: number;
+    subset?: string;
+    place_name_printed?: boolean;
+  }[];
   cost_usd: number;
-  metrics?: Record<string, unknown>;
+  n_eval?: number;
+  n_missing?: number;
+  metrics?: EvalMetrics;
+  _fixture_note?: string;
 }
 
 /** Status "needs_review" and the needs_review flag both mean "Prüfung nötig" (OPEN_FRONTEND_QUESTIONS 3.5). */

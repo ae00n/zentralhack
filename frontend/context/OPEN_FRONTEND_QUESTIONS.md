@@ -125,6 +125,7 @@ Default: German labels for known tools, raw name otherwise; show `output_summary
 **3.9 `/eval/summary` before the eval exists, and the `metrics` block.**
 - 404 or empty before the Fri night run? Default: Nachweis shows "Noch keine Auswertung"; fixture numbers are invented and never shown outside mock mode.
 - `metrics` shape is `{}` in the contract. Per-subset numbers (`card_exact`, `card_posted`, `photo_dated`) and "with vs without printed place name" are the strongest pitch numbers. Please fix the shape (or send one real example) before Sat 10:00.
+Answered (23.10., Said's code on `said/agent` 4fbd332): `metrics` is `data_pipeline.metrics.score()` output, built that way in step 7. Before the first eval run `/eval/summary` serves the fixture (not 404); the frontend detects it by `_fixture_note` and shows "Noch keine Auswertung" outside mock mode. Still open: a real summary to check against.
 
 **3.10 `/photos` details.** What does `q` search (title, signature, Thema)? Default sort? Does `split=showcase` return the demo cards too?
 Default: no search box at first; frontend sorts nothing itself.
