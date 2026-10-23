@@ -40,7 +40,8 @@ function cells(record: PhotoRecord, result: AnalysisResult): [string, string][] 
   ];
 }
 
-export default function ExcelRow({ record, result }: { record: PhotoRecord; result: AnalysisResult }) {
+/** `heading={false}` when a collapsible section around it already says "Excel-Zeile" (detail inspector). */
+export default function ExcelRow({ record, result, heading = true }: { record: PhotoRecord; result: AnalysisResult; heading?: boolean }) {
   const row = cells(record, result);
   // Cells that changed since the last committed render flash (400 ms fade from paper-2). The ref is
   // updated after commit, so a double render (dev StrictMode) still sees the old values.
@@ -52,7 +53,7 @@ export default function ExcelRow({ record, result }: { record: PhotoRecord; resu
 
   return (
     <div>
-      <h2 className="text-h3">Excel-Zeile</h2>
+      {heading && <h2 className="text-h3">Excel-Zeile</h2>}
       <p className="text-meta text-ink-muted">So schreibt der Export diese Zeile.</p>
       <div className="mt-3 overflow-x-auto">
         <table className="w-full border-collapse text-ui">

@@ -34,9 +34,11 @@ interface Props {
    * 2003 to 2013, so the Zeitreise is optional there (CHALLENGE_BRIEF 5).
    */
   zeitreise?: boolean;
+  /** Fill the parent (the detail page stage tab) instead of a fixed height. */
+  fill?: boolean;
 }
 
-export default function MapPanel({ coords, emptyText, startYear, photoId, zeitreise = true }: Props) {
+export default function MapPanel({ coords, emptyText, startYear, photoId, zeitreise = true, fill = false }: Props) {
   const [tiles, setTiles] = useState<{ tilesUrl: string; offline: boolean } | null>(null);
   const [timeline, setTimeline] = useState<Timeline | null>(null);
   const [photos, setPhotos] = useState<StripPhoto[]>([]);
@@ -99,8 +101,8 @@ export default function MapPanel({ coords, emptyText, startYear, photoId, zeitre
         };
 
   return (
-    <section>
-      <div className={`relative bg-paper-2 ${zeitreise ? "aspect-[4/3]" : "h-60"}`}>
+    <section className={fill ? "flex h-full flex-col p-4" : undefined}>
+      <div className={`relative bg-paper-2 ${fill ? "min-h-[50vh] flex-1 lg:min-h-0" : zeitreise ? "aspect-[4/3]" : "h-60"}`}>
         {coords && tiles ? (
           <div className="fade-in absolute inset-0">
             <MapView

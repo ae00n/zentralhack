@@ -1,8 +1,9 @@
 "use client";
 
-// "Das Archiv kennt diesen Ort" (FRONTPAGE_PLAN 5): the photo beside the archive's own reference photo of
-// the same place, from the best similar_image evidence. Renders nothing when there is no match.
-// "verifiziert" only when Said marks the match LightGlue-verified (FRONTPAGE_PLAN 9).
+// "Das Archiv kennt diesen Ort", the stage's Vergleich tab (FRONTPAGE_POLISH 6): the photo beside the
+// archive's reference photo of the same place, equal height, the years big above each image. Data from
+// the best similar_image evidence; renders nothing when there is no match. "verifiziert" only when Said
+// marks the match LightGlue-verified (FRONTPAGE_PLAN 9).
 import { useEffect, useState } from "react";
 import { bestReferenceMatch, getPhoto, imageUrl } from "@/lib/api";
 import type { AnalysisResult, PhotoRecord } from "@/lib/types";
@@ -23,23 +24,31 @@ function yearOf(r: PhotoRecord): string {
   return d?.raw?.trim() || "keine Angabe";
 }
 
-function Figure({ record, caption, href }: { record: PhotoRecord; caption: string; href?: string | null }) {
+function Figure({ record, href }: { record: PhotoRecord; href?: string | null }) {
   const img = (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={imageUrl(record.id, 800)} alt={record.title ?? record.signature ?? record.id} className="h-48 w-full object-contain" />
+    <img
+      src={imageUrl(record.id, 1024)}
+      alt={record.title ?? record.signature ?? record.id}
+      className="h-full max-h-[40vh] w-full object-contain lg:max-h-none"
+    />
   );
   return (
-    <figure className="min-w-0">
-      <div className="bg-paper-2 p-2">
+    <figure className="flex min-h-0 min-w-0 flex-col">
+      <p className="text-hero tnum text-ink">{yearOf(record)}</p>
+      <div className="mt-3 min-h-0 flex-1">
         {href ? (
-          <a href={href} target="_blank" rel="noreferrer" title="Im Katalog ansehen">
+          <a href={href} target="_blank" rel="noreferrer" title="Im Katalog ansehen" className="block h-full">
             {img}
           </a>
         ) : (
           img
         )}
       </div>
-      <figcaption className="mt-1.5 font-mono text-meta text-ink-muted">{caption}</figcaption>
+      <figcaption className="mt-2 text-meta text-ink-muted">
+        <span className="font-mono text-ink">{record.signature ?? record.id}</span> ·{" "}
+        {SOURCE_LABELS[record.source] ?? record.source}
+      </figcaption>
     </figure>
   );
 }
@@ -68,25 +77,24 @@ export default function ArchiveMatch({ record, result }: { record: PhotoRecord; 
     : "ähnliches Referenzfoto";
 
   return (
-    <section className="fade-in mt-8">
-      <h2 className="text-h3">Das Archiv kennt diesen Ort</h2>
-      <div className="mt-3 grid grid-cols-2 gap-3">
-        <Figure record={record} caption={`${yearOf(record)} · ${record.signature ?? record.id}`} />
-        <Figure
-          record={ref}
-          caption={[yearOf(ref), ref.signature ?? ref.id, SOURCE_LABELS[ref.source] ?? ref.source].join(" · ")}
-          href={ref.source_url}
-        />
+    <section aria-label="Das Archiv kennt diesen Ort" className="flex h-full flex-col p-4 lg:p-8">
+      <p className="text-meta font-medium uppercase tracking-[0.06em] text-ink-muted">Das Archiv kennt diesen Ort</p>
+      <div className="mt-4 grid min-h-0 flex-1 grid-cols-2 gap-6">
+        <Figure record={record} />
+        <Figure record={ref} href={ref.source_url} />
       </div>
-      <p className="mt-2 text-ui text-ink-muted">
-        {meta}
+      <p className="mt-4 text-ui text-ink-muted">
+        <span className="text-ink">{meta}</span>
         {match.evidence.summary && <span>. {match.evidence.summary}</span>}
+        {ref.source_url && (
+          <>
+            {" · "}
+            <a href={ref.source_url} target="_blank" rel="noreferrer" className="link">
+              Referenzfoto im Katalog
+            </a>
+          </>
+        )}
       </p>
-      {ref.source_url && (
-        <a href={ref.source_url} target="_blank" rel="noreferrer" className="link text-ui">
-          Referenzfoto im Katalog
-        </a>
-      )}
     </section>
   );
 }

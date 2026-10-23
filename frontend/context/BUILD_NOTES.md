@@ -482,3 +482,20 @@ What was checked on the laptop:
 
 **Not built**
 - Nothing from the item's scope (the vector style is optional in the polish plan).
+
+## polish item 6: Detail split (24.10.)
+
+**Check:** at 1440×900 Bestätigen is visible without scrolling; Foto / Vergleich / Karte switch with a 300 ms fade. Done (mock mode): on SG.CIV.17.12 and .3 the review button sits at y 856 to 888 inside the 900 px viewport; the inspector is 440 px from x 985; the tabs switch the stage content (archive match / map / photo), which fades in (opacity about 0.5 shortly after the click); "Vergleich" is only offered when a match exists (.12 yes, .3 no). No console errors.
+
+**Special**
+- Toolbar (44 px, white, hairline): breadcrumb "Arbeitsplatz / SG.CIV.17 / SG.CIV.17.12" in 13 px muted with "/" separators, the current signature in ink (mono, no fill, no box); the stage tabs (Segmented, `role="tab"`) centred; on the right "1 von 3 Prio 1 geprüft · 0 korrigiert · ca. n Min. übrig" (from 1280 px) and ‹ "2 von 3" › as ghost icon buttons.
+- `<main>` is a grid `minmax(0,1fr) | 440px`, `100vh − 98px` high (header 54 + toolbar 44); the key handler stays on `<main>`, so it covers stage and inspector.
+- Stage (canvas): **Foto** = `PhotoPanel`, now the stage version (uncropped `object-contain`, 32 px air, no mat, caption "SG.CIV.17.12 · 11.06.2007 · NIKON D1X · Staatsarchiv Schwyz" with the signature mono, rest Inter tnum). **Vergleich** = `ArchiveMatch`, rewritten for the stage: section label, the two images side by side at equal height, the years in `text-hero tnum` above ("2007", "vor 13.6.1907"), signature + source below, meta "Bildabgleich verifiziert · 212 übereinstimmende Punkte" + summary + catalogue link. **Karte** = `MapPanel fill` (stage-sized SWISSIMAGE with pin and circle). The stage resets to Foto for each new photo; a `key` per tab replays the fade.
+- Inspector: scrollable column (end-of-queue box, states, live/replay trace, Erschliessung, Fotoserie, the collapsed trace "So entsteht das Ergebnis · 4 Schritte ▸" with "Erneut abspielen", the collapsible "Excel-Zeile ▸") above a sticky review footer (`bg-paper/90`, blur, hairline top). The Archiv-Match moved out of the inspector into the Vergleich tab, the map into the Karte tab.
+- After the replay the trace is collapsed on all screens now (polish: "afterwards it collapses to one line"); during the replay it is open at the top of the inspector.
+- Section labels for the trace and Excel-Zeile: 12 px medium uppercase, tracking 0.06em, muted.
+- The fade is 350 ms, not 300: the old global `.fade-in` class (350 ms) overrides tailwindcss-animate's `fade-in` of the same name. Still inside the 300 to 400 ms rule.
+- The one-line footer sits below the 100vh grid, so the page can scroll 42 px; the review footer is in view without it.
+
+**Not built**
+- Nothing from the item's scope (field rows and the Excel-Zeile layout are item 7).

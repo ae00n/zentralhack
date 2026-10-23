@@ -26,8 +26,9 @@ export default function TraceLog({ items, running, defaultOpen = true }: Props) 
 
   return (
     <details open={running || defaultOpen}>
-      <summary className="cursor-pointer text-h3 hover:text-ink-strong">
-        So entsteht das Ergebnis{running ? " ..." : ` · ${items.length} Schritte`}
+      <summary className="cursor-pointer list-none text-meta font-medium uppercase tracking-[0.06em] text-ink-muted hover:text-ink">
+        So entsteht das Ergebnis
+        <span className="ml-1.5 normal-case tracking-normal">{running ? "..." : `${items.length} Schritte ▸`}</span>
       </summary>
       {list}
     </details>

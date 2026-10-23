@@ -1,10 +1,10 @@
 "use client";
 
-// Foto (FRONTPAGE_PLAN 5): breadcrumb with Vorheriges / Nächstes, photo | Erschliessung, then the trace
-// ("So entsteht das Ergebnis") and the compact map. The Zeitreise map is not shown here in v3.
+// Foto (FRONTPAGE_PLAN 5, layout FRONTPAGE_POLISH 6): a toolbar (breadcrumb, stage tabs Foto | Vergleich |
+// Karte, position in the queue), the stage on the left and a 440 px inspector with a sticky review footer.
 // Mock and demo mode replay the cached trace (step 5). Live mode shows a cached result at once and
 // streams a new analysis over SSE when asked (step 8); it never starts one on its own (costs money).
-import { ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -21,6 +21,7 @@ import {
   MODE,
   errorText,
   followAnalysis,
+  bestReferenceMatch,
   exportXlsxUrl,
   getDemo,
   getGemeinden,
@@ -31,7 +32,9 @@ import {
   replayTrace,
   startAnalysis,
 } from "@/lib/api";
-import { buttonClass } from "@/components/ui/button";
+import { FOCUS_RING, buttonClass } from "@/components/ui/button";
+import Segmented from "@/components/ui/Segmented";
+import { cn } from "@/lib/cn";
 import { countItems, modelClass } from "@/lib/desk";
 import { quietFocus } from "@/lib/quietFocus";
 import { analyseHref, isEmptyValue } from "@/lib/format";
@@ -48,6 +51,8 @@ import {
   withLocalReview,
 } from "@/lib/reviewQueue";
 import type { AnalysisResult, PhotoRecord, ReviewField, TraceItem } from "@/lib/types";
+
+type Stage = "foto" | "vergleich" | "karte";
 
 /** Draft text for an input: lists as "a; b", empty as "". */
 function draftOf(v: string | string[] | null): string {
@@ -104,9 +109,9 @@ export default function AnalysePage() {
   const [edit, setEdit] = useState<{ drafts: Record<ReviewField, string>; focus: ReviewField } | null>(null);
   const [ended, setEnded] = useState(false);
   const [announce, setAnnounce] = useState("");
+  // Stage tab (polish 6): the photo, the archive match, or the map; back to the photo for each new photo.
+  const [stage, setStage] = useState<Stage>("foto");
   // Phone: the finished trace starts collapsed (plan 5). Read once on the client.
-  const [wide, setWide] = useState(true);
-  useEffect(() => setWide(window.matchMedia("(min-width: 1024px)").matches), []);
   const lastKey = useRef(0);
   const focusedFor = useRef<string | null>(null);
 
@@ -197,6 +202,7 @@ export default function AnalysePage() {
     setFailure(null);
     setEdit(null);
     setEnded(false);
+    setStage("foto");
     lastKey.current = 0;
     // Moving on with Enter / arrows / N shows the next result at once; the replay is for arriving from the desk.
     const advancing = consumeAdvance(id);
@@ -397,183 +403,205 @@ export default function AnalysePage() {
       }
     : null;
 
+  const hasMatch = !!(showResult && bestReferenceMatch(shown));
+  const stageTabs: { key: Stage; label: string }[] = [
+    { key: "foto", label: "Foto" },
+    ...(hasMatch ? [{ key: "vergleich" as const, label: "Vergleich" }] : []),
+    { key: "karte", label: "Karte" },
+  ];
+  const activeStage: Stage = stage === "vergleich" && !hasMatch ? "foto" : stage;
+  const navButton = "h-8 w-8 px-0";
+
   return (
     <>
-      <nav aria-label="Brotkrume" className="bg-paper-2">
-        <div className="wrapper flex flex-wrap items-center justify-between gap-x-6 gap-y-2 py-2.5">
-          <ol className="flex items-center gap-1 overflow-x-auto whitespace-nowrap text-ui font-semibold">
-            <li>
-              <Link href="/" className="px-1 hover:text-ink-strong hover:underline">
-                Arbeitsplatz
-              </Link>
-            </li>
-            {record?.collection && (
-              <li className="flex items-center gap-1">
-                <ChevronRight size={14} strokeWidth={1.5} className="text-ink-muted" aria-hidden />
-                <Link href="/" className="px-1 hover:text-ink-strong hover:underline">
+      {/* Toolbar (polish 6): breadcrumb, stage tabs, position in the queue. 44 px, white, hairline. */}
+      <nav
+        aria-label="Werkzeugleiste"
+        className="flex min-h-11 flex-wrap items-center gap-x-4 gap-y-1 border-b border-rule/[0.08] bg-paper px-4 py-1.5"
+      >
+        <ol aria-label="Brotkrume" className="flex min-w-0 items-center gap-1.5 overflow-x-auto whitespace-nowrap text-ui text-ink-muted">
+          <li>
+            <Link href="/" className={cn("rounded-sm hover:text-ink", FOCUS_RING)}>
+              Arbeitsplatz
+            </Link>
+          </li>
+          {record?.collection && (
+            <>
+              <li aria-hidden>/</li>
+              <li>
+                <Link href="/" className={cn("rounded-sm hover:text-ink", FOCUS_RING)}>
                   {record.collection}
                 </Link>
               </li>
-            )}
-            <li className="flex items-center gap-1">
-              <ChevronRight size={14} strokeWidth={1.5} className="text-ink-muted" aria-hidden />
-              <span aria-current="page" className="rounded bg-accent px-2 py-0.5 font-mono font-medium text-white">
-                {signature}
-              </span>
-            </li>
-          </ol>
+            </>
+          )}
+          <li aria-hidden>/</li>
+          <li aria-current="page" className="font-mono font-medium text-ink">
+            {signature}
+          </li>
+        </ol>
+
+        {record && (
+          <Segmented role="tab" label="Ansicht" value={activeStage} onChange={setStage} options={stageTabs} className="lg:mx-auto" />
+        )}
+
+        <div className="ml-auto flex items-center gap-1">
+          {prioQueue && (
+            <span className="mr-2 hidden text-meta tnum text-ink-muted xl:inline">
+              {progress.reviewed} von {progress.total} Prio 1 geprüft · {progress.corrected} korrigiert
+              {minutes !== null && ` · ca. ${minutes} Min. übrig`}
+            </span>
+          )}
           {pos >= 0 && (
-            <div className="flex items-center gap-4 text-ui">
+            <>
               {prev ? (
-                <Link href={analyseHref(prev)} className="hover:text-ink-strong hover:underline">
-                  ← Vorheriges
+                <Link href={analyseHref(prev)} aria-label="Vorheriges Foto" className={buttonClass("ghost", navButton)}>
+                  <ChevronLeft size={16} strokeWidth={1.75} />
                 </Link>
               ) : (
-                <span className="text-ink-muted">← Vorheriges</span>
+                <span aria-hidden className={cn(buttonClass("ghost", navButton), "opacity-40")}>
+                  <ChevronLeft size={16} strokeWidth={1.75} />
+                </span>
               )}
-              <span className="font-mono text-ink-muted">
+              <span className="text-ui tnum text-ink-muted">
                 {pos + 1} von {queue.length}
               </span>
               {next ? (
-                <Link href={analyseHref(next)} className="hover:text-ink-strong hover:underline">
-                  Nächstes →
+                <Link href={analyseHref(next)} aria-label="Nächstes Foto" className={buttonClass("ghost", navButton)}>
+                  <ChevronRight size={16} strokeWidth={1.75} />
                 </Link>
               ) : (
-                <span className="text-ink-muted">Nächstes →</span>
+                <span aria-hidden className={cn(buttonClass("ghost", navButton), "opacity-40")}>
+                  <ChevronRight size={16} strokeWidth={1.75} />
+                </span>
               )}
-            </div>
+            </>
           )}
         </div>
-        {prioQueue && (
-          <p className="wrapper pb-2.5 text-meta text-ink-muted">
-            {progress.reviewed} von {progress.total} Prio 1 geprüft · {progress.corrected} korrigiert
-            {minutes !== null && ` · ca. ${minutes} Min. übrig`}
-          </p>
-        )}
       </nav>
       <p className="sr-only" aria-live="polite">
         {announce}
       </p>
 
-      <main className="wrapper py-6" onKeyDown={onKeyDown}>
-        {ended && (
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-4 border-l-4 border-cert-confirmed bg-paper-2 px-4 py-3">
-            <p className="text-base">
-              {progress.reviewed === progress.total
-                ? `Alle ${progress.total} Prio-1-Fotos geprüft`
-                : `Ende der Liste · ${progress.total - progress.reviewed} noch offen`}
-              {` · ${progress.confirmed} bestätigt · ${progress.corrected} korrigiert · ${skippedCount} übersprungen`}
-            </p>
-            <a
-              href={exportXlsxUrl({ split: "challenge", priority: 1 })}
-              download
-              className={buttonClass("primary")}
-            >
-              Excel herunterladen
-            </a>
-          </div>
-        )}
-        {error && <p className="text-bad">{error}</p>}
-        {!error && !record && <p className="text-ink-muted">Lade Foto ...</p>}
-
-        {record && (
-          <>
-            {/* Desktop: photo + archive match left, Erschliessung right. Phone order (plan 5): photo,
-                fields, review bar, then the archive match. */}
-            <div className="grid grid-cols-[minmax(0,1fr)] gap-x-10 gap-y-6 lg:grid-cols-2">
-              <div className="min-w-0 lg:col-start-1 lg:row-start-1">
-                <PhotoPanel record={record} />
-              </div>
-
-              <div className="min-w-0 space-y-6 lg:col-start-2 lg:row-span-2 lg:row-start-1">
-                {missing && (
-                  <div className="flex flex-wrap items-baseline justify-between gap-3 border-y border-rule/[0.12] py-3">
-                    <p className="text-ink-muted">Noch kein Ergebnis für dieses Foto</p>
-                    {canRunLive && <StartButton onClick={() => startLive(false)}>Analyse starten</StartButton>}
-                  </div>
-                )}
-
-                {failure && (
-                  <div className="flex flex-wrap items-baseline justify-between gap-3 border-y border-rule/[0.12] py-3">
-                    <p className="text-bad">{failure}</p>
-                    {canRunLive && <StartButton onClick={() => startLive(true)}>Erneut versuchen</StartButton>}
-                  </div>
-                )}
-
-                {running && (
-                  <div className="flex items-baseline justify-between border-y border-rule/[0.12] py-3">
-                    <p className="text-ink-muted">Ort wird bestimmt ...</p>
-                    {replaying && (
-                      <button type="button" onClick={skipReplay} className="text-ui text-ink-muted hover:text-ink-strong">
-                        Überspringen
-                      </button>
-                    )}
-                  </div>
-                )}
-                {/* While it runs, the steps appear where the result will appear. */}
-                {running && <TraceLog items={steps} running />}
-
-                {showResult && <ResultPanel result={shown} edit={editState} />}
-                {showResult && (
-                  // Phone: a bar stuck to the bottom while the fields are on screen (plan 5).
-                  <div className="sticky bottom-0 z-10 border-t border-rule/[0.12] bg-paper py-3 lg:static lg:border-0 lg:py-0">
-                  <ReviewBar
-                    editing={!!edit}
-                    decided={decided}
-                    onConfirm={confirm}
-                    onCorrect={() => startEdit()}
-                    onSkip={doSkip}
-                    onSave={saveEdit}
-                    onCancel={cancelEdit}
-                  />
-                  </div>
-                )}
-                {showResult && <SeriesStrip record={record} />}
-              </div>
-              {showResult && (
-                <div className="min-w-0 lg:col-start-1 lg:row-start-2 lg:-mt-2">
-                  <ArchiveMatch record={record} result={shown} />
-                </div>
+      {/* Stage (left, canvas) and inspector (right, 440 px). At 1440×900 both fit: header 54 + toolbar 44. */}
+      <main
+        onKeyDown={onKeyDown}
+        className="lg:grid lg:h-[calc(100vh-98px)] lg:grid-cols-[minmax(0,1fr)_440px]"
+      >
+        <section aria-label="Bühne" className="relative bg-canvas lg:min-h-0 lg:overflow-hidden">
+          {!error && !record && <p className="py-10 text-center text-ui text-ink-muted">Lade Foto ...</p>}
+          {record && (
+            <div key={activeStage} className="h-full duration-300 animate-in fade-in">
+              {activeStage === "foto" && <PhotoPanel record={record} />}
+              {activeStage === "vergleich" && shown && <ArchiveMatch record={record} result={shown} />}
+              {activeStage === "karte" && (
+                <MapPanel
+                  coords={coords ?? null}
+                  emptyText={showResult ? "Ort nicht bestimmbar" : "Ort wird bestimmt ..."}
+                  startYear={null}
+                  photoId={id}
+                  zeitreise={false}
+                  fill
+                />
               )}
             </div>
+          )}
+        </section>
+
+        <aside aria-label="Erschliessung" className="flex min-h-0 flex-col border-rule/[0.08] bg-paper lg:border-l">
+          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4">
+            {ended && (
+              <div className="space-y-2 rounded border-l-2 border-cert-confirmed bg-paper-2/70 px-3 py-2.5">
+                <p className="text-base">
+                  {progress.reviewed === progress.total
+                    ? `Alle ${progress.total} Prio-1-Fotos geprüft`
+                    : `Ende der Liste · ${progress.total - progress.reviewed} noch offen`}
+                  {` · ${progress.confirmed} bestätigt · ${progress.corrected} korrigiert · ${skippedCount} übersprungen`}
+                </p>
+                <a href={exportXlsxUrl({ split: "challenge", priority: 1 })} download className={buttonClass("primary")}>
+                  Excel herunterladen
+                </a>
+              </div>
+            )}
+            {error && <p className="text-ui text-bad">{error}</p>}
+
+            {missing && (
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-ui text-ink-muted">Noch kein Ergebnis für dieses Foto</p>
+                {canRunLive && <StartButton onClick={() => startLive(false)}>Analyse starten</StartButton>}
+              </div>
+            )}
+
+            {failure && (
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-ui text-bad">{failure}</p>
+                {canRunLive && <StartButton onClick={() => startLive(true)}>Erneut versuchen</StartButton>}
+              </div>
+            )}
+
+            {/* While it runs, the steps are open at the top; the fields fade in when it ends. */}
+            {running && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-ui text-ink-muted">Ort wird bestimmt ...</p>
+                  {replaying && (
+                    <button type="button" onClick={skipReplay} className={buttonClass("ghost")}>
+                      Überspringen
+                    </button>
+                  )}
+                </div>
+                <TraceLog items={steps} running />
+              </div>
+            )}
+
+            {showResult && <ResultPanel result={shown} edit={editState} />}
+            {showResult && <SeriesStrip record={record!} />}
 
             {!running && steps.length > 0 && (
-              <section className="relative mt-10 border-t border-rule/[0.12] pt-4">
-                <div className="absolute right-0 top-4 flex gap-4 text-ui text-ink-muted">
+              <div className="relative">
+                <TraceLog items={steps} running={false} defaultOpen={false} />
+                <div className="absolute right-0 top-0 flex gap-1">
                   {canReplay && (
-                    <button type="button" onClick={() => result && startReplay(result)} className="hover:text-ink-strong">
+                    <button type="button" onClick={() => result && startReplay(result)} className={buttonClass("ghost", "h-6 text-meta")}>
                       Erneut abspielen
                     </button>
                   )}
                   {canRunLive && showResult && (
-                    <button type="button" onClick={() => startLive(true)} className="hover:text-ink-strong">
+                    <button type="button" onClick={() => startLive(true)} className={buttonClass("ghost", "h-6 text-meta")}>
                       Neu analysieren
                     </button>
                   )}
                 </div>
-                <TraceLog items={steps} running={false} defaultOpen={wide} />
-              </section>
+              </div>
             )}
 
             {showResult && (
-              <section className="mt-10 grid grid-cols-[minmax(0,1fr)] gap-8 border-t border-rule/[0.12] pt-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,480px)]">
-                <ExcelRow record={record} result={shown} />
-                <div>
-                <h2 className="text-h3">Karte</h2>
-                <div className="mt-3">
-                  <MapPanel
-                    coords={coords ?? null}
-                    emptyText="Ort nicht bestimmbar"
-                    startYear={null}
-                    photoId={id}
-                    zeitreise={false}
-                  />
+              <details className="group">
+                <summary className="cursor-pointer list-none text-meta font-medium uppercase tracking-[0.06em] text-ink-muted hover:text-ink">
+                  Excel-Zeile <span className="normal-case tracking-normal">▸</span>
+                </summary>
+                <div className="mt-2">
+                  <ExcelRow record={record!} result={shown} heading={false} />
                 </div>
-                </div>
-              </section>
+              </details>
             )}
-          </>
-        )}
+          </div>
+
+          {showResult && (
+            // Sticky review footer: always in view at 1440×900; on the phone it sticks to the bottom.
+            <div className="sticky bottom-0 z-10 border-t border-rule/[0.08] bg-paper/90 px-4 py-3 backdrop-blur">
+              <ReviewBar
+                editing={!!edit}
+                decided={decided}
+                onConfirm={confirm}
+                onCorrect={() => startEdit()}
+                onSkip={doSkip}
+                onSave={saveEdit}
+                onCancel={cancelEdit}
+              />
+            </div>
+          )}
+        </aside>
       </main>
     </>
   );
