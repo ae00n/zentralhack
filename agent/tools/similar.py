@@ -93,6 +93,8 @@ def run(ctx: ToolContext, k: int = 8, sources: list[str] | None = None) -> ToolO
             "source": rec.get("source"),
         }
         data.append({k2: v for k2, v in item.items() if v is not None})
+        if h.get("verified"):  # only geometrically verified hits count as a source (agent.confidence)
+            ctx.verified_refs.update({item["id"], base_id(item["id"])})
         if i <= THUMBS:
             path = dp.image_file(rec) if rec else None
             if path and path.exists():

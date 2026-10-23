@@ -120,7 +120,7 @@ def test_scripted_run_is_valid(monkeypatch):
     assert f["municipality"]["value"] == "Ingenbohl" and f["locality"]["value"] == "Brunnen"
     assert f["municipality"]["confidence"] == 0.85 and f["buildings"]["confidence"] == 0.5
     assert r["overall_confidence"] == 0.9 and r["review"] is None
-    assert r["confidence_explanation"].startswith("Ortschaft und Gemeinde durch 3 unabhängigen Quellen")
+    assert r["confidence_explanation"].startswith("Ortschaft und Gemeinde durch 3 unabhängige Quellen")
     assert r["estimates"] == {"place_name_printed": True}
     assert r["rejected_hypotheses"][0]["value"] == "Sisikon"
 

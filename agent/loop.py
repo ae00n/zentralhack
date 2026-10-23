@@ -283,8 +283,10 @@ class _Run:
         body = submit.normalize(submitted, names) if submitted is not None else submit.fallback(reason)
         f = body["fields"]
         allowed = getattr(self, "allowed", set())
-        scored = confidence.apply(f, self.ctx.tools_called, allowed)
-        f["coordinates"]["confidence"] = confidence.score_field(f["coordinates"], self.ctx.tools_called, allowed)[0]
+        verified = self.ctx.verified_refs
+        scored = confidence.apply(f, self.ctx.tools_called, allowed, verified)
+        f["coordinates"]["confidence"] = confidence.score_field(f["coordinates"], self.ctx.tools_called, allowed,
+                                                                verified)[0]
         if f["coordinates"]["confidence"] == 0.0:
             f["coordinates"]["value"] = None
         needs_review = submitted is None or scored["needs_review"]

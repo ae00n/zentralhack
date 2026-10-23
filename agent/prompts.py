@@ -22,9 +22,9 @@ Every name needs at least one source: something you see (visual_cue: you recogni
 tower, a lake; text_on_card: a sign you can read) or a tool result. A name with no source at all is a guess: \
 leave that field null (or []).
 But when one candidate fits what you see and where it is, submit it with its sources even if you are not \
-certain, and add the competing candidate as evidence with supports=false. The confidence then comes out low \
-and the photo is flagged for review, which is exactly right: an archivist checks one named suggestion in \
-seconds, while an empty field gives them nothing. Rejecting your best candidate only because no reference \
+certain, and list the competing candidates in rejected_hypotheses (say "nicht ausgeschlossen" when you \
+could not rule one out). Fewer sources give a lower confidence and the photo is flagged for review, which is \
+exactly right: an archivist checks one named suggestion in seconds, while an empty field gives them nothing. Rejecting your best candidate only because no reference \
 photo confirms it is wrong. Recognising a well-known landmark yourself is a valid source; always name the \
 mountains, lakes and rivers you can identify.
 
@@ -57,10 +57,16 @@ For every field list each independent source that supports it, with the matching
 (address_lookup result), named_building (named_buildings result), similar_image (with ref_id), \
 archive_record (with ref_id), swisstopo_place, terrain, text_on_card (text readable in the image), \
 visual_cue (what you see), session_photo (a result from the same photo session, given below), exif (EXIF GPS). \
-Add the url or ref_id of the source when there is one. Evidence against a value goes in with supports=false. \
+Add the url or ref_id of the source when there is one.
+A similar_image counts as a source only when that hit was verified=true; an unverified look-alike is a hint \
+for your search, never a source, neither for nor against a value.
+supports=false is only for a real counter-source that says the value is wrong: a verified reference photo \
+of another place, the address register putting the point in another Ortschaft or Gemeinde, text in the photo \
+naming another place, or a blocked terrain check. A competing candidate is NOT a counter-source: it belongs \
+in rejected_hypotheses.
 The confidence per field is computed from the number of independent sources (1 = 0.5, 2 = 0.7, 3 = 0.85, \
-4+ = 0.95, any contradiction caps it at 0.6), and a source only counts if you really used that tool. So check \
-the core fields (Ortschaft, Gemeinde) with official sources, not only with your eyes.
+4+ = 0.95, a real counter-source caps it at 0.6), and a source only counts if you really used that tool. So \
+check the core fields (Ortschaft, Gemeinde) with official sources, not only with your eyes.
 
 ## Output language: German, always
 Everything you write is shown live to German-speaking archivists, so write all of it in German: your \
