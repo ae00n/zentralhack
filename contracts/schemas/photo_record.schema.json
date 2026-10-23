@@ -17,7 +17,7 @@
   "properties": {
     "id": {
       "type": "string",
-      "pattern": "^(stasz|smapshot|epics|lubis|nb|upload):[^#]+(#\\d+)?$"
+      "pattern": "^(stasz|smapshot|epics|lubis|nb|upload|challenge):[^#]+(#\\d+)?$"
     },
     "source": {
       "enum": [
@@ -26,7 +26,8 @@
         "epics",
         "lubis",
         "nb",
-        "upload"
+        "upload",
+        "challenge"
       ]
     },
     "source_id": {
@@ -129,7 +130,8 @@
                 "smapshot_pose",
                 "epics_geo",
                 "thema_gazetteer",
-                "lubis_station"
+                "lubis_station",
+                "exif_gps"
               ]
             },
             "precision_m": {
@@ -278,7 +280,8 @@
         "eval",
         "showcase",
         "reference",
-        "none"
+        "none",
+        "challenge"
       ]
     },
     "raw": {

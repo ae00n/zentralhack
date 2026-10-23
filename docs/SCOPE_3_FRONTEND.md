@@ -1,5 +1,10 @@
 # SCOPE 3: Frontend (owner: Timo)
 
+> [!IMPORTANT]
+> **v3 (Fri 23 Oct evening): the task changed.** The real test set is 603 handed-out 21st-century photos (`challenge:SG.CIV.17.*`, 50 Prio 1), not old postcards, and dating is not asked. Read `docs/CHALLENGE_BRIEF.md` (your to-do list is in its section 5) and the v3 notes in `docs/CONTRACTS.md` before continuing the build order below. Where they disagree, the brief wins.
+>
+> **Build plan (Fri 23 Oct night): `docs/FRONTPAGE_PLAN.md`.** It replaces the Views, Look and Layout, Build order and Cut first sections below: the cataloguing desk front page, the Kanton Schwyz (sz.ch) look and tokens, review with keyboard, German copy, demo script. Start there.
+
 Read `docs/CONTRACTS.md` first. Every interface named here is defined there. Work on branch `timo/frontend`.
 
 
@@ -128,6 +133,13 @@ Feel: a reading room, not a SaaS dashboard. Warm paper, ink text, the photos and
 - Wrap every fetch in one `lib/api.ts` that switches on `NEXT_PUBLIC_MODE`. Components never call `fetch` directly.
 - Use the real swisstopo tiles from the start; they need no backend.
 - Switch to `live` as soon as Said's server runs (his fake mode `AGENT_FAKE=1` serves the fixture over real HTTP + SSE first).
+
+## Handover from Data (2026-10-22, state on `main`)
+
+- Offline, only 16 zeitreihen years are cached (one per decade, 18791231 to 20211231, listed in `data/tiles/manifest.json` as `map_years`). Snap the slider to `map_years` from `/health` or `/timeline`, never to a year outside it.
+- Cached tile areas: Schwyz Hauptplatz, Brunnen, Einsiedeln, Rigi Kulm, Grosser Mythen and the 10 demo cards (zeitreihen z12 to 16, swissimage z12 to 17). Outside those areas, offline maps are blank.
+- `mock` mode needs no data. `live` and `demo` need Said's backend with `data/`.
+- Demo hosting (Dijar's server vs M4 Air local) is decided at the event.
 
 ## Build order
 

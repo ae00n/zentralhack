@@ -3,8 +3,8 @@
     python -m data_pipeline.bundle [--out ~/zh-bundle]
 
 Writes one uncompressed tar (images and tiles do not compress) with:
-- data/   everything except raw/ and logs/: records, images, all indexes, splits, gazetteer, tiles.
-          The full index stays in, so any card (not only the demo ones) still works offline.
+- data/   all of it (records, images, all indexes, splits, gazetteer, tiles, raw scrapes; only logs/
+          left out). raw/ is needed: date_hints reads raw/helveticarchives. Any card works offline.
 - cache/  the model weights: Hugging Face (CLIP, DINOv2, MegaLoc) and torch hub (MegaLoc code,
           ALIKED + LightGlue), so nothing is downloaded on first use.
 - README.txt with the environment variables.
@@ -48,7 +48,7 @@ def build(out: Path) -> Path:
     blobs = sorted({p.resolve().relative_to(HF_HUB.parent.parent) for m in HF_MODELS
                     for p in (HF_HUB / m).rglob("*") if p.is_symlink()})
     cmd = ["tar", "-cf", str(tar),
-           "--exclude=data/raw", "--exclude=data/logs", "--exclude=data/tiles/.caps",
+           "--exclude=data/logs", "--exclude=data/tiles/.caps",
            "-C", str(DATA_DIR.parent), DATA_DIR.name,
            "-C", str(out), "README.txt",
            "--transform", r"s,^huggingface/,cache/huggingface/,;s,^torch/,cache/torch/,",

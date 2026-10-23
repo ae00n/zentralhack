@@ -32,6 +32,8 @@ def _records() -> dict[str, dict]:
     recs = {r["id"]: r for r in read_jsonl(RECORDS / "all.jsonl")}
     for r in read_jsonl(RECORDS / "crops.jsonl"):  # written by the composite splitter, if present
         recs[r["id"]] = r
+    for r in read_jsonl(RECORDS / "challenge.jsonl"):  # the event photos (scrapers/challenge.py), not indexed
+        recs[r["id"]] = r
     # Smapshot ids that were merged into an E-Pics record still resolve
     for r in list(recs.values()):
         for alias in (r.get("raw") or {}).get("merged_from", []):
@@ -141,7 +143,7 @@ def archive_lookup(place: str | None = None, municipality: str | None = None,
             continue
         if p and p not in _norm(" ".join(r.get("places") or []) + " " + (r.get("title") or "")):
             continue
-        if year_from is not None and d["year_to"] < year_from:
+        if year_from is not None and d.get("year_to") is not None and d["year_to"] < year_from:  # "nach 1910": open end
             continue
         if year_to is not None and d["year_from"] > year_to:
             continue

@@ -1,0 +1,52 @@
+{
+  "lat": 47.018364,
+  "lon": 8.657237,
+  "ortschaft": "Schwyz",
+  "plz": 6430,
+  "municipality": "Schwyz",
+  "bfs_nr": 1372,
+  "canton": "SZ",
+  "in_canton": true,
+  "addresses": [
+    {
+      "street": "Grundstrasse",
+      "number": "32.1",
+      "address": "Grundstrasse 32.1",
+      "zip": "6430",
+      "ortschaft": "Schwyz",
+      "municipality": "Schwyz",
+      "distance_m": 0,
+      "lat": 47.018365,
+      "lon": 8.657237,
+      "egid": 192094870,
+      "category": "non_residential"
+    },
+    {
+      "street": "Grundstrasse",
+      "number": "32a",
+      "address": "Grundstrasse 32a",
+      "zip": "6430",
+      "ortschaft": "Schwyz",
+      "municipality": "Schwyz",
+      "distance_m": 15,
+      "lat": 47.018367,
+      "lon": 8.65704,
+      "egid": 261136,
+      "category": "partly_residential"
+    },
+    {
+      "street": "Grundstrasse",
+      "number": "30a",
+      "address": "Grundstrasse 30a",
+      "zip": "6430",
+      "ortschaft": "Schwyz",
+      "municipality": "Schwyz",
+      "distance_m": 37,
+      "lat": 47.018359,
+      "lon": 8.657722,
+      "egid": 191954685,
+      "category": "residential"
+    }
+  ],
+  "source": "swisstopo: Amtliches Ortschaftenverzeichnis, swissBOUNDARIES3D, Amtliches Gebäudeadressverzeichnis"
+}
