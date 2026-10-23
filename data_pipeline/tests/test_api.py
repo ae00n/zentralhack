@@ -17,6 +17,13 @@ def test_archive_lookup_year_overlap(tiny_data):
     assert [r["id"] for r in tiny_data.archive_lookup(place="hauptplatz", year_to=1925)] == ["stasz:2"]
 
 
+def test_archive_lookup_open_ended_date(tiny_data):
+    from data_pipeline import api
+    r = dict(api.get_record("stasz:2"), id="stasz:5", date={"raw": "nach 1910", "year_from": 1910, "year_to": None})
+    api._records()["stasz:5"] = r
+    assert [x["id"] for x in tiny_data.archive_lookup(year_from=1950)] == ["stasz:5"]
+
+
 def test_timeline_sorted_and_leak_free(tiny_data):
     t = tiny_data.timeline(47.02, 8.65, 500)
     assert [x["id"] for x in t] == ["stasz:2"]

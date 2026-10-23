@@ -141,7 +141,7 @@ def archive_lookup(place: str | None = None, municipality: str | None = None,
             continue
         if p and p not in _norm(" ".join(r.get("places") or []) + " " + (r.get("title") or "")):
             continue
-        if year_from is not None and d["year_to"] < year_from:
+        if year_from is not None and d.get("year_to") is not None and d["year_to"] < year_from:  # "nach 1910": open end
             continue
         if year_to is not None and d["year_from"] > year_to:
             continue

@@ -3,9 +3,14 @@
     from data_pipeline import get_record, similar_images, archive_lookup, timeline
 
 Set DATA_PIPELINE_STUB=1 to answer everything from contracts/fixtures/ instead of data/.
+Set DATA_PIPELINE_URL + DATA_PIPELINE_TOKEN to use a data server instead of a local data/ (remote.py).
 """
 
 import os
+
+if os.environ.get("DATA_PIPELINE_URL") and os.environ.get("DATA_PIPELINE_STUB") != "1":
+    from . import remote as _remote
+    _remote.install()  # before the import below, so it picks up the remote functions
 
 if os.environ.get("DATA_PIPELINE_STUB") == "1":
     from .stub import (archive_lookup, eval_ids, gazetteer, get_record, image_file, reload,
