@@ -30,7 +30,7 @@ PRICES = {
     "claude-haiku-5-5": (0.10, 0.50),
 }
 
-MAX_STEPS = 8
-PHOTO_BUDGET_USD = 0.40
+MAX_STEPS = int(os.environ.get("AGENT_MAX_STEPS", 8))
+PHOTO_BUDGET_USD = float(os.environ.get("AGENT_PHOTO_BUDGET", 0.40))
 SESSION_BUDGET_USD = 80.0
 NEEDS_REVIEW_BELOW = 0.5
