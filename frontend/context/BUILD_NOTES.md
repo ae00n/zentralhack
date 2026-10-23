@@ -223,3 +223,24 @@ Keep appending: a new section per step, and update an older section when somethi
 
 **Not built**
 - Nothing from the item's scope.
+
+## v3 item 2: Types, API v3, challenge mocks (23.10.)
+
+**Check:** mock mode shows the 3 challenge mocks with v3 fields; `tsc` clean. Done: the home list shows SG.CIV.17.3, .12 and .40; each detail page shows Ortschaft, Gemeinde, Gebäude, See/Fluss/Berg, Strasse in that order with the mock values (SG.CIV.17.3: Schwyz / Schwyz / Alterszentrum Acherhof / Mythen / Grundstrasse 32). `tsc --noEmit` clean, no console errors besides the favicon.
+
+**Special**
+- Said's server already has three of the plan's section 9 asks (`/photos?priority`, `/export.xlsx`, `POST /review`, commit `4ef9913`); the API functions call them directly. Only the bulk results and `verified`/`inliers` are still missing (list in OPEN_FRONTEND_QUESTIONS section 5).
+- `lib/types.ts`: source and split `challenge`; `ChallengeRaw` (`file_name`, `priority`, `exif`, `session`, `original_size`) as `PhotoRecord.raw`; fields `locality` and `street`; `place`, `decade`, `year_range` optional; `confidence_explanation`, `Review` (`offen | bestaetigt | korrigiert`, only changed fields, note, reviewed_at); the four v3 evidence kinds; `verified` / `inliers` on evidence (asked from Said).
+- `lib/api.ts` (plan section 8):
+  - `listChallenge({priority})`: `/photos?split=challenge&priority=&limit=1000`, filtered on `raw.priority` again client-side.
+  - `listResults(ids)`: tries `GET /results?ids=` (accepts an array or `{items}`); on 404/405 fans out over `getResult`, 6 at a time. One in-memory cache for both; `postReview` updates it.
+  - `postReview(id, {status, fields, note})`: returns the updated result. `status: "offen"` is how undo can reach the server.
+  - `exportXlsxUrl()`: `/export.xlsx?split=challenge&priority=1` for a plain `<a download>`; mock mode links the CSV fixture (there is no .xlsx fixture).
+  - `bestReferenceMatch(result)`: first `similar_image` with `ref_id` and `verified: true`, else the highest score (then `verified: false`, so the UI must not say "verifiziert").
+- Mocks: `mocks/challenge.ts` replaces `mocks/photos.ts` and `mocks/results.ts` (deleted). Three challenge records shaped like CONTRACTS v3 (EXIF, session, file name, priority 1) with results: SG.CIV.17.3 = the brief's worked example, 0.94, already `bestaetigt`; SG.CIV.17.12 = Brunnen / Ingenbohl 0.72 with a verified reference match (212 inliers) to the contract fixture card `epics:PK_020566`, one "spricht dagegen" item and a rejected Sisikon; SG.CIV.17.40 = place fields null ("nicht bestimmbar"), no coordinates, a 4-photo session. Mock reviews live in memory.
+- Mock `getDemo` returns the three challenge photos; other ids still get the old fixture result.
+- `FIELD_ROWS` now starts with the five v3 fields in the brief's order; `place` / `decade` / `coordinates` follow only when a result has them.
+- The current home grid lists `split=challenge` instead of `showcase`, so the mocks are reachable.
+
+**Not built**
+- Nothing from the item's scope. The API functions are only exercised through the pages that use them; `listResults`, `postReview` and `bestReferenceMatch` have no caller yet.

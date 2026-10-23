@@ -5,15 +5,18 @@ import type {
   AnalysisResult,
   DemoItem,
   EvalSummary,
+  Evidence,
+  FieldKey,
   Health,
   PhotoList,
   PhotoRecord,
+  Review,
+  ReviewStatus,
   Timeline,
   TraceItem,
 } from "./types";
-import { MOCK_DEMO_IDS, MOCK_PHOTOS } from "@/mocks/photos";
+import { MOCK_CHALLENGE, MOCK_CHALLENGE_RESULTS } from "@/mocks/challenge";
 import { mockEvalExtras } from "@/mocks/eval";
-import { MOCK_RESULT_VARIANTS } from "@/mocks/results";
 
 export type Mode = "mock" | "live" | "demo";
 
@@ -97,9 +100,10 @@ export interface PhotoQuery {
   offset?: number;
 }
 
+/** Mock records: the three challenge photos plus the contract fixture record (the archive reference card). */
 async function mockPhotos(): Promise<PhotoRecord[]> {
   const record = await fixture<PhotoRecord>("photo_record.json");
-  return [...MOCK_PHOTOS, record];
+  return [...MOCK_CHALLENGE, record];
 }
 
 export async function listPhotos(params: PhotoQuery = {}): Promise<PhotoList> {
@@ -135,9 +139,10 @@ export function imageUrl(id: string, width?: number): string {
 /** Cached result, or null when the backend has none (404). */
 export async function getResult(photoId: string): Promise<AnalysisResult | null> {
   if (MODE === "mock") {
+    const mock = MOCK_CHALLENGE_RESULTS[photoId];
+    if (mock) return mockReviews.has(photoId) ? { ...mock, review: mockReviews.get(photoId) } : mock;
     const base = await fixture<AnalysisResult>("analysis_result.json");
-    const variant = MOCK_RESULT_VARIANTS[photoId];
-    return { ...(variant ? variant(base) : base), photo_id: photoId };
+    return { ...base, photo_id: photoId };
   }
   try {
     return await backend<AnalysisResult>(`/results/${enc(photoId)}`);
@@ -170,12 +175,135 @@ export async function getEvalSummary(): Promise<EvalSummary | null> {
 export async function getDemo(): Promise<DemoItem[]> {
   if (MODE === "mock") {
     const all = await mockPhotos();
-    return MOCK_DEMO_IDS.flatMap((id) => {
-      const record = all.find((r) => r.id === id);
-      return record ? [{ id, why: "Beispieldaten", record }] : [];
-    });
+    return all.filter((r) => r.split === "challenge").map((record) => ({ id: record.id, why: "Beispieldaten", record }));
   }
   return backend<DemoItem[]>("/demo");
+}
+
+// --- challenge set (CONTRACTS v3, FRONTPAGE_PLAN section 8) ---
+
+/** Mock mode keeps reviews in memory, so Bestätigen / Korrigieren work without a backend. */
+const mockReviews = new Map<string, Review>();
+
+/**
+ * The SG.CIV.17 photos, in Said's natural signature order. priority 1 = the Prio-1 set of 50.
+ * The raw.priority filter also runs client-side, in case a backend ignores ?priority.
+ */
+export async function listChallenge({ priority }: { priority?: number } = {}): Promise<PhotoRecord[]> {
+  const items =
+    MODE === "mock"
+      ? (await mockPhotos()).filter((r) => r.split === "challenge")
+      : (await backend<PhotoList>(`/photos${query({ split: "challenge", priority, limit: 1000 })}`)).items;
+  return priority === undefined ? items : items.filter((r) => r.raw?.priority === priority);
+}
+
+const resultCache = new Map<string, AnalysisResult | null>();
+const FAN_OUT = 6;
+
+/**
+ * Results for many photos (desk pins, counters, list meta lines). Tries a bulk GET /results?ids=
+ * (asked from Said, FRONTPAGE_PLAN 9); without it, fans out over GET /results/{id}, 6 at a time.
+ * Both paths fill an in-memory cache. Photos without a result map to null.
+ */
+export async function listResults(ids: string[]): Promise<Map<string, AnalysisResult | null>> {
+  const missing = ids.filter((id) => !resultCache.has(id));
+  if (missing.length && MODE !== "mock") {
+    try {
+      const bulk = await backend<AnalysisResult[] | { items: AnalysisResult[] }>(`/results${query({ ids: missing.join(",") })}`);
+      const list = Array.isArray(bulk) ? bulk : bulk.items;
+      for (const r of list) resultCache.set(r.photo_id, r);
+      for (const id of missing) if (!resultCache.has(id)) resultCache.set(id, null);
+    } catch (e) {
+      if (!(e instanceof ApiError) || (e.status !== 404 && e.status !== 405)) throw e;
+    }
+  }
+  const todo = ids.filter((id) => !resultCache.has(id));
+  let next = 0;
+  const worker = async () => {
+    while (next < todo.length) {
+      const id = todo[next++];
+      resultCache.set(id, await getResult(id));
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(FAN_OUT, todo.length) }, worker));
+  return new Map(ids.map((id) => [id, resultCache.get(id) ?? null]));
+}
+
+export interface ReviewBody {
+  status: ReviewStatus;
+  fields?: Review["fields"];
+  note?: string | null;
+}
+
+/**
+ * POST /review/{id}: Bestätigen / Korrigieren, or "offen" to undo. A second POST overwrites the first
+ * (Said's agent/server/app.py). Returns the updated result.
+ */
+export async function postReview(photoId: string, body: ReviewBody): Promise<AnalysisResult> {
+  const review: Review = {
+    status: body.status,
+    fields: body.fields ?? {},
+    note: body.note ?? null,
+    reviewed_at: new Date().toISOString().replace(/\.\d+Z$/, "Z"),
+  };
+  let updated: AnalysisResult;
+  if (MODE === "mock") {
+    const current = await getResult(photoId);
+    if (!current) throw new ApiError(404, `/review/${enc(photoId)}`);
+    mockReviews.set(photoId, review);
+    updated = { ...current, review };
+  } else {
+    const url = `${API_URL}/review/${enc(photoId)}`;
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: review.status, fields: review.fields, note: review.note }),
+      });
+    } catch {
+      throw new ApiError(0, url);
+    }
+    if (!res.ok) throw new ApiError(res.status, url);
+    updated = await res.json();
+  }
+  resultCache.set(photoId, updated);
+  return updated;
+}
+
+/**
+ * The Excel deliverable (sheets Metadaten + Methode). A plain <a download> link: Said sends a
+ * Content-Disposition file name. Mock mode has no .xlsx fixture and links the CSV fixture instead.
+ */
+export function exportXlsxUrl(q: { split?: string; priority?: number; ids?: string[] } = { split: "challenge", priority: 1 }): string {
+  if (MODE === "mock") return `${FIXTURES}/export.csv`;
+  return `${API_URL}/export.xlsx${query({ split: q.split, priority: q.priority, ids: q.ids?.join(",") })}`;
+}
+
+export interface ReferenceMatch {
+  evidence: Evidence;
+  field: FieldKey;
+  /** true only when Said marks the match LightGlue-verified; otherwise the best-scoring similar image. */
+  verified: boolean;
+}
+
+/**
+ * "Das Archiv kennt diesen Ort": the first similar_image evidence with a ref_id and verified === true;
+ * until Said adds `verified`, the one with the highest score. null when there is none.
+ */
+export function bestReferenceMatch(result: AnalysisResult): ReferenceMatch | null {
+  const all = (Object.entries(result.fields) as [FieldKey, AnalysisResult["fields"][FieldKey]][]).flatMap(([field, f]) =>
+    (f?.evidence ?? [])
+      .filter((e) => e.kind === "similar_image" && e.ref_id && e.supports !== false)
+      .map((evidence) => ({ evidence, field })),
+  );
+  const verified = all.find((m) => m.evidence.verified === true);
+  if (verified) return { ...verified, verified: true };
+  const best = all.reduce<(typeof all)[number] | null>(
+    (b, m) => (!b || (m.evidence.score ?? 0) > (b.evidence.score ?? 0) ? m : b),
+    null,
+  );
+  return best ? { ...best, verified: false } : null;
 }
 
 export type TileLayer = "ch.swisstopo.swissimage" | "ch.swisstopo.zeitreihen";

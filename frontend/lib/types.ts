@@ -1,7 +1,24 @@
 // Hand-written from contracts/schemas/*.schema.json and docs/CONTRACTS.md.
 // Unknown keys from the backend are ignored (CONTRACTS conventions), so keep these types to what the UI reads.
 
-export type Source = "staatsarchiv" | "smapshot" | "epics" | "lubis" | "nb" | "upload";
+export type Source = "staatsarchiv" | "smapshot" | "epics" | "lubis" | "nb" | "upload" | "challenge";
+
+/** record.raw of a challenge photo (CONTRACTS v3 section 2). Other sources keep their own raw keys. */
+export interface ChallengeRaw {
+  file_name?: string; // the Excel key (Dateiname)
+  priority?: number; // 1 = Prio-1 set of 50, 2 = the rest
+  exif?: {
+    datetime: string | null;
+    make: string | null;
+    model: string | null;
+    focal_mm?: number | null;
+    focal_35mm?: number | null;
+    lat: number | null;
+    lon: number | null;
+  };
+  session?: string[]; // sibling ids: same camera, under 30 min apart
+  original_size?: [number, number];
+}
 
 export interface PhotoRecord {
   id: string;
@@ -40,7 +57,8 @@ export interface PhotoRecord {
   image: { path: string; width: number; height: number; sha1: string } | null;
   parent_id: string | null;
   crop_bbox: number[] | null;
-  split: "eval" | "showcase" | "reference" | "none";
+  split: "eval" | "showcase" | "reference" | "challenge" | "none";
+  raw?: ChallengeRaw & Record<string, unknown>;
 }
 
 export type EvidenceKind =
@@ -50,7 +68,12 @@ export type EvidenceKind =
   | "archive_record"
   | "swisstopo_place"
   | "terrain"
-  | "map_layer";
+  | "map_layer"
+  // v3
+  | "address_register"
+  | "named_building"
+  | "exif"
+  | "session_photo";
 
 export interface Evidence {
   // string: date_hints may add kinds outside the enum (OPEN_FRONTEND_QUESTIONS 3.7)
@@ -60,6 +83,9 @@ export interface Evidence {
   url?: string | null;
   score?: number | null;
   supports: boolean;
+  /** similar_image only, asked from Said (FRONTPAGE_PLAN 9): LightGlue-verified match and its inlier count. */
+  verified?: boolean;
+  inliers?: number;
 }
 
 export interface Field<T> {
@@ -74,17 +100,34 @@ export interface Coordinates {
   radius_m: number;
 }
 
+/** v3 order = the archive's priority. A field that cannot be determined has value null (or []) and confidence 0. */
 export interface ResultFields {
-  municipality: Field<string>;
-  place: Field<string>;
+  locality: Field<string>; // Ortschaft
+  municipality: Field<string>; // Gemeinde
   buildings: Field<string[]>;
-  landscape_features: Field<string[]>;
-  decade: Field<number>;
-  year_range: Field<{ from: number; to: number }>;
+  landscape_features: Field<string[]>; // See/Fluss/Berg
+  street: Field<string>; // street + number when known
   coordinates: Field<Coordinates>;
+  // Optional in v3: challenge photos carry the EXIF date in the record; postcard results still have them.
+  place?: Field<string>;
+  decade?: Field<number>;
+  year_range?: Field<{ from: number; to: number }>;
 }
 
 export type FieldKey = keyof ResultFields;
+
+/** The five fields the archivist reviews, in the brief's order. */
+export type ReviewField = "locality" | "municipality" | "buildings" | "landscape_features" | "street";
+
+export type ReviewStatus = "offen" | "bestaetigt" | "korrigiert";
+
+export interface Review {
+  status: ReviewStatus;
+  /** Only the corrected fields. */
+  fields: Partial<Record<ReviewField, string | string[] | null>>;
+  note: string | null;
+  reviewed_at: string | null;
+}
 
 export interface TraceItem {
   step: number;
@@ -109,6 +152,10 @@ export interface AnalysisResult {
   trace: TraceItem[];
   usage: { input_tokens: number; output_tokens: number; cost_usd: number; budget_hit: boolean } | null;
   created_at: string;
+  /** v3: German sentence on how overall_confidence came about. */
+  confidence_explanation?: string | null;
+  /** v3: set by POST /review. */
+  review?: Review | null;
   /** status "error" only: German message for the UI (Said's jobs.py), plus a technical detail. */
   error?: string;
   error_detail?: string;

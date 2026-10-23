@@ -35,7 +35,7 @@ export default function ArchivPage() {
   const loadMore = useCallback(async (offset: number) => {
     setLoading(true);
     try {
-      const page = await listPhotos({ split: "showcase", limit: PAGE_SIZE, offset });
+      const page = await listPhotos({ split: "challenge", limit: PAGE_SIZE, offset });
       setShowcase((prev) => (offset === 0 ? page.items : [...prev, ...page.items]));
       setTotal(page.total);
     } catch (e) {

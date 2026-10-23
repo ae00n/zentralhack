@@ -178,3 +178,19 @@ Default: show `license.credit`, fall back to the source name.
 - Every fetch only in `lib/api.ts`; mock adapter replays traces with the same component as demo mode.
 - Map layers are raster only, no vector style, so no glyph fonts needed offline.
 - In mock mode every eval number carries a visible "Beispieldaten" marker so a fixture number never reaches a screenshot.
+
+---
+
+## 5. v3 asks to pass on (FRONTPAGE_PLAN section 9), state 23.10. evening
+
+Checked against `origin/said/agent` at `cac8434` (23.10. 20:44). The frontend builds none of these; it uses the fallback.
+
+| To | Ask | State | Frontend fallback until then |
+|---|---|---|---|
+| Said | `priority` filter on `/photos` | **done** (`4ef9913`), sorted by signature | (client-side `raw.priority` filter stays as a safety net) |
+| Said | `/export.xlsx` (Metadaten + Methode) | **done** (`4ef9913`), also `?split=challenge&priority=1` | |
+| Said | `POST /review/{id}` | **done** (`4ef9913`). Accepts `bestaetigt`, `korrigiert` and `offen`; a second POST **overwrites** (answers the plan's question). `korrigiert` needs at least one field. | |
+| Said | Bulk results for the desk: `GET /results?ids=a,b,c` (or `?split=challenge&priority=1`), returning `[AnalysisResult]` or `{items: [...]}`, slim is fine (fields values + confidences, coordinates, overall, needs_review, review) | **missing**: `GET /results` without an id is 404 today | fan-out over `/results/{id}`, 6 parallel, cached in memory (`listResults`) |
+| Said | `verified: true` and `inliers: n` on `similar_image` evidence (LightGlue) | **missing** | "Das Archiv kennt diesen Ort" takes the highest-score similar image and does not say "verifiziert" |
+| Dijar | Offline `ch.swisstopo.pixelkarte-grau` z8 to z12 over the canton bbox, plus z13 to z16 around the demo photos, in `data/tiles/` + manifest | open | desk map blank offline, list still works |
+| Dijar | QC numbers per confidence bin (`challenge_qc.jsonl` hand check) by Sat 12:00, shape agreed Sat morning | open | Nachweis shows the postcard eval only |
