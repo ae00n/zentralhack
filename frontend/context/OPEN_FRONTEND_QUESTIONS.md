@@ -194,3 +194,5 @@ Checked against `origin/said/agent` at `cac8434` (23.10. 20:44). The frontend bu
 | Said | `verified: true` and `inliers: n` on `similar_image` evidence (LightGlue) | **missing** | "Das Archiv kennt diesen Ort" takes the highest-score similar image and does not say "verifiziert" |
 | Dijar | Offline `ch.swisstopo.pixelkarte-grau` z8 to z12 over the canton bbox, plus z13 to z16 around the demo photos, in `data/tiles/` + manifest | open | desk map blank offline, list still works |
 | Dijar | QC numbers per confidence bin (`challenge_qc.jsonl` hand check) by Sat 12:00, shape agreed Sat morning | open | Nachweis shows the postcard eval only |
+| Said + Dijar | Shape for the QC numbers. Frontend proposal (built, item 9): `GET /qc/summary` → `{n, municipality_correct, bins: [{bin: "<0.5" | "0.5-0.9" | ">=0.9", n, correct}], cost_usd_per_photo, created_at}`; a static JSON with the same keys works too | open | QC block hidden, postcard eval only |
+| Said | Reset of reviews for demo re-runs: `/review` writes into the cached results, so the demo changes `data/results/` | open | re-copy `data/results/` before each run |

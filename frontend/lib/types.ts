@@ -249,3 +249,17 @@ export interface EvalSummary {
 export function needsReview(r: AnalysisResult): boolean {
   return r.needs_review || r.status === "needs_review";
 }
+
+/**
+ * Hand-checked sample of challenge results (CHALLENGE_BRIEF 4, challenge_qc.jsonl). Proposed shape for
+ * GET /qc/summary, to agree with Said and Dijar (OPEN_FRONTEND_QUESTIONS 5); not in the contract yet.
+ */
+export interface QcSummary {
+  n: number;
+  /** Gemeinde correct in the sample. */
+  municipality_correct: number;
+  /** Bins by overall_confidence: "<0.5", "0.5-0.9", ">=0.9". */
+  bins: { bin: string; n: number; correct: number }[];
+  cost_usd_per_photo?: number | null;
+  created_at?: string;
+}

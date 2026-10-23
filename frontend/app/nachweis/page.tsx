@@ -1,14 +1,26 @@
 "use client";
 
-// Nachweis (build step 7): the proof page. Numbers come from /eval/summary only.
-// Calibration chart comes in step 10; until then calibration is a table.
+// Nachweis (FRONTPAGE_PLAN 6): the hand-checked QC sample of the challenge photos first (only when it
+// exists, never an empty table), then the postcard eval from /eval/summary as the second proof, then the
+// confidence method (#methode, linked from the header).
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import Share from "@/components/nachweis/Share";
-import { MODE, errorText, getEvalSummary, imageUrl } from "@/lib/api";
+import { MODE, errorText, getEvalSummary, getQcSummary, imageUrl } from "@/lib/api";
 import { analyseHref, formatDate, formatPct } from "@/lib/format";
 import { subsetLabel } from "@/lib/labels";
-import type { EvalSummary, MuniMetrics } from "@/lib/types";
+import type { EvalSummary, MuniMetrics, QcSummary } from "@/lib/types";
+
+const QC_BIN_LABELS: Record<string, string> = { "<0.5": "unter 50 %", "0.5-0.9": "50 bis 89 %", ">=0.9": "ab 90 %" };
+
+/** CHALLENGE_BRIEF 4 in German; mirrors the Excel's Methode sheet. Said owns the method: keep in sync. */
+const METHOD: string[] = [
+  "Unabhängige Quellen zählen, die einen Wert stützen: verifiziertes Referenzfoto, benanntes Gebäude im Umkreis von 150 m, amtliches Adressverzeichnis, lesbarer Text im Foto, Foto derselben Serie, Geländeprüfung. Zwei Quellen zählen nur doppelt, wenn Art oder Referenz verschieden sind.",
+  "Grundwert aus der Anzahl: 1 Quelle 50 %, 2 Quellen 70 %, 3 Quellen 85 %, 4 oder mehr 95 %. Spricht eine Quelle dagegen, höchstens 60 %.",
+  "Modell-Sicherheit gesamt: der tiefere Wert von Ortschaft und Gemeinde, höchstens 5 Prozentpunkte höher, wenn Gebäude und Strasse dazu passen.",
+  "Prüfung nötig, wenn der Gesamtwert unter 90 % liegt oder Ortschaft oder Gemeinde nicht bestimmbar sind. Das ist die Spalte Pruefung_noetig im Excel.",
+  "Die Begründung nennt in einem Satz, wie der Wert zustande kam, und welche Felder offen bleiben.",
+];
 
 const CONF_LEVELS = ["0.7", "0.8", "0.9"];
 
@@ -16,7 +28,7 @@ function Big({ label, value, note }: { label: string; value: string; note?: stri
   return (
     <div>
       <p className="text-meta text-ink-muted">{label}</p>
-      <p className="mt-1 font-light text-[56px] leading-none">{value}</p>
+      <p className="mt-1 text-counter md:text-[40px] md:leading-[44px]">{value}</p>
       {note && <p className="mt-2 text-meta text-ink-muted">{note}</p>}
     </div>
   );
@@ -66,32 +78,104 @@ function muniOf(s: EvalSummary, key: string): MuniMetrics | undefined {
 
 export default function NachweisPage() {
   const [summary, setSummary] = useState<EvalSummary | null>(null);
+  const [qc, setQc] = useState<QcSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    getQcSummary()
+      .then(setQc)
+      .catch(() => setQc(null)); // no QC yet: the postcard eval alone
     getEvalSummary()
       .then(setSummary)
       .catch((e: unknown) => setError(errorText(e)))
       .finally(() => setLoading(false));
   }, []);
 
+  // The browser jumps to #methode before the eval numbers load and push it down; jump again after.
+  useEffect(() => {
+    if (!loading && window.location.hash === "#methode") document.getElementById("methode")?.scrollIntoView();
+  }, [loading, qc]);
+
   return (
     <main className="wrapper max-w-[1100px] py-8">
       <div className="border-b border-rule pb-4">
         <h1 className="text-page">Nachweis</h1>
         <p className="mt-1 text-meta text-ink-muted">
-          Wie oft der Agent richtig liegt, gemessen an Fotos, deren Ort und Datum das Archiv kennt.
+          Wie oft der Agent richtig liegt: von Hand geprüft an einer Stichprobe der neuen Fotos, und gemessen an
+          Postkarten, deren Ort das Archiv kennt.
         </p>
       </div>
 
+      {qc && qc.n > 0 && <QcSection qc={qc} />}
+
+      <h2 className="mt-10 text-h2">
+        {qc && qc.n > 0 ? "Zweiter Nachweis: " : ""}
+        {summary?.n_eval ?? 350} katalogisierte Postkarten
+      </h2>
       {error && <p className="mt-6 text-bad">Auswertung konnte nicht geladen werden: {error}</p>}
       {!error && loading && <p className="mt-6 text-ink-muted">Lade Auswertung ...</p>}
       {!error && !loading && !summary && (
         <p className="mt-6 text-ink-muted">Noch keine Auswertung. Die Zahlen erscheinen nach dem Eval-Lauf.</p>
       )}
       {summary && <Report s={summary} />}
+
+      <section id="methode" className="mt-12 scroll-mt-6 border-t border-rule pt-4">
+        <h2 className="text-h2">Methode</h2>
+        <p className="mt-1 text-small text-ink-muted">
+          So entsteht die Modell-Sicherheit. Sie ist ein gezählter Quellenwert, keine Wahrscheinlichkeit; wie gut sie
+          trifft, zeigt die Stichprobe oben.
+        </p>
+        <ol className="mt-4 max-w-3xl list-decimal space-y-2 pl-5">
+          {METHOD.map((step, i) => (
+            <li key={i}>{step}</li>
+          ))}
+        </ol>
+      </section>
     </main>
+  );
+}
+
+/** Plan 6 big numbers + hit rate per confidence bin, from the hand-checked sample. */
+function QcSection({ qc }: { qc: QcSummary }) {
+  const sure = qc.bins.find((b) => b.bin === ">=0.9");
+  const bins = qc.bins.filter((b) => b.n > 0);
+  return (
+    <section className="fade-in mt-8">
+      <h2 className="text-h2">Treffer bei Modell-Sicherheit ab 90 %</h2>
+      <p className="mt-1 text-small text-ink-muted">
+        Stichprobe von Hand geprüft: {qc.n} Prio-1-Fotos, verglichen mit Karte und Street View.
+      </p>
+      {MODE === "mock" && (
+        <p className="mt-1 text-meta text-warn">Beispieldaten: erfundene Zahlen, nicht für den Pitch.</p>
+      )}
+      <div className="mt-6 grid grid-cols-1 gap-x-8 gap-y-6 sm:grid-cols-3">
+        {sure && (
+          <Big
+            label="Treffer bei Modell-Sicherheit ab 90 %"
+            value={`${sure.correct} von ${sure.n}`}
+            note={formatPct(sure.n ? sure.correct / sure.n : null)}
+          />
+        )}
+        <Big
+          label={`Gemeinde korrekt (Stichprobe, n = ${qc.n})`}
+          value={formatPct(qc.municipality_correct / qc.n)}
+          note={`${qc.municipality_correct} von ${qc.n}`}
+        />
+        {typeof qc.cost_usd_per_photo === "number" && (
+          <Big label="Kosten pro Foto" value={`ca. ${qc.cost_usd_per_photo.toFixed(2)} USD`} />
+        )}
+      </div>
+      {bins.length > 0 && (
+        <div className="mt-8 max-w-xl">
+          <Table head="Modell-Sicherheit">
+            {bins.map((b) => (
+              <Row key={b.bin} label={QC_BIN_LABELS[b.bin] ?? b.bin} n={b.n} value={b.n ? b.correct / b.n : null} />
+            ))}
+          </Table>
+        </div>
+      )}
+    </section>
   );
 }
 

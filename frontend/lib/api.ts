@@ -10,13 +10,14 @@ import type {
   Health,
   PhotoList,
   PhotoRecord,
+  QcSummary,
   Review,
   ReviewStatus,
   Timeline,
   TraceItem,
 } from "./types";
 import { MOCK_CHALLENGE, MOCK_CHALLENGE_RESULTS } from "@/mocks/challenge";
-import { mockEvalExtras } from "@/mocks/eval";
+import { MOCK_QC, mockEvalExtras } from "@/mocks/eval";
 
 export type Mode = "mock" | "live" | "demo";
 
@@ -168,6 +169,20 @@ export async function getEvalSummary(): Promise<EvalSummary | null> {
     return s._fixture_note ? null : s;
   } catch (e) {
     if (e instanceof ApiError && e.status === 404) return null;
+    throw e;
+  }
+}
+
+/**
+ * The hand-checked QC sample for the Nachweis page, or null while there is none (proposed GET /qc/summary;
+ * plan 6: without it the page shows only the postcard eval).
+ */
+export async function getQcSummary(): Promise<QcSummary | null> {
+  if (MODE === "mock") return MOCK_QC;
+  try {
+    return await backend<QcSummary>("/qc/summary");
+  } catch (e) {
+    if (e instanceof ApiError && (e.status === 404 || e.status === 405)) return null;
     throw e;
   }
 }

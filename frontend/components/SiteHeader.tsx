@@ -24,7 +24,7 @@ export default function SiteHeader() {
     <header className="bg-paper">
       <div className="wrapper flex min-h-14 items-center justify-between gap-x-6 py-2 md:min-h-[72px]">
         <Link href="/" className="text-body hover:text-ink-strong md:text-h3 md:font-normal">
-          <span className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-2">
             Staatsarchiv Schwyz
             <Tag className="sm:hidden">Prototyp</Tag>
           </span>

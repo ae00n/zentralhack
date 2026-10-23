@@ -1,6 +1,6 @@
 // Mock-only additions to the eval_summary fixture: the keys Said's eval runner writes beyond the contract
 // (metrics block, decade_n, n_eval, failure confidence). Invented numbers, consistent with the fixture.
-import type { EvalSummary } from "@/lib/types";
+import type { EvalSummary, QcSummary } from "@/lib/types";
 
 function muni(n: number, accuracy: number, extra: Record<string, unknown> = {}) {
   return { n, accuracy, ...extra };
@@ -35,3 +35,16 @@ export function mockEvalExtras(base: EvalSummary): EvalSummary {
     },
   };
 }
+
+/** Mock-only QC sample (proposed /qc/summary shape), invented numbers for building the page. */
+export const MOCK_QC: QcSummary = {
+  n: 20,
+  municipality_correct: 17,
+  bins: [
+    { bin: "<0.5", n: 3, correct: 1 },
+    { bin: "0.5-0.9", n: 6, correct: 5 },
+    { bin: ">=0.9", n: 11, correct: 11 },
+  ],
+  cost_usd_per_photo: 0.05,
+  created_at: "2026-10-24T11:30:00Z",
+};

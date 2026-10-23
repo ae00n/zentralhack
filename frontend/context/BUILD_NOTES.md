@@ -383,3 +383,18 @@ What was checked on the laptop:
 
 **Not built**
 - Nothing from the item's scope (the plan builds the strip only; propagation with `S` is cut first).
+
+## v3 item 9: Nachweis (23.10., partly)
+
+**Check:** numbers match the QC file. **Not possible yet**: the hand-checked `challenge_qc.jsonl` and its numbers do not exist (team hand check Sat morning, Dijar by Sat 12:00), and the shape is not agreed. Built against a proposed shape and checked in mock mode with invented numbers: the QC block shows "11 von 11" (ab 90 %), "Gemeinde korrekt (Stichprobe, n = 20) 85 %", "ca. 0.05 USD" and the hit rate per bin (unter 50 %: 3, 33 % · 50 bis 89 %: 6, 83 % · ab 90 %: 11, 100 %); below it "Zweiter Nachweis: … katalogisierte Postkarten" with the existing page; "Methode" with 5 steps at `#methode`. No em dash on the page.
+
+**Special**
+- Proposed `GET /qc/summary` → `{n, municipality_correct, bins: [{bin: "<0.5" | "0.5-0.9" | ">=0.9", n, correct}], cost_usd_per_photo, created_at}` (`QcSummary` in `lib/types.ts`, `getQcSummary()` in `lib/api.ts`; 404/405 → none). In OPEN_FRONTEND_QUESTIONS 5 for Said and Dijar; if they pick another shape (or a static JSON), only `getQcSummary()` changes.
+- Without QC data the block is not rendered at all (plan 6: never an empty table) and the postcard heading drops the "Zweiter Nachweis:" prefix. The postcard count comes from `n_eval` (350 real, 300 in the fixture).
+- Big numbers use `text-counter` (Light 300), 40 px from `md`; 56 px would not fit "ca. 0.05 USD" in a third of the column.
+- Methode (#methode, linked from the header): the 5 steps of CHALLENGE_BRIEF 4 in German, plus "Modell-Sicherheit ist ein gezählter Quellenwert, keine Wahrscheinlichkeit". Said owns the method; if he changes it, the `METHOD` list in `app/nachweis/page.tsx` must follow (it mirrors the Excel's Methode sheet).
+- The browser jumps to `#methode` before the eval loads and pushes it down; the page jumps again once loaded. On a wide screen the section is at the end of the page, so it cannot reach the top.
+- Fixed on the way (item 10 regression): the desktop header wrapped "· Erschliessungs-Assistent" onto a second line.
+
+**Not built**
+- The calibration chart and the per-bin comparison of self-rated vs measured from the old SCOPE_3 list stay as the existing tables.
