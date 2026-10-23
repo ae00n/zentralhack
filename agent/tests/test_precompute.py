@@ -44,3 +44,19 @@ def test_parallel_batch_reports_cost_after_10_and_respects_the_cap(monkeypatch):
     # the fixture costs $0.085 per photo: a $0.30 cap stops after a few, the rest is reported as not started
     s = precompute.precompute([f"x:{i}" for i in range(10)], workers=2, max_cost=0.3, log=lines.append)
     assert 0 < len(s["done"]) < 10 and len(s["done"]) + len(s["failed"]) == 10
+
+
+def test_network_down_stops_after_a_few_connection_errors(monkeypatch):
+    import httpx
+
+    calls = []
+
+    def analyze(pid, model=config.MODEL, **kw):
+        calls.append(pid)
+        raise httpx.ConnectError("nodename nor servname provided")
+
+    monkeypatch.setattr(loop, "analyze", analyze)
+    lines = []
+    s = precompute.precompute([f"x:{i}" for i in range(50)], workers=1, log=lines.append)
+    assert len(calls) == precompute.MAX_CONNECTION_ERRORS and len(s["failed"]) == 50 and not s["done"]
+    assert any(l.startswith("Abbruch: 5 Verbindungsfehler") for l in lines)

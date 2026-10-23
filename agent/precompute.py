@@ -14,9 +14,13 @@ import sys
 import threading
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 
+import anthropic
+import httpx
+
 from . import config, llm, loop, results, schemas
 
 REPORT_AFTER = 10
+MAX_CONNECTION_ERRORS = 5  # in a row: the network is down, stop instead of failing every photo
 
 
 def demo_ids() -> list[str]:
@@ -45,6 +49,7 @@ def precompute(ids: list[str], model: str = config.MODEL, fresh: bool = False, m
         log(f"{len(stats['skipped'])} schon im Cache, {len(todo)} zu analysieren")
     stop = threading.Event()
     lock = threading.Lock()
+    offline = {"streak": 0}
 
     def one(pid: str):
         if stop.is_set():
@@ -54,6 +59,8 @@ def precompute(ids: list[str], model: str = config.MODEL, fresh: bool = False, m
         except (llm.MissingKey, llm.SessionBudgetExceeded) as e:  # every later card would fail too
             stop.set()
             return pid, None, f"Abbruch, {e}"
+        except (anthropic.APIConnectionError, httpx.TransportError) as e:
+            return pid, None, f"Keine Verbindung ({type(e).__name__})"
         except Exception as e:  # noqa: BLE001  one bad card must not stop the others
             return pid, None, f"Fehler {type(e).__name__}: {e}"
 
@@ -64,7 +71,13 @@ def precompute(ids: list[str], model: str = config.MODEL, fresh: bool = False, m
             stats["failed"].append(pid)
             if err != "skip":
                 log(f"{tag}: {err}")
+            offline["streak"] = offline["streak"] + 1 if err.startswith("Keine Verbindung") else 0
+            if offline["streak"] >= MAX_CONNECTION_ERRORS and not stop.is_set():
+                stop.set()
+                log(f"Abbruch: {MAX_CONNECTION_ERRORS} Verbindungsfehler hintereinander, das Netz ist weg. "
+                    "Den gleichen Befehl später erneut starten, fertige Fotos werden übersprungen.")
             return
+        offline["streak"] = 0
         problems = schemas.errors({k: v for k, v in r.items() if k != "part_results"}, "analysis_result")
         results.save(r)
         cost = r["usage"]["cost_usd"]
