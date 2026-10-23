@@ -309,14 +309,19 @@ def test_field_of_view_of_a_35mm_lens():
     assert viewpoint.field_of_view(35.0, portrait=True) < viewpoint.field_of_view(35.0)
 
 
-def test_photos_near_sorts_excludes_the_photo_and_allows_citing(monkeypatch):
-    recs = [(47.0001, 8.6001, {"id": "commons:1", "source": "commons", "title": "Kirche"}),
-            (47.0010, 8.6000, {"id": "epics:2", "source": "epics", "title": "Dorf"}),
-            (47.0000, 8.6000, {"id": "challenge:SG.CIV.17.3", "source": "commons"}),
-            (47.1000, 8.7000, {"id": "commons:far", "source": "commons"})]
-    monkeypatch.setattr(nearby, "_index", lambda: tuple(recs))
+def test_photos_near_uses_data_pipeline_excludes_the_photo_and_allows_citing(monkeypatch):
+    seen = {}
+
+    def photos_near(lat, lon, radius_m=500, exclude_ids=(), limit=12, **kw):
+        seen.update(radius=radius_m, exclude=list(exclude_ids))
+        return [{"id": "commons:1", "source": "commons", "title": "Kirche", "distance_m": 12, "heading_deg": 180},
+                {"id": "challenge:SG.CIV.17.3#1", "source": "commons", "distance_m": 0},  # must never come back
+                {"id": "epics:2", "source": "epics", "title": "Dorf", "distance_m": 90, "heading_deg": None}]
+
+    monkeypatch.setattr(nearby.dp, "photos_near", photos_near)
     monkeypatch.setattr(nearby.dp, "image_file", lambda rec: None)
     ctx = ToolContext(photo_id="challenge:SG.CIV.17.3", image_path="x.jpg", exclude_ids=["challenge:SG.CIV.17.3"])
     out = nearby.run(ctx, lat=47.0, lon=8.6, radius_m=300)
     assert [p["id"] for p in out.data["photos"]] == ["commons:1", "epics:2"]
+    assert out.data["photos"][0]["looking"] == "S" and seen == {"radius": 300, "exclude": ["challenge:SG.CIV.17.3"]}
     assert "commons:1" in ctx.verified_refs and "Kirche" in out.summary

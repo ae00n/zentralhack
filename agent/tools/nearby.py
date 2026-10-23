@@ -1,30 +1,28 @@
 """photos_near: reference photos taken at a candidate spot (the GeoGuessr "walk around" step).
 
 similar_images asks "what looks like this photo?"; photos_near asks "what does the place I suspect look
-like?". It returns the reference photos whose camera position is near a point (Commons, E-Pics/Smapshot
-and LUBIS carry positions to within about 100 m) and shows the nearest as thumbnails, so the model can
-compare buildings and skyline itself.
+like?". data_pipeline.photos_near returns the reference photos whose camera position is near a point
+(Commons, E-Pics/Smapshot, LUBIS, ...), nearest first, with the camera direction where a pose is known.
+The nearest are shown as thumbnails, so the model can compare buildings and skyline itself.
 """
-
-import math
-from functools import lru_cache
 
 import data_pipeline as dp
 
-from .base import ToolContext, ToolOutput, base_id, image_block, year_span
+from .base import ToolContext, ToolOutput, base_id, image_block
 
-MAX_PRECISION_M = 150   # only references whose position is known this well
 DEFAULT_RADIUS, MAX_RADIUS = 300, 2000
 LIMIT, THUMBS, THUMB_PX = 8, 4, 384
+_COMPASS = ["N", "NO", "O", "SO", "S", "SW", "W", "NW"]
 
 DEFINITION = {
     "name": "photos_near",
     "description": (
         "Reference photos taken near a candidate spot (camera position within radius_m), nearest first, "
-        "the nearest 4 shown as images. Use it to check a hypothesis: go to the place you suspect (e.g. the "
-        "coordinates of a building or a viewpoint_search spot) and compare what the references show with "
-        "the photo. A reference that shows the same buildings or the same skyline is evidence of kind "
-        "similar_image with its ref_id; a reference that only shows the same area is not."
+        "with the camera direction where known; the nearest 4 are shown as images. Use it to check a "
+        "hypothesis: go to the place you suspect (e.g. the coordinates of a building or a viewpoint_search "
+        "spot) and compare what the references show with the photo. A reference that shows the same "
+        "buildings or the same skyline is evidence of kind similar_image with its ref_id; a reference that "
+        "only shows the same area is not."
     ),
     "input_schema": {
         "type": "object",
@@ -39,58 +37,27 @@ DEFINITION = {
 }
 
 
-def _dist_m(lat1, lon1, lat2, lon2) -> float:
-    k = math.pi / 180
-    x = (lon2 - lon1) * k * math.cos((lat1 + lat2) / 2 * k)
-    return 6371000 * math.hypot(x, (lat2 - lat1) * k)
-
-
-@lru_cache(maxsize=1)
-def _index() -> tuple:
-    """(lat, lon, record) of every reference photo with a precise camera position."""
-    from ..server import catalogue
-
-    out = []
-    seen = set()
-    for r in catalogue.all_records():
-        loc = r.get("location") or {}
-        if r["id"] in seen or r.get("source") in ("challenge", "upload") or r.get("split") == "challenge":
-            continue
-        if loc.get("lat") is None or (loc.get("precision_m") or 1e9) > MAX_PRECISION_M:
-            continue
-        seen.add(r["id"])
-        out.append((loc["lat"], loc["lon"], r))
-    return tuple(out)
-
-
 def run(ctx: ToolContext, lat: float, lon: float, radius_m: int = DEFAULT_RADIUS) -> ToolOutput:
     radius = max(50, min(int(radius_m or DEFAULT_RADIUS), MAX_RADIUS))
     excluded = ctx.excluded_bases()
-    hits = []
-    for rlat, rlon, rec in _index():
-        if abs(rlat - lat) > 0.02 or abs(rlon - lon) > 0.03:  # cheap box before the distance
-            continue
-        if base_id(rec["id"]) in excluded or (rec.get("parent_id") and base_id(rec["parent_id"]) in excluded):
-            continue
-        d = _dist_m(lat, lon, rlat, rlon)
-        if d <= radius:
-            hits.append((d, rec))
-    hits.sort(key=lambda h: h[0])
+    raw = dp.photos_near(lat, lon, radius_m=radius, exclude_ids=list(ctx.exclude_ids), limit=LIMIT + 4)
+    hits = [h for h in raw if base_id(h["id"]) not in excluded][:LIMIT]  # leakage guard, independent of data_pipeline
     data, images = [], []
-    for i, (d, rec) in enumerate(hits[:LIMIT], 1):
-        item = {"rank": i, "id": rec["id"], "distance_m": round(d), "source": rec.get("source"),
-                "title": rec.get("title"), "municipality": rec.get("municipality"),
-                "places": (rec.get("places") or [])[:5], "year": year_span(rec)}
+    for i, h in enumerate(hits, 1):
+        item = {"rank": i, "id": h["id"], "distance_m": h.get("distance_m"), "source": h.get("source"),
+                "title": h.get("title"), "year": h.get("year"), "heading_deg": h.get("heading_deg"),
+                "looking": _COMPASS[round(h["heading_deg"] / 45) % 8] if h.get("heading_deg") is not None else None}
         data.append({k: v for k, v in item.items() if v not in (None, [], "")})
         # a reference at a known position that the model compared itself may be cited as a source
-        ctx.verified_refs.update({rec["id"], base_id(rec["id"])})
+        ctx.verified_refs.update({h["id"], base_id(h["id"])})
         if i <= THUMBS:
             try:
-                path = dp.image_file(rec)
+                path = dp.image_file(dp.get_record(h["id"]))
             except Exception:
                 path = None
             if path and path.exists():
-                label = f"Foto {i}: {rec['id']}, {round(d)} m, {rec.get('title') or 'ohne Titel'}"
+                looking = f", Blick nach {item['looking']}" if item.get("looking") else ""
+                label = f"Foto {i}: {h['id']}, {h.get('distance_m')} m{looking}, {h.get('title') or 'ohne Titel'}"
                 images += [{"type": "text", "text": label}, image_block(path, THUMB_PX, 80)]
     out = {"center": {"lat": lat, "lon": lon}, "radius_m": radius, "n": len(hits), "photos": data}
     return ToolOutput(out, _summary(data, radius, len(hits)), images)
