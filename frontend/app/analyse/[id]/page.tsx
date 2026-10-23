@@ -14,6 +14,7 @@ import MapPanel from "@/components/analyse/MapPanel";
 import PhotoPanel from "@/components/analyse/PhotoPanel";
 import ResultPanel, { type EditState } from "@/components/analyse/ResultPanel";
 import ReviewBar from "@/components/analyse/ReviewBar";
+import SeriesStrip from "@/components/analyse/SeriesStrip";
 import TraceLog from "@/components/analyse/TraceLog";
 import ReviewToast from "@/components/ReviewToast";
 import {
@@ -526,6 +527,7 @@ export default function AnalysePage() {
                   />
                   </div>
                 )}
+                {showResult && <SeriesStrip record={record} />}
               </div>
               {showResult && (
                 <div className="min-w-0 lg:col-start-1 lg:row-start-2 lg:-mt-2">

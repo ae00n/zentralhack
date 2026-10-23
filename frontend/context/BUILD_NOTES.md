@@ -371,3 +371,15 @@ What was checked on the laptop:
 
 **Not built**
 - The plan's phone order puts the Begründung box after the review buttons; here it stays directly under the fields (it is part of the Erschliessung panel), so the bar follows it.
+
+## v3 item 11: Fotoserie strip (23.10.)
+
+**Check:** an SG.CIV.17 photo with `raw.session` shows sibling thumbnails. Done in mock mode: SG.CIV.17.40 shows "Fotoserie: 4 weitere Fotos dieser Serie" with SG.CIV.17.41 to .44 as thumbnail links to their detail pages (images loaded); SG.CIV.17.3 shows "1 weiteres Foto dieser Serie" (SG.CIV.17.408); SG.CIV.17.12 without a session shows nothing.
+
+**Special**
+- `components/analyse/SeriesStrip.tsx`, under the review bar once the result shows. 96×56 thumbnails on paper-2, full signature in mono below (type rule 2: always the exact dotted form), horizontal scroll when long.
+- Sibling records come from `/photos/{id}` for the signature; when one is missing (mock siblings do not exist) the signature is derived from the id ("challenge:SG.CIV.17.41" → "SG.CIV.17.41") and the link still goes to its detail page.
+- Singular "1 weiteres Foto dieser Serie".
+
+**Not built**
+- Nothing from the item's scope (the plan builds the strip only; propagation with `S` is cut first).
