@@ -8,20 +8,22 @@ import data_pipeline as dp
 from ..config import FIXTURES
 
 NAME = "submit_result"
-EVIDENCE_KINDS = ["visual_cue", "text_on_card", "similar_image", "archive_record",
-                  "swisstopo_place", "terrain", "map_layer"]
-FIELD_NAMES = ["municipality", "place", "buildings", "landscape_features", "decade", "year_range", "coordinates"]
+EVIDENCE_KINDS = ["visual_cue", "text_on_card", "similar_image", "archive_record", "swisstopo_place", "terrain",
+                  "map_layer", "address_register", "named_building", "exif", "session_photo"]
+# v3 order = the archive's priority (Ortschaft, Gemeinde, Gebaeude, See/Fluss/Berg, Strasse), then the map pin
+FIELD_NAMES = ["locality", "municipality", "buildings", "landscape_features", "street", "coordinates"]
 
 _EVIDENCE = {
     "type": "object",
     "properties": {
         "kind": {"type": "string", "enum": EVIDENCE_KINDS},
-        "summary": {"type": "string", "description": "one German sentence"},
+        "summary": {"type": "string", "description": "one German sentence naming the source"},
         "ref_id": {"type": ["string", "null"], "description": "PhotoRecord id the evidence comes from, or null"},
+        "url": {"type": ["string", "null"], "description": "link to the source (OSM, swisstopo), or null"},
         "score": {"type": ["number", "null"]},
         "supports": {"type": "boolean", "description": "false = evidence against the value"},
     },
-    "required": ["kind", "summary", "ref_id", "score", "supports"],
+    "required": ["kind", "summary", "ref_id", "url", "score", "supports"],
     "additionalProperties": False,
 }
 
@@ -32,10 +34,10 @@ def _field(value_schema: dict, about: str) -> dict:
         "description": about,
         "properties": {
             "value": value_schema,
-            "confidence": {"type": "number", "description": "0.0 to 1.0"},
-            "evidence": {"type": "array", "items": {"$ref": "#/$defs/evidence"}},
+            "evidence": {"type": "array", "items": {"$ref": "#/$defs/evidence"},
+                         "description": "every independent source that supports (or contradicts) the value"},
         },
-        "required": ["value", "confidence", "evidence"],
+        "required": ["value", "evidence"],
         "additionalProperties": False,
     }
 
@@ -54,12 +56,6 @@ def municipalities() -> list[str]:
 
 
 def definition(names: list[str]) -> dict:
-    year_obj = {
-        "type": ["object", "null"],
-        "properties": {"from": {"type": "integer"}, "to": {"type": "integer"}},
-        "required": ["from", "to"],
-        "additionalProperties": False,
-    }
     coord_obj = {
         "type": ["object", "null"],
         "properties": {"lat": {"type": "number"}, "lon": {"type": "number"},
@@ -67,31 +63,30 @@ def definition(names: list[str]) -> dict:
         "required": ["lat", "lon", "radius_m"],
         "additionalProperties": False,
     }
+    text_or_null = {"type": ["string", "null"]}
+    names_list = {"type": "array", "items": {"type": "string"}}
     return {
         "name": NAME,
         "description": (
             "Submit the final answer. Call it exactly once, when you are done (or when told to stop). "
-            "Every field needs a value (null or [] when unknown), a calibrated confidence and its evidence. "
-            "All summaries and reasons in German, one sentence each."
+            "For every field give the value and ALL independent sources that back it; the confidence is "
+            "computed from the number of independent sources. A value you cannot back with a source must be "
+            "null (or []): never guess a name. Summaries and reasons in German, one sentence each."
         ),
         "input_schema": {
             "type": "object",
             "$defs": {"evidence": _EVIDENCE},
             "properties": {
+                "locality": _field(text_or_null, "Ortschaft: official postal locality, e.g. 'Brunnen' (in Ingenbohl)"),
                 # strict mode rejects an enum on a ["string", "null"] type, so spell it as anyOf
                 "municipality": _field({"anyOf": [{"type": "string", "enum": list(names)}, {"type": "null"}]},
-                                       "Gemeinde in Kanton Schwyz, or null if outside or unknown"),
-                "place": _field({"type": ["string", "null"]}, "locality, village part or viewpoint"),
-                "buildings": _field({"type": "array", "items": {"type": "string"}}, "named buildings visible"),
-                "landscape_features": _field({"type": "array", "items": {"type": "string"}},
-                                             "named peaks, lakes, rivers visible"),
-                "decade": _field({"type": ["integer", "null"]}, "first year of the decade the photo was taken, e.g. 1910"),
-                "year_range": _field(year_obj, "plausible range of the capture year"),
+                                       "politische Gemeinde in Kanton Schwyz, or null if outside or unknown"),
+                "buildings": _field(names_list, "concrete names of the buildings shown, e.g. 'Alterszentrum Acherhof'"),
+                "landscape_features": _field(names_list, "named lakes, rivers, mountains visible, e.g. 'Grosser Mythen'"),
+                "street": _field(text_or_null, "street and number, e.g. 'Grundstrasse 32', else street only, else null"),
                 "coordinates": _field(coord_obj, "WGS84 position of the depicted place"),
-                "year_best": {"type": ["integer", "null"], "description": "single most likely capture year"},
                 "place_name_printed": {"type": "boolean",
-                                       "description": "true if a place name is printed or written on the card"},
-                "overall_confidence": {"type": "number"},
+                                       "description": "true if a place name is printed or written in the image"},
                 "rejected_hypotheses": {
                     "type": "array",
                     "items": {
@@ -104,7 +99,7 @@ def definition(names: list[str]) -> dict:
                     },
                 },
             },
-            "required": [*FIELD_NAMES, "year_best", "place_name_printed", "overall_confidence", "rejected_hypotheses"],
+            "required": [*FIELD_NAMES, "place_name_printed", "rejected_hypotheses"],
             "additionalProperties": False,
         },
         # Not strict: together with the other strict tools this schema compiles to a grammar the API
@@ -120,13 +115,6 @@ def _conf(x) -> float:
         return round(min(1.0, max(0.0, float(x))), 3)
     except (TypeError, ValueError):
         return 0.0
-
-
-def _int(x):
-    try:
-        return int(x) if x is not None else None
-    except (TypeError, ValueError):
-        return None
 
 
 def _evidence(items) -> list[dict]:
@@ -156,21 +144,11 @@ def _value(name: str, v, names: set[str]):
             return v
         low = {n.casefold(): n for n in names} | {n.split(" (")[0].casefold(): n for n in names}
         return low.get(v.casefold(), v)
-    if name == "place":
-        return str(v).strip() if v else None
+    if name in ("locality", "street"):
+        return str(v).strip() or None if v else None
     if name in ("buildings", "landscape_features"):
-        return [str(s) for s in v] if isinstance(v, list) else ([str(v)] if v else [])
-    if name == "decade":
-        d = _int(v)
-        return d - d % 10 if d is not None else None
-    if name == "year_range":
-        if not isinstance(v, dict):
-            return None
-        a, b = _int(v.get("from")), _int(v.get("to"))
-        if a is None and b is None:
-            return None
-        a, b = (a if a is not None else b), (b if b is not None else a)
-        return {"from": min(a, b), "to": max(a, b)}
+        items = v if isinstance(v, list) else ([v] if v else [])
+        return [str(x).strip() for x in items if str(x).strip()]
     if name == "coordinates":
         if not isinstance(v, dict) or v.get("lat") is None or v.get("lon") is None:
             return None
@@ -190,41 +168,29 @@ def empty_fields() -> dict:
 
 
 def normalize(inp: dict, names: list[str]) -> dict:
-    """submit_result input -> {fields, overall_confidence, rejected_hypotheses, estimates}."""
+    """submit_result input -> {fields, rejected_hypotheses, estimates}. Confidences are set later by
+    agent.confidence from the evidence; here they start at 0."""
     nameset = set(names)
     fields = empty_fields()
     for n in FIELD_NAMES:
         f = inp.get(n)
         if not isinstance(f, dict):
             continue
-        fields[n] = {"value": _value(n, f.get("value"), nameset),
-                     "confidence": _conf(f.get("confidence")),
+        fields[n] = {"value": _value(n, f.get("value"), nameset), "confidence": 0.0,
                      "evidence": _evidence(f.get("evidence"))}
-    # decade and year_range must agree; fill one from the other
-    yr, dec = fields["year_range"]["value"], fields["decade"]["value"]
-    if dec is None and yr:
-        mid = (yr["from"] + yr["to"]) // 2
-        fields["decade"]["value"] = mid - mid % 10
-    if "overall_confidence" in inp:
-        overall = _conf(inp["overall_confidence"])
-    else:
-        overall = round((fields["municipality"]["confidence"] + fields["decade"]["confidence"]) / 2, 3)
     rejected = [{"field": str(r.get("field")), "value": str(r.get("value")), "reason": str(r.get("reason"))}
                 for r in inp.get("rejected_hypotheses") or [] if isinstance(r, dict) and r.get("reason")]
-    year = _int(inp.get("year_best"))
-    if year is None and yr:
-        year = (yr["from"] + yr["to"]) // 2
+    printed = inp.get("place_name_printed")
     return {
         "fields": fields,
-        "overall_confidence": overall,
         "rejected_hypotheses": rejected,
-        "estimates": {"year": year, "place_name_printed": inp.get("place_name_printed")},
+        "estimates": {"place_name_printed": printed if isinstance(printed, bool) else None},
     }
 
 
 def fallback(reason: str) -> dict:
     """Result body when the model never submitted: everything unknown, confidence 0."""
-    out = {"fields": copy.deepcopy(empty_fields()), "overall_confidence": 0.0,
-           "rejected_hypotheses": [], "estimates": {"year": None, "place_name_printed": None}}
+    out = {"fields": copy.deepcopy(empty_fields()), "rejected_hypotheses": [],
+           "estimates": {"place_name_printed": None}}
     out["fields"]["municipality"]["evidence"] = [{"kind": "visual_cue", "summary": reason, "supports": False}]
     return out

@@ -39,18 +39,22 @@ def ev(kind="visual_cue", summary="Kirchturm mit Spitzhelm sichtbar", supports=T
     return {"kind": kind, "summary": summary, "ref_id": None, "score": None, "supports": supports}
 
 
-def submit_input(muni="Ingenbohl", muni_conf=0.82, decade=1900, decade_conf=0.7):
+# Three independent sources that need no tool (kind differs): 0.85 per core field; with building and street
+# determined too, overall 0.9 = accepted. sources=1 gives 0.5 = needs review.
+CORE_EVIDENCE = [ev("text_on_card", "Schild nennt Brunnen"), ev("visual_cue", "Seeufer mit Schiffsteg"),
+                 ev("map_layer", "Uferlinie passt zur Landeskarte")]
+
+
+def submit_input(muni="Ingenbohl", locality="Brunnen", sources=3, street="Axenstrasse 1"):
+    core = CORE_EVIDENCE[:sources]
     return {
-        "municipality": {"value": muni, "confidence": muni_conf, "evidence": [ev("text_on_card", "Aufdruck nennt Urirotstock")]},
-        "place": {"value": "Seeufer bei Brunnen", "confidence": 0.6, "evidence": [ev()]},
-        "buildings": {"value": [], "confidence": 0.9, "evidence": []},
-        "landscape_features": {"value": ["Urirotstock", "Gitschen"], "confidence": 0.9, "evidence": [ev()]},
-        "decade": {"value": decade, "confidence": decade_conf, "evidence": [ev()]},
-        "year_range": {"value": {"from": 1898, "to": 1907}, "confidence": 0.7, "evidence": [ev()]},
-        "coordinates": {"value": {"lat": 46.98, "lon": 8.61, "radius_m": 800}, "confidence": 0.6, "evidence": []},
-        "year_best": 1903,
+        "locality": {"value": locality, "evidence": core},
+        "municipality": {"value": muni, "evidence": core},
+        "buildings": {"value": ["Hotel Waldstätterhof"], "evidence": [ev("visual_cue", "Hotelname an der Fassade")]},
+        "landscape_features": {"value": ["Urirotstock", "Gitschen"], "evidence": [ev()]},
+        "street": {"value": street, "evidence": [ev("map_layer", "Hausnummer auf der Karte")] if street else []},
+        "coordinates": {"value": {"lat": 46.98, "lon": 8.61, "radius_m": 800}, "evidence": [ev("map_layer")]},
         "place_name_printed": True,
-        "overall_confidence": 0.76,
         "rejected_hypotheses": [{"field": "municipality", "value": "Sisikon", "reason": "Gitschen wäre näher."}],
     }
 
@@ -111,19 +115,22 @@ def test_scripted_run_is_valid(monkeypatch):
     schemas.validate(r, "analysis_result")
     assert r["photo_id"] == FIXTURE_ID and r["model"] == config.MODEL and r["composite"] is None
     assert r["status"] == "done" and r["needs_review"] is False
-    assert r["fields"]["municipality"]["value"] == "Ingenbohl"
-    assert r["fields"]["decade"]["value"] == 1900
-    assert r["estimates"] == {"year": 1903, "place_name_printed": True}
+    f = r["fields"]
+    assert list(f)[:5] == ["locality", "municipality", "buildings", "landscape_features", "street"]
+    assert f["municipality"]["value"] == "Ingenbohl" and f["locality"]["value"] == "Brunnen"
+    assert f["municipality"]["confidence"] == 0.85 and f["buildings"]["confidence"] == 0.5
+    assert r["overall_confidence"] == 0.9 and r["review"] is None
+    assert r["confidence_explanation"].startswith("Ortschaft und Gemeinde durch 3 unabhängigen Quellen")
+    assert r["estimates"] == {"place_name_printed": True}
     assert r["rejected_hypotheses"][0]["value"] == "Sisikon"
 
-    # trace: date_hints step, thought, similar_images call, final; all emitted live. Thinking notes are
-    # left out (the API writes them in English).
+    # trace: thought, similar_images call, final; all emitted live. Thinking notes are left out (the API
+    # writes them in English). No dating step any more.
     types = [(t["type"], t.get("tool")) for t in r["trace"]]
-    assert types == [("tool_call", "date_hints"), ("thought", None), ("tool_call", "similar_images"),
-                     ("final", None)]
+    assert types == [("thought", None), ("tool_call", "similar_images"), ("final", None)]
     assert events == r["trace"]
-    assert [t["step"] for t in r["trace"]] == [1, 2, 3, 4]
-    sim = r["trace"][2]
+    assert [t["step"] for t in r["trace"]] == [1, 2, 3]
+    sim = r["trace"][1]
     assert sim["input"] == {"k": 8, "sources": None} and isinstance(sim["output_summary"], str)
 
     # cost: 2 calls x (2000 in, 300 out) at Opus prices
@@ -145,11 +152,12 @@ def test_request_shape(monkeypatch):
     assert call["output_config"] == {"effort": loop.EFFORT}
     assert call["system"][-1]["cache_control"] == {"type": "ephemeral"}
     names = [t["name"] for t in call["tools"]]
-    assert names == ["similar_images", "archive_lookup", "swisstopo_search", "terrain_check", SUBMIT]
+    assert names == ["similar_images", "named_buildings", "address_lookup", "swisstopo_search", "archive_lookup",
+                     "terrain_check", SUBMIT]
     first = call["messages"][0]["content"]
     assert first[0]["type"] == "image" and first[1]["type"] == "text"  # image first, then text
-    assert "Date hints" in first[1]["text"] and "Verlag wehrli" in first[1]["text"]
-    assert "Black and white is not evidence of age" in call["system"][0]["text"]
+    assert "No metadata for this photo" in first[1]["text"]  # an archive card: nothing but the image
+    assert "never invent" in call["system"][0]["text"] and "Dating is not your job" in call["system"][0]["text"]
     # no catalogue metadata of the query (title, places, municipality) in the prompt
     assert "Vierwaldstättersee mit Urirotstock" not in first[1]["text"]
 
@@ -162,10 +170,23 @@ def test_haiku_goes_plain_without_fallbacks(monkeypatch):
 
 
 def test_low_confidence_needs_review(monkeypatch):
-    r, _, _ = _run(monkeypatch, [response(tool_use(SUBMIT, submit_input(muni_conf=0.3), "t1"))])
+    r, _, _ = _run(monkeypatch, [response(tool_use(SUBMIT, submit_input(sources=1), "t1"))])
     schemas.validate(r, "analysis_result")
-    assert r["needs_review"] is True and r["status"] == "needs_review"
-    r, _, _ = _run(monkeypatch, [response(tool_use(SUBMIT, submit_input(decade_conf=0.49), "t1"))])
+    assert r["needs_review"] is True and r["status"] == "needs_review" and r["overall_confidence"] == 0.55
+    # 3 sources but no street: 0.85 without the agreement bonus, still below the 0.9 line
+    r, _, _ = _run(monkeypatch, [response(tool_use(SUBMIT, submit_input(street=None), "t1"))])
+    assert r["needs_review"] is True and r["overall_confidence"] == 0.85
+    assert r["fields"]["street"]["value"] is None and r["fields"]["street"]["confidence"] == 0.0
+    assert "Strasse nicht bestimmbar" in r["confidence_explanation"]
+
+
+def test_tool_evidence_counts_only_when_the_tool_ran(monkeypatch):
+    claimed = submit_input(sources=1)
+    claimed["municipality"]["evidence"] = [ev("address_register", "Adressverzeichnis: Gemeinde Ingenbohl"),
+                                           ev("named_building", "OSM: Hotel in Ingenbohl")]
+    r, _, _ = _run(monkeypatch, [response(tool_use(SUBMIT, claimed, "t1"))])
+    # neither address_lookup nor named_buildings ran: no source counts, so the name is dropped (never a guess)
+    assert r["fields"]["municipality"]["value"] is None and r["fields"]["municipality"]["confidence"] == 0.0
     assert r["needs_review"] is True
 
 
@@ -299,7 +320,7 @@ def test_composite_card_runs_each_part_and_parent_takes_the_most_confident(monke
     from agent import results
 
     _with_crops(monkeypatch)
-    weak = {**submit_input(muni="Schwyz", muni_conf=0.4), "overall_confidence": 0.4}
+    weak = submit_input(muni="Schwyz", sources=1)
     r, fake, events = _run(monkeypatch, [
         response(tool_use(SUBMIT, weak, "a1")),
         response(tool_use(SUBMIT, submit_input(), "b1")),
@@ -330,3 +351,41 @@ def test_a_crop_is_never_split_again(monkeypatch):
 def test_single_card_without_crops_is_not_composite(monkeypatch):
     r, fake, _ = _run(monkeypatch, [response(tool_use(SUBMIT, submit_input(), "d1"))])
     assert r["composite"] is None and "part_results" not in r
+
+
+# ---------- challenge photos (v3) ----------
+
+
+def _challenge(monkeypatch, gps=False):
+    base = loop.dp.get_record(FIXTURE_ID)
+    rec = {**base, "id": "challenge:SG.CIV.17.3", "source": "challenge", "signature": "SG.CIV.17.3", "title": None,
+           "places": [], "date": {"raw": "24.02.2005", "year_from": 2005, "year_to": 2005},
+           "raw": {"file_name": "SG.CIV.17.3.jpg", "priority": 1, "session": ["challenge:SG.CIV.17.408"],
+                   "exif": {"make": "NIKON CORPORATION", "model": "NIKON D1X",
+                            "lat": 47.0184 if gps else None, "lon": 8.6572 if gps else None}}}
+    monkeypatch.setattr(loop.dp, "get_record", lambda pid: rec if pid == rec["id"] else base if pid == FIXTURE_ID else None)
+    return rec
+
+
+def test_challenge_prompt_has_exif_and_session_results(monkeypatch):
+    from agent import results
+
+    _challenge(monkeypatch, gps=True)
+    sib = json.loads((config.FIXTURES / "analysis_result.json").read_text(encoding="utf-8"))
+    results.save({**sib, "photo_id": "challenge:SG.CIV.17.408"})
+    sub = submit_input(sources=1)
+    sub["municipality"]["evidence"] += [ev("session_photo", "Session-Foto zeigt dieselbe Strasse"), ev("exif", "EXIF-GPS")]
+    r, fake, _ = _run(monkeypatch, [response(tool_use(SUBMIT, sub, "t1"))], photo_id="challenge:SG.CIV.17.3")
+    text = fake.calls[0]["messages"][0]["content"][1]["text"]
+    assert "SG.CIV.17.3.jpg" in text and "24.02.2005" in text and "NIKON D1X" in text and "EXIF GPS" in text
+    assert "challenge:SG.CIV.17.408: Ortschaft Brunnen, Gemeinde Ingenbohl" in text
+    # session_photo and exif count because they were really given: 3 sources for the municipality
+    assert r["fields"]["municipality"]["confidence"] == 0.85
+
+
+def test_session_and_exif_evidence_do_not_count_without_a_source(monkeypatch):
+    _challenge(monkeypatch, gps=False)  # no GPS, no cached sibling result
+    sub = submit_input(sources=1)
+    sub["municipality"]["evidence"] += [ev("session_photo", "Session-Foto"), ev("exif", "EXIF-GPS")]
+    r, _, _ = _run(monkeypatch, [response(tool_use(SUBMIT, sub, "t1"))], photo_id="challenge:SG.CIV.17.3")
+    assert r["fields"]["municipality"]["confidence"] == 0.5

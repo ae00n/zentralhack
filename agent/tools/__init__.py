@@ -6,7 +6,7 @@ The order of definitions() is fixed so the tools block stays byte-identical acro
 
 import time
 
-from . import archive, similar, submit, swisstopo, terrain
+from . import archive, places, similar, submit, swisstopo, terrain
 from .base import ToolContext, ToolOutput
 
 _RUNNERS = {
@@ -14,14 +14,16 @@ _RUNNERS = {
     "archive_lookup": archive.run,
     "swisstopo_search": swisstopo.run,
     "terrain_check": terrain.run,
+    "address_lookup": places.run_address_lookup,
+    "named_buildings": places.run_named_buildings,
 }
 
 SUBMIT = submit.NAME
 
 
 def definitions(municipalities: list[str]) -> list[dict]:
-    return [similar.DEFINITION, archive.DEFINITION, swisstopo.DEFINITION, terrain.DEFINITION,
-            submit.definition(municipalities)]
+    return [similar.DEFINITION, places.NAMED_BUILDINGS, places.ADDRESS_LOOKUP, swisstopo.DEFINITION,
+            archive.DEFINITION, terrain.DEFINITION, submit.definition(municipalities)]
 
 
 def run_tool(name: str, tool_input: dict, ctx: ToolContext) -> tuple[ToolOutput, int]:
@@ -32,6 +34,7 @@ def run_tool(name: str, tool_input: dict, ctx: ToolContext) -> tuple[ToolOutput,
         out = ToolOutput({"error": f"unknown tool {name}"}, f"Unbekanntes Werkzeug {name}", is_error=True)
     else:
         try:
+            ctx.tools_called.add(name)
             out = fn(ctx, **(tool_input or {}))
         except Exception as e:  # a broken tool must not end the run; the model sees the error
             out = ToolOutput({"error": f"{type(e).__name__}: {e}"}, f"Fehler in {name}: {type(e).__name__}",

@@ -1,9 +1,11 @@
 """The agent loop. Single entry point used by the CLI, the server and the eval runner.
 
-One photo in: image (max 1024 px) plus date hints and the dating checklist in the prompt, then a tool
-loop (similar_images, archive_lookup, swisstopo_search) until the model calls submit_result, the tool
-budget (MAX_STEPS) is used up, or the per-photo cost guard (PHOTO_BUDGET_USD) is hit. In the last two
-cases the model gets one more turn to submit. Out: an AnalysisResult (CONTRACTS section 3).
+One photo in: image (max 1024 px) plus the photo's own facts (EXIF, session siblings' results) in the
+prompt, then a tool loop (similar_images, named_buildings, address_lookup, swisstopo_search, archive_lookup,
+terrain_check) until the model calls submit_result, the tool budget (MAX_STEPS) is used up, or the per-photo
+cost guard (PHOTO_BUDGET_USD) is hit. In the last two cases the model gets one more turn to submit. The
+confidences come from agent.confidence (count of independent sources), not from the model. Out: an
+AnalysisResult (CONTRACTS section 3, v3 fields).
 """
 
 import copy
@@ -18,10 +20,9 @@ from datetime import datetime, timezone
 
 import data_pipeline as dp
 
-from . import config, llm, prompts
-from .config import FIXTURES, MAX_STEPS, MODEL, NEEDS_REVIEW_BELOW, PHOTO_BUDGET_USD
+from . import confidence, config, llm, prompts, results
+from .config import FIXTURES, MAX_STEPS, MODEL, PHOTO_BUDGET_USD
 from .tools import SUBMIT, ToolContext, definitions, run_tool, submit
-from .tools import dating
 from .tools.base import image_block
 
 log = logging.getLogger(__name__)
@@ -178,14 +179,12 @@ class _Run:
     def execute(self) -> dict:
         names = submit.municipalities()
         tools = definitions(names)
-        system = prompts.system(names, dating.checklist_text())
+        system = prompts.system(names)
 
-        hints, ms = self._timed(lambda: dating.hints(self.ctx))
-        self.emit({"type": "tool_call", "tool": "date_hints", "input": {}, "output_summary": hints.summary, "ms": ms})
         kind = (self.record or {}).get("kind")
         messages = [{"role": "user", "content": [
             image_block(self.image_path, IMAGE_PX, 90),  # image first, then text
-            {"type": "text", "text": prompts.first_turn(dating.hints_text(hints), kind, MAX_STEPS)},
+            {"type": "text", "text": prompts.first_turn(self._context(), kind, MAX_STEPS)},
         ]}]
 
         steps_used, final_turn, submitted, reason = 0, False, None, None
@@ -238,6 +237,41 @@ class _Run:
 
         return self._result(submitted, reason, names)
 
+    def _context(self) -> str:
+        """Facts about the photo that are not the answer: file name, EXIF date and camera, EXIF GPS, and the
+        results of photos from the same session. Catalogue titles and places are never given (they are
+        the answer for archive photos)."""
+        rec = self.record or {}
+        raw = rec.get("raw") or {}
+        lines, self.allowed = [], set()
+        if rec.get("source") == "challenge":
+            exif = raw.get("exif") or {}
+            lines.append(f"File: {raw.get('file_name') or rec.get('signature')}")
+            if (rec.get("date") or {}).get("raw"):
+                lines.append(f"Captured (EXIF): {rec['date']['raw']}, camera {exif.get('make') or '?'} "
+                             f"{exif.get('model') or ''}".rstrip())
+            if exif.get("lat") is not None and exif.get("lon") is not None:
+                lines.append(f"EXIF GPS: lat {exif['lat']}, lon {exif['lon']} (evidence kind exif)")
+                self.allowed.add("exif")
+        siblings = []
+        for sid in raw.get("session") or []:
+            r = results.load(sid)
+            f = (r or {}).get("fields") or {}
+            if not r or not (f.get("municipality") or {}).get("value"):
+                continue
+            def val(n):
+                v = (f.get(n) or {}).get("value")
+                return ", ".join(v) if isinstance(v, list) else v
+            parts = [f"{label} {val(n)}" for n, label in (("locality", "Ortschaft"), ("municipality", "Gemeinde"),
+                                                          ("buildings", "Gebäude"), ("street", "Strasse")) if val(n)]
+            siblings.append(f"- {sid}: {', '.join(parts)} (Gesamtkonfidenz {r.get('overall_confidence', 0):.2f})")
+        if siblings:
+            lines.append("Photos from the same session (same camera, under 30 minutes apart, usually the same "
+                         "place; cite as evidence kind session_photo with ref_id, and still check what differs):")
+            lines += siblings
+            self.allowed.add("session_photo")
+        return "\n".join(lines) if lines else "No metadata for this photo."
+
     def _timed(self, fn):
         t0 = time.monotonic()
         out = fn()
@@ -248,10 +282,14 @@ class _Run:
     def _result(self, submitted: dict | None, reason: str | None, names: list[str]) -> dict:
         body = submit.normalize(submitted, names) if submitted is not None else submit.fallback(reason)
         f = body["fields"]
-        needs_review = (submitted is None
-                        or f["municipality"]["confidence"] < NEEDS_REVIEW_BELOW
-                        or f["decade"]["confidence"] < NEEDS_REVIEW_BELOW)
-        self.emit({"type": "final", "text": _final_line(f, body["overall_confidence"], reason), "ms": 0})
+        allowed = getattr(self, "allowed", set())
+        scored = confidence.apply(f, self.ctx.tools_called, allowed)
+        f["coordinates"]["confidence"] = confidence.score_field(f["coordinates"], self.ctx.tools_called, allowed)[0]
+        if f["coordinates"]["confidence"] == 0.0:
+            f["coordinates"]["value"] = None
+        needs_review = submitted is None or scored["needs_review"]
+        explanation = reason if submitted is None else scored["explanation"]
+        self.emit({"type": "final", "text": _final_line(f, scored["overall"], reason), "ms": 0})
         return {
             "photo_id": self.photo_id,
             "run_id": self.run_id,
@@ -259,8 +297,10 @@ class _Run:
             "model": self.model,
             "composite": None,  # a composite parent is built by _Composite from its parts
             "fields": f,
-            "overall_confidence": body["overall_confidence"],
+            "overall_confidence": scored["overall"],
+            "confidence_explanation": explanation,
             "needs_review": needs_review,
+            "review": None,
             "rejected_hypotheses": body["rejected_hypotheses"],
             "trace": self.trace,
             "usage": {**self.usage, "api_calls": self.api_calls},
@@ -330,9 +370,11 @@ class _Composite:
 def _final_line(f: dict, overall: float, reason: str | None) -> str:
     if reason:
         return reason
-    muni = f["municipality"]["value"] or "Gemeinde unbekannt"
-    place = f["place"]["value"]
-    dec = f["decade"]["value"]
-    when = f"{dec}er Jahre" if dec is not None else "Jahrzehnt unbekannt"
-    where = f"{muni} ({place})" if place else muni
-    return f"{where}, {when}, Konfidenz {overall:.2f}"
+    def val(n):
+        v = f[n]["value"]
+        return ", ".join(v) if isinstance(v, list) else v
+    parts = [val(n) for n in ("locality", "buildings", "street") if val(n)]
+    if f["municipality"]["value"] and f["municipality"]["value"] != f["locality"]["value"]:
+        parts.insert(1, f"Gemeinde {f['municipality']['value']}")
+    where = ", ".join(parts) if parts else "Ort nicht bestimmbar"
+    return f"{where}, Konfidenz {overall:.2f}"

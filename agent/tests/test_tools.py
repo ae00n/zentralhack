@@ -184,11 +184,13 @@ def test_tool_definitions_are_strict_and_stable():
     defs = definitions(names)
     assert json.dumps(defs, sort_keys=False) == json.dumps(definitions(names), sort_keys=False)
     for d in defs:
-        assert d["strict"] is (d["name"] != "submit_result")  # submit_result is too large for strict mode
+        # submit_result is too large for strict mode; the v3 places tools stay non-strict to keep the grammar small
+        assert d.get("strict", False) is (d["name"] not in ("submit_result", "named_buildings", "address_lookup"))
         for node in _walk(d["input_schema"]):
             if node.get("type") == "object" or (isinstance(node.get("type"), list) and "object" in node["type"]):
                 assert node.get("additionalProperties") is False, d["name"]
-                assert set(node["required"]) == set(node["properties"]), d["name"]
+                if d.get("strict"):  # strict mode needs every property listed as required
+                    assert set(node["required"]) == set(node["properties"]), d["name"]
     muni = defs[-1]["input_schema"]["properties"]["municipality"]["properties"]["value"]["anyOf"]
     assert "Ingenbohl" in muni[0]["enum"] and "Küssnacht (SZ)" in muni[0]["enum"] and muni[1] == {"type": "null"}
     assert len(names) == 30
@@ -199,20 +201,19 @@ def test_tool_definitions_are_strict_and_stable():
 def test_normalize_repairs_input():
     names = submit.municipalities()
     body = submit.normalize({
-        "municipality": {"value": "küssnacht", "confidence": 1.4,
+        "municipality": {"value": "küssnacht",
                          "evidence": [{"kind": "bogus", "summary": "Kirche", "supports": True}, {"summary": ""}]},
-        "decade": {"value": 1913, "confidence": -1, "evidence": []},
-        "year_range": {"value": {"from": 1920, "to": 1905}, "confidence": 0.5, "evidence": []},
-        "buildings": {"value": "Rathaus", "confidence": 0.5, "evidence": []},
+        "buildings": {"value": "Rathaus", "evidence": []},
+        "street": {"value": "  ", "evidence": []},
+        "decade": {"value": 1913, "evidence": []},  # v2 leftovers are ignored
     }, names)
     f = body["fields"]
-    assert f["municipality"]["value"] == "Küssnacht (SZ)" and f["municipality"]["confidence"] == 1.0
+    assert list(f) == submit.FIELD_NAMES
+    assert f["municipality"]["value"] == "Küssnacht (SZ)" and f["municipality"]["confidence"] == 0.0
     assert f["municipality"]["evidence"] == [{"kind": "visual_cue", "summary": "Kirche", "supports": True}]
-    assert f["decade"] == {"value": 1910, "confidence": 0.0, "evidence": []}
-    assert f["year_range"]["value"] == {"from": 1905, "to": 1920}
-    assert f["buildings"]["value"] == ["Rathaus"]
-    assert f["place"] == {"value": None, "confidence": 0.0, "evidence": []}
-    assert body["estimates"]["year"] == 1912
+    assert f["buildings"]["value"] == ["Rathaus"] and f["street"]["value"] is None
+    assert f["locality"] == {"value": None, "confidence": 0.0, "evidence": []}
+    assert "decade" not in f and body["estimates"] == {"place_name_printed": None}
 
 
 def test_cost_usd():

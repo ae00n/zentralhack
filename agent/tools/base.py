@@ -18,6 +18,8 @@ class ToolContext:
     photo_id: str | None          # None for uploads
     image_path: str               # original file on disk (not the resized copy)
     exclude_ids: list[str] = field(default_factory=list)  # always includes photo_id when set
+    tools_called: set[str] = field(default_factory=set)   # filled by run_tool; confidence only counts
+                                                          # tool-backed evidence when the tool really ran
 
     def excluded_bases(self) -> set[str]:
         return {base_id(i) for i in self.exclude_ids}
