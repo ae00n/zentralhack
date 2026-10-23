@@ -1,5 +1,8 @@
 # FRONTPAGE_PLAN: Erschliessungs-Arbeitsplatz SG.CIV.17 (Frontend, v3)
 
+> [!IMPORTANT]
+> **Look and layout updated (Sat 24 Oct): `docs/FRONTPAGE_POLISH.md`** replaces section 2 (Look) and the layout sketches in sections 4 and 5. Behaviour, data, copy and the demo script below still apply.
+
 Owner: Timo (`frontend/`). Supersedes the Views, Look and Build order sections of `SCOPE_3_FRONTEND.md`. Where they disagree, this file wins. Contracts: `docs/CONTRACTS.md` v3. Task: `docs/CHALLENGE_BRIEF.md`.
 
 Budget: about 11 hours of AI-assisted build. Fri night and Sat morning, code freeze Sat 14:00, pitch 17:00.
