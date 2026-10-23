@@ -28,6 +28,8 @@ const BOUNDS: [[number, number], [number, number]] = [
   [8.3856, 46.8901],
   [9.0061, 47.2199],
 ];
+const CANTON_CENTRE: [number, number] = [8.696, 47.055];
+const FIRST_ZOOM = 11.6;
 const MAX_BOUNDS: [[number, number], [number, number]] = [
   [8.1, 46.75],
   [9.3, 47.36],
@@ -177,8 +179,12 @@ export default function DeskMap({
     });
     m.touchZoomRotate.disableRotation();
     m.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
-    // An integer zoom keeps the raster labels crisp instead of scaled.
-    m.once("load", () => m.setZoom(Math.round(m.getZoom())));
+    // First view closer than the whole canton, so the map reads as detailed (Timo, 24.10.), still centred
+    // in the free area. swisstopo's coarse zooms are upscaled small-scale maps with huge labels; at
+    // FIRST_ZOOM MapLibre picks the detailed tiles and draws them a bit smaller. Capped on narrow screens.
+    m.once("load", () =>
+      m.jumpTo({ center: CANTON_CENTRE, zoom: Math.min(FIRST_ZOOM, m.getZoom() + 2), padding: framePadding() }),
+    );
 
     m.on("load", async () => {
       try {
