@@ -40,15 +40,15 @@ def _models():
     import torch
     from lightglue import ALIKED, LightGlue
 
-    torch.set_num_threads(min(8, os.cpu_count() or 4))
+    torch.set_num_threads(min(16, os.cpu_count() or 4))
     extractor = ALIKED(max_num_keypoints=MAX_KEYPOINTS).eval()
     matcher = LightGlue(features="aliked").eval()
     return extractor, matcher
 
 
-@lru_cache(maxsize=64)
+@lru_cache(maxsize=1024)  # about 1 MB each; references recur across a batch (same places, same sessions)
 def _features(path: str) -> dict:
-    """Keypoints + descriptors for one image (cached: the query is reused for every candidate)."""
+    """Keypoints + descriptors for one image (cached: extraction is about 1 s, matching about 0.4 s)."""
     import torch
     from lightglue.utils import numpy_image_to_torch
     from PIL import Image

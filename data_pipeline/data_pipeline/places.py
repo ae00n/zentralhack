@@ -38,6 +38,8 @@ GWR_URL = "https://api3.geo.admin.ch/rest/services/ech/MapServer/ch.bfs.gebaeude
 GWR_KINDS = {1130: "Soziale Einrichtung", 1211: "Hotel", 1212: "Hotel", 1220: "Büro/Verwaltung", 1230: "Geschäft",
              1231: "Restaurant", 1241: "Bauwerk", 1261: "Freizeit", 1262: "Museum", 1263: "Schule", 1264: "Spital",
              1265: "Sportanlage", 1272: "Kirche/Kapelle", 1275: "Soziale Einrichtung"}
+NOT_A_BUILDING = {"Brücke", "Bauwerk", "Station", "Bergbahnstation", "Schiffstation", "Hafen", "Bach",
+                  "Natur", "Park", "Areal", "Ort"}  # mountains and lakes asked by name keep their rank
 CARE = re.compile(r"alters|pflege|senior|betagt", re.I)
 ADDRESS_LIKE = re.compile(r"^[^,]+, ?\d")  # "Acher, 1, 6442, 0": an address in the name field, not a name
 
@@ -271,8 +273,8 @@ def named_buildings(lat: float | None = None, lon: float | None = None, radius_m
         out.append(item)
     if lat is not None and lon is not None:
         out.sort(key=lambda b: b["distance_m"])
-    elif q:  # whole-word hits first: "Acherhof" before "Tischmacherhof"
-        out.sort(key=lambda b: not re.search(rf"\b{re.escape(q)}\b", _norm(b["name"])))
+    elif q:  # whole-word hits first ("Acherhof" before "Tischmacherhof"), buildings before bridges and rivers
+        out.sort(key=lambda b: (not re.search(rf"\b{re.escape(q)}\b", _norm(b["name"])), b["kind"] in NOT_A_BUILDING))
     return out[:limit]
 
 
