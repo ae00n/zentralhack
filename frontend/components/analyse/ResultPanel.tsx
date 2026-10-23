@@ -1,6 +1,7 @@
 import { formatAny, formatField } from "@/lib/format";
 import { FIELD_ROWS, fieldLabel } from "@/lib/labels";
 import { needsReview, type AnalysisResult, type FieldKey } from "@/lib/types";
+import ExportButtons from "@/components/ExportButtons";
 import FieldRow from "./FieldRow";
 
 // Rejected hypotheses on year_range belong to the Jahrzehnt row, which shows the range.
@@ -56,6 +57,8 @@ export default function ResultPanel({ result }: { result: AnalysisResult }) {
           </ul>
         </details>
       )}
+
+      <ExportButtons ids={[result.photo_id]} className="mt-4" />
     </section>
   );
 }

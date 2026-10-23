@@ -20,7 +20,7 @@ Keep appending: a new section per step, and update an older section when somethi
 - `lib/api.ts`: every endpoint of CONTRACTS section 5 except `/analyze` (+ SSE) and `/tiles`. IDs go through `encodeURIComponent` (crop ids contain `#`, question 3.2). Relative backend URLs are prefixed with `NEXT_PUBLIC_API_URL` via `absolute()` (question 3.15). `getResult` and `getEvalSummary` return `null` on 404.
 - `replayTrace()` in `lib/api.ts` is shared by mock and demo mode: one step per recorded `ms`, clamped to 600 to 1500 ms.
 - `lib/types.ts` written by hand from the schemas. `Evidence.kind` and `TraceItem.type` also accept any string (question 3.7). `needsReview()` treats both `status: "needs_review"` and `needs_review: true` as "Prüfung nötig" (question 3.5).
-- Mock mode: `getHealth` returns the swisstopo WMTS base and `offline: false`; `imageUrl` returns `sample.jpg` for every id; `exportUrl` returns the CSV fixture for both formats (no JSON fixture, question 3.13).
+- Mock mode: `getHealth` returns the swisstopo WMTS base and `offline: false`; `imageUrl` returns `sample.jpg` for every id; `exportUrl` returns the CSV fixture for both formats (no JSON fixture, question 3.13). Replaced by `downloadExport()` in step 6.
 
 **Not built**
 - Nothing from the step's scope.
@@ -105,3 +105,24 @@ Keep appending: a new section per step, and update an older section when somethi
 
 **Not built**
 - Nothing from the step's scope. For Said (not frontend): results are stored as `data/results/<photo_id>.json`, and ids contain `:`, which is not a valid filename character on Windows. Fine on the M4 Air, but the cache cannot be written or copied on a Windows laptop.
+
+---
+
+## Step 6: Export buttons (23.10.)
+
+**Check:** the downloaded CSV opens in Excel. Done in mock mode: headless Chrome clicked every button (Archiv all, Archiv selection of 2, Analyse CSV + JSON), 5 files saved, CSVs start with the UTF-8 BOM. Excel (COM, on Timo's laptop) opens `zeitreise-schwyz_alle.csv` as 23 columns, umlauts and the `;`-joined lists inside quotes intact. Not yet checked against Said's real `/export.csv` (backend was not running).
+
+**Special**
+- "CSV herunterladen" / "JSON herunterladen" in one component (`components/ExportButtons.tsx`), used under the result (that photo only) and in the Archiv header.
+- Archiv: a checkbox in the top-left corner of each card selects it for the export. It sits beside the card link, not inside it, so ticking never opens the card. With a selection: "Export: 3 ausgewählt · Auswahl aufheben" and only those ids are exported; without: "Export: alle analysierten Karten" (no `ids`, the backend default). The selection is only kept while the page is open.
+- Download through `downloadExport()` in `lib/api.ts`: `fetch` + blob + object URL instead of a plain link. Reasons: `/export.json` would open in a browser tab instead of saving, and a cross-origin `<a download>` ignores the file name. The blob keeps the bytes as sent, so the BOM survives (`res.text()` would drop it and Excel would garble umlauts).
+- File names: `zeitreise-schwyz_<photo id>.csv` (`:` and `#` replaced by `-`), `zeitreise-schwyz_auswahl-3.json`, `zeitreise-schwyz_alle.csv`.
+- Empty export (none of the ids has a result, or no results yet): no file is saved, a muted line says "Für die Auswahl liegt keine Analyse vor." / "Noch keine Analysen vorhanden." The row count comes from the downloaded file itself.
+- Question 3.13 answered by Said's code (`said/agent` 4fbd332): `/export.json` rows use the CSV column names as keys. Mock JSON is built from the CSV fixture the same way (all values are strings there; the real backend sends numbers).
+- Mock mode always exports the single fixture row, whatever is selected.
+- For Said (not frontend): his `Pruefung_noetig` only looks at `needs_review`, not at `status: "needs_review"` (question 3.5). If the agent ever sets only the status, the export says "nein" while the UI says "Prüfung nötig".
+
+**Not built**
+- The empty-export message is not seen in a test: in mock mode every id has a result.
+- No production build run for this step (`npm run dev` was running in the same folder); typecheck passes.
+- Excel was only tried with the laptop's own regional settings. With a decimal comma locale (de-DE) Excel may read `0.82` as text; Swiss settings (de-CH) use a point. Not a frontend fix, the file comes from the backend.

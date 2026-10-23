@@ -200,10 +200,90 @@ export function tileTemplate(tilesUrl: string, layer: TileLayer, time: string | 
   return `${base}/${layer}/${time}/{z}/{x}/{y}.${ext}`;
 }
 
-/** Download link for the export. Mock mode only has a CSV fixture. */
-export function exportUrl(format: "csv" | "json", ids?: string[]): string {
-  if (MODE === "mock") return `${FIXTURES}/export.csv`;
-  return `${API_URL}/export.${format}${query({ ids: ids?.join(",") })}`;
+// --- export (CONTRACTS section 6) ---
+
+export type ExportFormat = "csv" | "json";
+
+/** One CSV line split on ";", honouring "..." quoting. Enough for the export fixture. */
+function splitCsvLine(line: string): string[] {
+  const out: string[] = [];
+  let cell = "";
+  let quoted = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (quoted) {
+      if (c === '"' && line[i + 1] === '"') cell += line[i++];
+      else if (c === '"') quoted = false;
+      else cell += c;
+    } else if (c === '"') quoted = true;
+    else if (c === ";") {
+      out.push(cell);
+      cell = "";
+    } else cell += c;
+  }
+  out.push(cell);
+  return out;
+}
+
+/** Mock JSON: the CSV fixture as rows keyed by the CSV header (question 3.13, same as Said's /export.json). */
+function csvToRows(csv: string): Record<string, string>[] {
+  const [header, ...lines] = csv.replace(/^﻿/, "").split(/\r?\n/).filter(Boolean);
+  const keys = splitCsvLine(header);
+  return lines.map((l) => Object.fromEntries(splitCsvLine(l).map((v, i) => [keys[i], v])));
+}
+
+async function fetchBlob(url: string): Promise<Blob> {
+  let res: Response;
+  try {
+    res = await fetch(url, { cache: "no-store" });
+  } catch {
+    throw new ApiError(0, url);
+  }
+  if (!res.ok) throw new ApiError(res.status, url);
+  return res.blob(); // bytes as sent, so the CSV keeps its BOM (Excel needs it for umlauts)
+}
+
+/** "zeitreise-schwyz_stasz-514200.csv", "zeitreise-schwyz_auswahl-3.json", "zeitreise-schwyz_alle.csv". */
+function exportFilename(format: ExportFormat, ids?: string[]): string {
+  const part = !ids?.length ? "alle" : ids.length === 1 ? ids[0].replace(/[^\w.-]+/g, "-") : `auswahl-${ids.length}`;
+  return `zeitreise-schwyz_${part}.${format}`;
+}
+
+/**
+ * Fetches the export and saves it as a file. Returns the number of rows; 0 means nothing was saved
+ * (no analysed photo among the ids). Fetched as a blob so JSON downloads instead of opening in a tab
+ * and the file gets a readable name (a cross-origin <a download> ignores the name).
+ */
+export async function downloadExport(format: ExportFormat, ids?: string[]): Promise<number> {
+  let blob: Blob;
+  let rows: number;
+  if (MODE === "mock") {
+    // Only a CSV fixture exists; every selection gets that one row.
+    const csv = await fetchBlob(`${FIXTURES}/export.csv`);
+    if (format === "csv") {
+      blob = csv;
+      rows = csvToRows(await csv.text()).length;
+    } else {
+      const data = csvToRows(await csv.text());
+      blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      rows = data.length;
+    }
+  } else {
+    blob = await fetchBlob(`${API_URL}/export.${format}${query({ ids: ids?.join(",") })}`);
+    const text = await blob.text();
+    rows = format === "json" ? (JSON.parse(text) as unknown[]).length : csvToRows(text).length;
+  }
+  if (rows === 0) return 0;
+
+  const href = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = href;
+  a.download = exportFilename(format, ids);
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(href), 1000);
+  return rows;
 }
 
 // --- trace replay (mock + demo mode; live mode streams SSE, build step 8) ---

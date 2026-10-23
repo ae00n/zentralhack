@@ -134,6 +134,7 @@ Default: no search box at first; frontend sorts nothing itself.
 **3.12 When is `AGENT_FAKE=1` running on :8000?** It is the first thing that lets the frontend leave mock mode. Needed before the Fri 23:00 checkpoint at the latest.
 
 **3.13 `/export.json` row shape.** No fixture. Default: same keys as the CSV header.
+Answered (23.10., Said's code on `said/agent` 4fbd332): same keys as the CSV header. Built that way in step 6.
 
 **3.14 `/demo` `why`.** German and meant for the screen, or only for the presenter?
 Default: not shown to the jury; a presenter hint only.
