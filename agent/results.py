@@ -1,4 +1,8 @@
-"""AnalysisResult cache: data/results/<photo_id>.json (CONTRACTS section 3 and 5)."""
+"""AnalysisResult cache: data/results/<photo_id>.json (CONTRACTS section 3 and 5).
+
+A new run of the same photo replaces the cached result; the previous one moves to
+data/results/history/<photo_id>/<run_id>.json, so every earlier analysis stays comparable.
+"""
 
 import json
 from pathlib import Path
@@ -6,9 +10,40 @@ from pathlib import Path
 from .config import RESULTS_DIR
 
 
-def _path(photo_id: str) -> Path:
+def _safe(photo_id: str) -> str:
     # ids look like "stasz:514189" or "stasz:514189#1"; keep them readable but filesystem safe
-    return RESULTS_DIR / (photo_id.replace("/", "_") + ".json")
+    return photo_id.replace("/", "_")
+
+
+def _path(photo_id: str) -> Path:
+    return RESULTS_DIR / (_safe(photo_id) + ".json")
+
+
+def _history_dir(photo_id: str) -> Path:
+    return RESULTS_DIR / "history" / _safe(photo_id)
+
+
+def archive(photo_id: str) -> Path | None:
+    """Copy the cached result into the history (no-op when there is none or it is already there)."""
+    p = _path(photo_id)
+    if not p.exists():
+        return None
+    old = json.loads(p.read_text(encoding="utf-8"))
+    dest = _history_dir(photo_id) / (_safe(old.get("run_id") or "unknown") + ".json")
+    if not dest.exists():
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(json.dumps(old, ensure_ascii=False, indent=2), encoding="utf-8")
+    return dest
+
+
+def history(photo_id: str) -> list[dict]:
+    """Every result of this photo, oldest first, the current one last."""
+    out = [json.loads(p.read_text(encoding="utf-8")) for p in _history_dir(photo_id).glob("*.json")] \
+        if _history_dir(photo_id).exists() else []
+    current = load(photo_id)
+    if current and current.get("run_id") not in {r.get("run_id") for r in out}:
+        out.append(current)
+    return sorted(out, key=lambda r: r.get("created_at") or "")
 
 
 def load(photo_id: str, model: str | None = None) -> dict | None:
@@ -31,6 +66,8 @@ def save(result: dict) -> Path:
             save(part)
         result = {k: v for k, v in result.items() if k != "part_results"}
     p = _path(result["photo_id"])
+    if p.exists() and json.loads(p.read_text(encoding="utf-8")).get("run_id") != result.get("run_id"):
+        archive(result["photo_id"])  # a new run: keep the previous one (a review keeps its run_id)
     tmp = p.with_suffix(".tmp")
     tmp.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     tmp.replace(p)
