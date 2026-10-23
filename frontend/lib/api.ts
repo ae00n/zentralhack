@@ -317,11 +317,12 @@ export function bestReferenceMatch(result: AnalysisResult): ReferenceMatch | nul
   return best ? { ...best, verified: false } : null;
 }
 
-export type TileLayer = "ch.swisstopo.swissimage" | "ch.swisstopo.zeitreihen";
+export type TileLayer = "ch.swisstopo.swissimage" | "ch.swisstopo.zeitreihen" | "ch.swisstopo.pixelkarte-grau";
 
 const TILE_EXT: Record<TileLayer, string> = {
   "ch.swisstopo.swissimage": "jpeg",
   "ch.swisstopo.zeitreihen": "png",
+  "ch.swisstopo.pixelkarte-grau": "jpeg",
 };
 
 /** Base for tileTemplate: /health tiles_url, or swisstopo directly when the backend is not reachable. */

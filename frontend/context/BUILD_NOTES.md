@@ -308,3 +308,24 @@ Keep appending: a new section per step, and update an older section when somethi
 **Not built**
 - `?` shortcuts overlay with "Tastenkürzel aus": fourth on the plan's cut list; the inline key hints stay.
 - `S` (Serie übernehmen): the propagation is cut-first in the plan.
+
+## v3 item 6: Desk map (23.10.)
+
+**Check:** hover a row = pin grows; click pin = row selected; "N Fotos ohne Ort" shown. Done against the item-4 fake backend (50 Prio-1 photos, 32 places, 12 with more than one photo) in live mode: hovering row SG.CIV.17.60 sets `hover` on its place (radius +3); clicking a one-photo pin selects SG.CIV.17.96, scrolls the row into view and rings the pin; hovering a two-photo pin highlights both rows; a multi-photo pin opens "2 Fotos an diesem Ort" with both signatures; the legend says "6 Fotos ohne Ort" and clicking it filters the list to those 6. Mock mode: 2 pins, "1 Foto ohne Ort". Real swisstopo grey tiles online; offline tiles not tried.
+
+**Special**
+- Layout: map left (55 %), list right (45 %); the map column is sticky (`calc(100vh - 120px)` high) so it stays in view while the list scrolls. Below 1024 px the map sits above the list at 420 px (the list/map tabs are the phone pass).
+- `components/desk/DeskMap.tsx`, raw MapLibre 5 via `next/dynamic` (`ssr: false`) like the detail map. Base `ch.swisstopo.pixelkarte-grau` (JPEG, added to `tileTemplate`; offline through `/tiles`, needs Dijar's cache, see OPEN_FRONTEND_QUESTIONS 5). Initial bounds `[[8.3856, 46.8901], [9.0061, 47.2199]]`, padding 40, `maxBounds` about 0.15° larger, zoom 8 to 18 (16 offline). No rotation.
+- Canton outline: fetched once on 23.10. from api3.geo.admin.ch (`swissboundaries3d-kanton-flaeche.fill/5`, `sr=4326`), `.feature` unwrapped and saved as `public/geo/kanton-schwyz.json` (99 KB, committed). Drawn as a 1.5 px ink line plus a world-minus-canton mask, white at 0.6.
+- Places (`aggregatePlaces` in `lib/desk.ts`): photos grouped by coordinates rounded to 5 decimals, integer ids, `count`, `worst` class, `ids[]`; no clustering. Photos without coordinates are not drawn.
+- Circles: colour by class (`cert-*`), radius 6 for one photo up to 11 for ten or more, white 1.5 px stroke; "nicht bestimmbar" hollow with a grey stroke; reviewed places get an outer 2 px ring (second circle layer); hover/selected radius +3, selected stroke `accent` 3 px.
+- **Deviation:** the plan's map classes use fixed thresholds (open < 0.50). The map uses the same classes as the counters and list dots instead (reviewed → bestätigt; else sicher ≥ 0.9, nicht bestimmbar = Ortschaft and Gemeinde empty, else Prüfung nötig), so a pin, its row and the counters never disagree. The legend labels match the copy deck.
+- Count labels where count > 1 are small HTML markers, not a symbol layer: a raster-only style has no glyphs, and offline there would be none.
+- Sync: list row hover/focus → `hover` feature-state on its place; pin hover → all rows of that place highlighted. First click on a row or a one-photo pin selects (map eases there in 450 ms, `jumpTo` under reduced motion; row scrolls into view, red left bar); a second click or Enter opens the detail page. A multi-photo pin opens a popup ("3 Fotos an diesem Ort") with the signatures as buttons. Feature-state is re-applied after every `setData`.
+- The map shows what the list shows (scope, search, filter). The place data is memoised on a content key, so hover re-renders do not rebuild the map data (that would reset feature-state).
+- "N Fotos ohne Ort" in the legend is a link that sets the new list filter "ohne Ort auf der Karte". Singular "1 Foto ohne Ort".
+- `role="region" aria-label="Karte der Fotostandorte"`; "© swisstopo" bottom right; popup restyled (4 px radius, rule border, no shadow).
+- Test hook: in dev only, the map instance is on `window.__deskMap` for the headless checks (not in production builds).
+
+**Not built**
+- Nothing from the item's scope.

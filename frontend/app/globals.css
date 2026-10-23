@@ -197,3 +197,30 @@ body {
     animation: none;
   }
 }
+
+/* Desk map (components/desk/DeskMap.tsx): count labels and the "n Fotos an diesem Ort" popup. */
+.desk-count {
+  pointer-events: none;
+  color: #fff;
+  font: 700 11px/1 var(--font-barlow), Helvetica, Arial, sans-serif;
+}
+.maplibregl-popup-content {
+  border-radius: var(--radius);
+  box-shadow: none;
+  border: 1px solid var(--rule);
+  padding: 8px 10px;
+}
+.desk-popup p {
+  font-size: 13px;
+  color: var(--ink-muted);
+  margin-bottom: 4px;
+}
+.desk-popup button {
+  display: block;
+  font: 500 13px/20px var(--font-plex-mono), ui-monospace, monospace;
+  color: var(--accent);
+  text-decoration: underline;
+}
+.desk-popup button:hover {
+  color: var(--ink-strong);
+}

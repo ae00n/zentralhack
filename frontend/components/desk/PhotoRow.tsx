@@ -1,16 +1,13 @@
 import Link from "next/link";
 import { imageUrl } from "@/lib/api";
-import { isReviewed, modelClass, type DeskItem } from "@/lib/desk";
+import { certClass, modelClass, type DeskItem } from "@/lib/desk";
 import { NOT_DETERMINED, analyseHref, formatPct, isEmptyValue } from "@/lib/format";
 import { effectiveValue, formatValue } from "@/lib/review";
 
 // Flat list row (sz.ch list, FRONTPAGE_PLAN 2.2): thumbnail, bold signature line, one meta line,
 // 1px divider. Meta: "Schwyz · Alterszentrum Acherhof · Grundstrasse 32 · 94 % · bestätigt".
-
-/** Marker colour, the same scale the desk map uses: reviewed first, then the model class. */
-export function certClass(item: DeskItem): "confirmed" | "sure" | "check" | "open" {
-  return isReviewed(item.result) ? "confirmed" : modelClass(item.result);
-}
+// Plan 4 behaviour: hover highlights the pin, the first click selects (map flies there), a second
+// click or Enter opens the detail page.
 
 function metaParts(item: DeskItem): { text: string; warn?: boolean }[] {
   const { result } = item;
@@ -33,19 +30,46 @@ function metaParts(item: DeskItem): { text: string; warn?: boolean }[] {
   return parts;
 }
 
-export default function PhotoRow({ item }: { item: DeskItem }) {
+/** DOM id of a row, for scrollIntoView when the map selects it. */
+export function rowId(photoId: string): string {
+  return `row-${photoId.replace(/[^\w-]/g, "-")}`;
+}
+
+interface Props {
+  item: DeskItem;
+  hovered?: boolean;
+  selected?: boolean;
+  onHover?: (photoId: string | null) => void;
+  onSelect?: (photoId: string) => void;
+}
+
+export default function PhotoRow({ item, hovered, selected, onHover, onSelect }: Props) {
   const { record } = item;
   const series = record.raw?.session?.length ?? 0;
   return (
-    <li className="border-b border-rule">
-      <Link href={analyseHref(record.id)} className="group flex gap-4 py-3 hover:bg-paper-2">
+    <li id={rowId(record.id)} className="border-b border-rule">
+      <Link
+        href={analyseHref(record.id)}
+        aria-current={selected ? "true" : undefined}
+        onMouseEnter={() => onHover?.(record.id)}
+        onMouseLeave={() => onHover?.(null)}
+        onFocus={() => onHover?.(record.id)}
+        onBlur={() => onHover?.(null)}
+        onClick={(e) => {
+          if (onSelect && !selected) {
+            e.preventDefault();
+            onSelect(record.id);
+          }
+        }}
+        className={`group flex gap-4 border-l-4 py-3 pl-2 transition-colors duration-fade hover:bg-paper-2 ${selected ? "border-accent bg-paper-2" : hovered ? "border-rule bg-paper-2" : "border-transparent"}`}
+      >
         <span className="flex h-16 w-24 shrink-0 items-center justify-center bg-paper-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={imageUrl(record.id, 160)} alt="" loading="lazy" className="max-h-full max-w-full object-contain" />
         </span>
         <span className="min-w-0">
           <span className="flex items-center gap-2">
-            <span className={`cert-dot cert-dot-${certClass(item)}`} aria-hidden />
+            <span className={`cert-dot cert-dot-${certClass(item.result)}`} aria-hidden />
             <span className="font-mono font-medium group-hover:text-ink-strong">{record.signature ?? record.id}</span>
             {series > 0 && <span className="text-meta text-ink-muted">Serie ({series + 1})</span>}
           </span>
@@ -57,6 +81,7 @@ export default function PhotoRow({ item }: { item: DeskItem }) {
               </span>
             ))}
           </span>
+          {selected && <span className="mt-0.5 block text-meta text-ink-muted">Erneut klicken oder Enter öffnet das Foto</span>}
         </span>
       </Link>
     </li>

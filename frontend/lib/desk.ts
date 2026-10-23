@@ -59,7 +59,7 @@ export const SORTS: { key: SortKey; label: string }[] = [
   { key: "series", label: "Nach Serie" },
 ];
 
-export type FilterKey = "all" | ModelClass | "unreviewed" | "reviewed";
+export type FilterKey = "all" | ModelClass | "unreviewed" | "reviewed" | "noplace";
 
 export const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "all", label: "Alle" },
@@ -68,6 +68,7 @@ export const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "open", label: "nicht bestimmbar" },
   { key: "unreviewed", label: "ungeprüft" },
   { key: "reviewed", label: "geprüft" },
+  { key: "noplace", label: "ohne Ort auf der Karte" },
 ];
 
 /** "SG.CIV.17.40" before "SG.CIV.17.400": compare the dotted parts as numbers where they are numbers. */
@@ -109,6 +110,8 @@ export function filterItems(items: DeskItem[], key: FilterKey): DeskItem[] {
       return items.filter((i) => isReviewed(i.result));
     case "unreviewed":
       return items.filter((i) => !isReviewed(i.result));
+    case "noplace":
+      return items.filter((i) => !i.result?.fields.coordinates?.value);
     default:
       return items.filter((i) => modelClass(i.result) === key);
   }
@@ -132,4 +135,53 @@ export function yearSpan(records: PhotoRecord[]): string | null {
   const lo = Math.min(...years);
   const hi = Math.max(...years);
   return lo === hi ? `Aufnahmen ${lo}` : `Aufnahmen ${lo} bis ${hi}`;
+}
+
+/** Marker class on the map and in the list: reviewed first, then the model class. */
+export type CertClass = "confirmed" | ModelClass;
+
+export function certClass(result: AnalysisResult | null): CertClass {
+  return isReviewed(result) ? "confirmed" : modelClass(result);
+}
+
+/** Worst first: a place shows the least certain of its photos. */
+const CLASS_RANK: Record<CertClass, number> = { open: 0, check: 1, sure: 2, confirmed: 3 };
+
+/** One map feature per place (plan 4: no clustering, stacked points would only hit the top one). */
+export interface Place {
+  /** Integer feature id (MapLibre feature-state needs integers). */
+  id: number;
+  lat: number;
+  lon: number;
+  count: number;
+  worst: CertClass;
+  ids: string[];
+}
+
+/** Photos grouped by coordinates rounded to 5 decimals; photos without coordinates are not drawn. */
+export function aggregatePlaces(items: DeskItem[]): { places: Place[]; placeOf: Map<string, number>; withoutPlace: number } {
+  const byKey = new Map<string, Place>();
+  const placeOf = new Map<string, number>();
+  let withoutPlace = 0;
+  for (const item of items) {
+    const c = item.result?.fields.coordinates?.value;
+    if (!c) {
+      withoutPlace++;
+      continue;
+    }
+    const lat = Number(c.lat.toFixed(5));
+    const lon = Number(c.lon.toFixed(5));
+    const key = `${lat},${lon}`;
+    let place = byKey.get(key);
+    if (!place) {
+      place = { id: byKey.size + 1, lat, lon, count: 0, worst: "confirmed", ids: [] };
+      byKey.set(key, place);
+    }
+    const cls = certClass(item.result);
+    if (CLASS_RANK[cls] < CLASS_RANK[place.worst]) place.worst = cls;
+    place.count++;
+    place.ids.push(item.record.id);
+    placeOf.set(item.record.id, place.id);
+  }
+  return { places: [...byKey.values()], placeOf, withoutPlace };
 }
