@@ -162,15 +162,6 @@ body {
   box-shadow: 0 0 0 1px rgb(var(--accent));
 }
 
-/* Search field on the red band (components/SearchBand.tsx, removed in polish item 2). */
-.search-band-input::placeholder {
-  color: rgba(255, 255, 255, 0.85);
-}
-.search-band-input:focus-visible {
-  border-bottom-color: #fff;
-  outline-color: #fff;
-}
-
 /* Certainty marker in desk rows, same scale as the desk map: reviewed = filled + ring,
    sure / check = filled, open = hollow grey. Brand red never encodes a data state. */
 .cert-dot {

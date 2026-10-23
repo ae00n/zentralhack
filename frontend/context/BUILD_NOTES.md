@@ -422,3 +422,20 @@ What was checked on the laptop:
 
 **Not built**
 - Nothing from the item's scope.
+
+## polish item 2: Shell (24.10.)
+
+**Check:** desk shows content at y = 54 px; red appears only as the strip and the Excel button. Done (mock mode, 1440×900): header bottom and first content both at 54 px; a scan of all visible elements finds brand red only on the 2 px strip and the header's "Excel herunterladen". Ctrl+K focuses the search, Enter filters the list (`?q=brunnen` → 1 von 3). No footer on the desk; one line on Nachweis.
+
+**Special**
+- `SearchBand.tsx` and its CSS are gone. The header (`SiteHeader.tsx`): sticky wrapper with the 2 px `bg-accent` strip and a 52 px header (`bg-paper/85`, `backdrop-blur-md`, hairline bottom border). Left: "Staatsarchiv Schwyz" (semibold) + " · Erschliessung" (muted), the Prototyp tag (11 px medium on paper-2, `rounded-sm`), and in mock mode "Beispieldaten" in warn. Then the search field (320 px, h-8, hairline border, lucide Search 14 px, `Kbd` "⌘K"), then on the right "Nachweis" (ghost) and "Excel herunterladen" (primary, download icon).
+- **Copy change by the item:** the wordmark says "· Erschliessung" (polish recipe) instead of "· Erschliessungs-Assistent". The "Methode" header link is gone (polish sketch shows only Nachweis); Methode stays on the Nachweis page (#methode).
+- Search: a plain field until the ⌘K palette (item 9); submitting goes to `/?q=` like the old band. ⌘K and Ctrl+K focus and select it (window listener; it does not clash with the review keys, which ignore modifiers).
+- Excel in the header uses `exportXlsxUrl()` (Prio 1): the header does not know the desk's Prio 1 / Alle switch. On the phone the header hides it, so the desk band keeps its full-width Excel button below `sm` only (plan 5 phone layout).
+- Phone header: wordmark + Prototyp + menu button; the menu holds the search field and "Nachweis".
+- `components/ui/Kbd.tsx`: the polish Kbd recipe (`onAccent` variant for red buttons, hidden on `pointer: coarse`).
+- Footer (`SiteFooter.tsx`, client): hidden on `/` (one-viewport desk); elsewhere one `text-meta` muted line with the three facts. The "Prototyp" tag in the header keeps the licence notice visible on the desk.
+- Focus classes on the new header controls: `outline-none focus-visible:ring-2 ring-focus/50 ring-offset-1`.
+
+**Not built**
+- Nothing from the item's scope.

@@ -1,8 +1,14 @@
-// Footer line required by FRONTPAGE_PLAN 2 (licence): prototype, not an official service of the canton.
+"use client";
+
+// Compact footer (FRONTPAGE_POLISH 4): one muted line with the three facts. Not on the desk, which must
+// fit one viewport; the Prototyp tag in the header stays visible there.
+import { usePathname } from "next/navigation";
+
 export default function SiteFooter() {
+  if (usePathname() === "/") return null;
   return (
-    <footer className="mt-12 border-t-2 border-rule/[0.12] bg-paper-2">
-      <p className="wrapper py-6 text-ui text-ink-muted">
+    <footer className="border-t border-rule/[0.08]">
+      <p className="px-4 py-3 text-meta text-ink-muted">
         Prototyp für das Staatsarchiv Schwyz, Zentral Hack 2026. Kein offizielles Angebot des Kantons Schwyz.
         {" · "}Karten © swisstopo{" · "}Fotos © Staatsarchiv Schwyz, nicht zur Weiterverbreitung
       </p>

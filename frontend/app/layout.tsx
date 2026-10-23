@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Geist_Mono, Inter } from "next/font/google";
 import Providers from "@/components/Providers";
-import SearchBand from "@/components/SearchBand";
 import SiteFooter from "@/components/SiteFooter";
 import SiteHeader from "@/components/SiteHeader";
 import "./globals.css";
@@ -22,7 +21,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="flex min-h-screen flex-col bg-paper text-ink">
         <Providers>
           <SiteHeader />
-          <SearchBand />
           <div className="flex-1">{children}</div>
           <SiteFooter />
         </Providers>
