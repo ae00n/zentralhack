@@ -47,7 +47,7 @@ export default function PhotoRow({ item, hovered, selected, onHover, onSelect }:
   const { record } = item;
   const series = record.raw?.session?.length ?? 0;
   return (
-    <li id={rowId(record.id)} className="border-b border-rule">
+    <li id={rowId(record.id)} className="border-b border-rule/[0.12]">
       <Link
         href={analyseHref(record.id)}
         aria-current={selected ? "true" : undefined}
@@ -61,7 +61,7 @@ export default function PhotoRow({ item, hovered, selected, onHover, onSelect }:
             onSelect(record.id);
           }
         }}
-        className={`group flex gap-4 border-l-4 py-3 pl-2 transition-colors duration-fade hover:bg-paper-2 ${selected ? "border-accent bg-paper-2" : hovered ? "border-rule bg-paper-2" : "border-transparent"}`}
+        className={`group flex gap-4 border-l-4 py-3 pl-2 transition-colors duration-fade hover:bg-paper-2 ${selected ? "border-accent bg-paper-2" : hovered ? "border-rule/[0.12] bg-paper-2" : "border-transparent"}`}
       >
         <span className="flex h-16 w-24 shrink-0 items-center justify-center bg-paper-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -73,7 +73,7 @@ export default function PhotoRow({ item, hovered, selected, onHover, onSelect }:
             <span className="font-mono font-medium group-hover:text-ink-strong">{record.signature ?? record.id}</span>
             {series > 0 && <span className="text-meta text-ink-muted">Serie ({series + 1})</span>}
           </span>
-          <span className="mt-0.5 block text-small text-ink-muted">
+          <span className="mt-0.5 block text-ui text-ink-muted">
             {metaParts(item).map((p, i) => (
               <span key={i}>
                 {i > 0 && " · "}

@@ -55,11 +55,11 @@ export default function ExcelRow({ record, result }: { record: PhotoRecord; resu
       <h2 className="text-h3">Excel-Zeile</h2>
       <p className="text-meta text-ink-muted">So schreibt der Export diese Zeile.</p>
       <div className="mt-3 overflow-x-auto">
-        <table className="w-full border-collapse text-small">
+        <table className="w-full border-collapse text-ui">
           <thead>
             <tr>
               {row.map(([k]) => (
-                <th key={k} className="whitespace-nowrap border border-rule bg-paper-2 px-2 py-1 text-left font-mono text-meta font-normal text-ink-muted">
+                <th key={k} className="whitespace-nowrap border border-rule/[0.12] bg-paper-2 px-2 py-1 text-left font-mono text-meta font-normal text-ink-muted">
                   {k}
                 </th>
               ))}
@@ -71,7 +71,7 @@ export default function ExcelRow({ record, result }: { record: PhotoRecord; resu
                 <td
                   // A new key restarts the flash animation for a changed cell.
                   key={changed.has(k) ? `${k}:${v}` : k}
-                  className={`border border-rule px-2 py-1 align-top ${changed.has(k) ? "cell-flash" : ""}`}
+                  className={`border border-rule/[0.12] px-2 py-1 align-top ${changed.has(k) ? "cell-flash" : ""}`}
                 >
                   {v}
                 </td>

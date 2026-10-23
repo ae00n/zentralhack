@@ -30,8 +30,8 @@ export default function SeriesStrip({ record }: { record: PhotoRecord }) {
   if (siblings.length === 0) return null;
   return (
     <section aria-label="Fotoserie">
-      <p className="text-small">
-        <span className="font-bold">Fotoserie:</span>{" "}
+      <p className="text-ui">
+        <span className="font-semibold">Fotoserie:</span>{" "}
         {siblings.length === 1 ? "1 weiteres Foto dieser Serie" : `${siblings.length} weitere Fotos dieser Serie`}
       </p>
       <ol className="mt-2 flex gap-2 overflow-x-auto pb-1">

@@ -15,12 +15,12 @@ export default function TraceLog({ items, running, defaultOpen = true }: Props) 
   const list = (
     <ol className="mt-2 space-y-1.5">
       {items.map((item) => (
-        <li key={item.step} className="fade-in grid grid-cols-[24px_1fr] gap-2 text-small">
+        <li key={item.step} className="fade-in grid grid-cols-[24px_1fr] gap-2 text-ui">
           <span className="font-mono text-ink-muted">{item.step}</span>
           <TraceLine item={item} />
         </li>
       ))}
-      {running && <li className="pl-8 text-small text-ink-muted">...</li>}
+      {running && <li className="pl-8 text-ui text-ink-muted">...</li>}
     </ol>
   );
 

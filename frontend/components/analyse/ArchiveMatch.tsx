@@ -78,12 +78,12 @@ export default function ArchiveMatch({ record, result }: { record: PhotoRecord; 
           href={ref.source_url}
         />
       </div>
-      <p className="mt-2 text-small text-ink-muted">
+      <p className="mt-2 text-ui text-ink-muted">
         {meta}
         {match.evidence.summary && <span>. {match.evidence.summary}</span>}
       </p>
       {ref.source_url && (
-        <a href={ref.source_url} target="_blank" rel="noreferrer" className="link text-small">
+        <a href={ref.source_url} target="_blank" rel="noreferrer" className="link text-ui">
           Referenzfoto im Katalog
         </a>
       )}

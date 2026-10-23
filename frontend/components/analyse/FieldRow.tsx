@@ -56,7 +56,7 @@ export default function FieldRow({
     return (
       <div className="py-3">
         <label className="grid w-full grid-cols-[88px_1fr_auto_16px] sm:grid-cols-[112px_1fr_auto_16px] items-baseline gap-3">
-          <span className="text-small text-ink-muted">{label}</span>
+          <span className="text-ui text-ink-muted">{label}</span>
           {editor}
           {empty ? <span /> : <Confidence value={confidence} />}
           <span />
@@ -76,7 +76,7 @@ export default function FieldRow({
         aria-controls={expandable ? panelId : undefined}
         className={`grid w-full grid-cols-[88px_1fr_auto_16px] sm:grid-cols-[112px_1fr_auto_16px] items-baseline gap-3 text-left ${expandable ? "cursor-pointer" : "cursor-default"}`}
       >
-        <span className="text-small text-ink-muted">{label}</span>
+        <span className="text-ui text-ink-muted">{label}</span>
         <span className="min-w-0">
           {aiValue !== undefined && (
             <>
@@ -84,7 +84,7 @@ export default function FieldRow({
               <span className="text-ink-muted"> → </span>
             </>
           )}
-          <span className={`break-words text-body ${empty ? "text-ink-muted" : "font-medium"}`}>{value}</span>
+          <span className={`break-words text-base ${empty ? "text-ink-muted" : "font-medium"}`}>{value}</span>
         </span>
         {/* "nicht bestimmbar" rows show no percentage (plan 5). */}
         {empty && aiValue === undefined ? <span /> : <Confidence value={confidence} />}
@@ -114,9 +114,9 @@ export default function FieldRow({
             </ul>
           )}
           {rejected.length > 0 && (
-            <ul className="space-y-1.5 border-t border-rule pt-2">
+            <ul className="space-y-1.5 border-t border-rule/[0.12] pt-2">
               {rejected.map((r, i) => (
-                <li key={i} className="text-small">
+                <li key={i} className="text-ui">
                   <span className="text-ink-muted">Verworfen: </span>
                   <span className="font-medium">{formatAny(r.value)}</span>
                   <span className="text-ink-muted">. {r.reason}</span>
@@ -139,7 +139,7 @@ function catalogueUrl(refId: string): string | null {
 function EvidenceItem({ evidence: e }: { evidence: Evidence }) {
   const catalogue = e.ref_id ? catalogueUrl(e.ref_id) : null;
   return (
-    <li className="text-small">
+    <li className="text-ui">
       {e.supports === false && <span className="text-warn">spricht dagegen: </span>}
       {e.summary}
       <span className="text-ink-muted">

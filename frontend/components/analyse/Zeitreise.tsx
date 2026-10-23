@@ -60,7 +60,7 @@ export default function Zeitreise({ year, onYear, mapTime, mapYears, photos, nea
       {/* Axis: a tick per map sheet, photo marks above, mono labels every 20 years. */}
       <div className="relative mx-[7px] h-7" aria-hidden>
         {mapYears.map((t) => (
-          <span key={t} className="absolute top-0 h-1.5 w-px bg-rule" style={{ left: pos(Math.floor(t / 10000)) }} />
+          <span key={t} className="absolute top-0 h-1.5 w-px bg-rule/[0.08]" style={{ left: pos(Math.floor(t / 10000)) }} />
         ))}
         {photos.map((p) => (
           <span
@@ -121,7 +121,7 @@ export default function Zeitreise({ year, onYear, mapTime, mapYears, photos, nea
               <button
                 type="button"
                 onClick={() => onYear(p.year)}
-                className={`block border p-1 ${p === nearest ? "border-accent" : "border-transparent hover:border-rule"}`}
+                className={`block border p-1 ${p === nearest ? "border-accent" : "border-transparent hover:border-rule/20"}`}
                 title={p.record ? photoTitle(p.record) : p.id}
               >
                 {/* w-36 fits "1904 · SG.CIV.12.4743" in 11px mono */}

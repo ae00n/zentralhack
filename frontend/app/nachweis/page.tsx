@@ -28,7 +28,7 @@ function Big({ label, value, note }: { label: string; value: string; note?: stri
   return (
     <div>
       <p className="text-meta text-ink-muted">{label}</p>
-      <p className="mt-1 text-counter md:text-[40px] md:leading-[44px]">{value}</p>
+      <p className="mt-1 text-kpi md:text-[40px] md:leading-[44px]">{value}</p>
       {note && <p className="mt-2 text-meta text-ink-muted">{note}</p>}
     </div>
   );
@@ -36,7 +36,7 @@ function Big({ label, value, note }: { label: string; value: string; note?: stri
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="border-t border-rule pt-4">
+    <section className="border-t border-rule/[0.12] pt-4">
       <h2 className="text-h3">{title}</h2>
       <div className="mt-3">{children}</div>
     </section>
@@ -46,7 +46,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 /** One table row: label, muted n, share bar. */
 function Row({ label, n, value }: { label: string; n?: number; value: number | null | undefined }) {
   return (
-    <tr className="border-b border-rule last:border-b-0">
+    <tr className="border-b border-rule/[0.12] last:border-b-0">
       <td className="py-2 pr-4">{label}</td>
       <td className="py-2 pr-4 text-right font-mono text-meta text-ink-muted">{n ?? ""}</td>
       <td className="py-2 text-right">
@@ -58,9 +58,9 @@ function Row({ label, n, value }: { label: string; n?: number; value: number | n
 
 function Table({ head, children }: { head: string; children: React.ReactNode }) {
   return (
-    <table className="w-full text-body">
+    <table className="w-full text-base">
       <thead>
-        <tr className="border-b border-rule text-left text-meta text-ink-muted">
+        <tr className="border-b border-rule/[0.12] text-left text-meta text-ink-muted">
           <th className="pb-1.5 font-normal">{head}</th>
           <th className="w-16 pb-1.5 pr-4 text-right font-normal">n</th>
           <th className="w-[176px] pb-1.5 text-right font-normal">richtig</th>
@@ -99,8 +99,8 @@ export default function NachweisPage() {
 
   return (
     <main className="wrapper max-w-[1100px] py-8">
-      <div className="border-b border-rule pb-4">
-        <h1 className="text-page">Nachweis</h1>
+      <div className="border-b border-rule/[0.12] pb-4">
+        <h1 className="text-h1">Nachweis</h1>
         <p className="mt-1 text-meta text-ink-muted">
           Wie oft der Agent richtig liegt: von Hand geprüft an einer Stichprobe der neuen Fotos, und gemessen an
           Postkarten, deren Ort das Archiv kennt.
@@ -120,9 +120,9 @@ export default function NachweisPage() {
       )}
       {summary && <Report s={summary} />}
 
-      <section id="methode" className="mt-12 scroll-mt-6 border-t border-rule pt-4">
+      <section id="methode" className="mt-12 scroll-mt-6 border-t border-rule/[0.12] pt-4">
         <h2 className="text-h2">Methode</h2>
-        <p className="mt-1 text-small text-ink-muted">
+        <p className="mt-1 text-ui text-ink-muted">
           So entsteht die Modell-Sicherheit. Sie ist ein gezählter Quellenwert, keine Wahrscheinlichkeit; wie gut sie
           trifft, zeigt die Stichprobe oben.
         </p>
@@ -143,7 +143,7 @@ function QcSection({ qc }: { qc: QcSummary }) {
   return (
     <section className="fade-in mt-8">
       <h2 className="text-h2">Treffer bei Modell-Sicherheit ab 90 %</h2>
-      <p className="mt-1 text-small text-ink-muted">
+      <p className="mt-1 text-ui text-ink-muted">
         Stichprobe von Hand geprüft: {qc.n} Prio-1-Fotos, verglichen mit Karte und Street View.
       </p>
       {MODE === "mock" && (

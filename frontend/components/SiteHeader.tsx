@@ -23,16 +23,16 @@ export default function SiteHeader() {
   return (
     <header className="bg-paper">
       <div className="wrapper flex min-h-14 items-center justify-between gap-x-6 py-2 md:min-h-[72px]">
-        <Link href="/" className="text-body hover:text-ink-strong md:text-h3 md:font-normal">
+        <Link href="/" className="text-base hover:text-ink-strong md:text-h3 md:font-normal">
           <span className="inline-flex items-center gap-2">
             Staatsarchiv Schwyz
             <Tag className="sm:hidden">Prototyp</Tag>
           </span>
-          <span className="block font-light text-ink-muted sm:inline">
+          <span className="block font-normal text-ink-muted sm:inline">
             <span className="hidden sm:inline"> · </span>Erschliessungs-Assistent
           </span>
         </Link>
-        <nav className="hidden items-center gap-5 text-small text-ink-muted sm:flex">
+        <nav className="hidden items-center gap-5 text-ui text-ink-muted sm:flex">
           {LINKS.map((l) => (
             <Link key={l.href} href={l.href} className="hover:text-ink-strong">
               {l.label}
@@ -53,11 +53,11 @@ export default function SiteHeader() {
         </button>
       </div>
       {open && (
-        <nav id="phone-menu" className="fade-in border-t border-rule bg-paper-2 sm:hidden">
+        <nav id="phone-menu" className="fade-in border-t border-rule/[0.12] bg-paper-2 sm:hidden">
           <ul className="wrapper py-2">
             {LINKS.map((l) => (
               <li key={l.href}>
-                <Link href={l.href} onClick={() => setOpen(false)} className="block py-2 font-bold hover:text-ink-strong">
+                <Link href={l.href} onClick={() => setOpen(false)} className="block py-2 font-semibold hover:text-ink-strong">
                   {l.label}
                 </Link>
               </li>

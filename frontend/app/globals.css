@@ -2,74 +2,85 @@
 @tailwind components;
 @tailwind utilities;
 
-/* sz.ch family tokens (docs/FRONTPAGE_PLAN.md section 2.1). Token names kept from the archive look. */
+/* "Swiss modern" tokens (docs/FRONTPAGE_POLISH.md section 3). RGB channels, so Tailwind opacity modifiers
+   work (border-rule/[0.08]); in plain CSS use rgb(var(--x)) or rgb(var(--x) / 0.5). */
 :root {
-  /* surfaces (sz.ch neutral ramp) */
-  --paper: #ffffff; /* page background            sz --clr-neutral-100 */
-  --paper-2: #f5f5f5; /* bands, footer, photo mats  sz --clr-neutral-200 */
-  --rule: #dcdcdc; /* 1px dividers, borders      sz --clr-neutral-300 */
-  --ink: #191919; /* body text                  sz --clr-neutral-800 */
-  --ink-muted: #545454; /* meta lines, labels, input borders  sz --clr-neutral-400 */
-  --ink-strong: #000000; /* link hover                 sz --clr-neutral-900 */
+  /* surfaces */
+  --canvas: 250 250 250; /* #fafafa app background behind panels and the photo stage */
+  --paper: 255 255 255; /* #ffffff panels, header, rows */
+  --paper-2: 244 244 245; /* #f4f4f5 hover, segmented track, kbd, mats */
+  --rule: 0 0 0; /* use as rule/8 (hairline) and rule/12 (default border) */
 
-  /* brand (sparingly) */
-  --accent: #e2001a; /* sz --clr-brand: header band, primary button, links, selected pin ring */
-  --accent-hover: #c10319; /* sz .btn:hover */
-  --accent-dark: #b50616; /* sz mobile nav panel */
-  --accent-light: #f17a7c; /* sz --clr-brand-light: underline of the search field on red */
+  /* text */
+  --ink: 23 23 23; /* #171717 primary text, 17.9:1 */
+  --ink-muted: 107 107 107; /* #6b6b6b meta lines, labels, 5.3:1 */
+  --ink-strong: 0 0 0;
 
-  /* attention text (not brand red) */
-  --warn: #9a4a05; /* "Prüfung nötig" word, 6.3:1 on white */
-  --bad: #c10319; /* errors only, 6.4:1 on white */
+  /* brand: Kanton Schwyz red, sparingly */
+  --accent: 226 0 26; /* #e2001a */
+  --accent-hover: 193 3 25; /* #c10319 */
+  --accent-soft: 226 0 26; /* use as accent-soft/[0.06] for the selected row and changed Excel cell */
 
-  /* certainty scale for map + list markers (blue/orange, colour-blind safe, brand red kept out) */
-  --cert-confirmed: #0b3c5d; /* archivist confirmed or corrected (filled + outer ring) */
-  --cert-sure: #1d4e89; /* overall >= 0.90, 8.4:1 on white */
-  --cert-check: #b35806; /* 0.50 to 0.89, 4.9:1 on white */
-  --cert-open: #595959; /* < 0.50: hollow circle, grey stroke */
+  /* attention and data */
+  --warn: 154 74 5; /* #9a4a05 "Prüfung nötig" word */
+  --bad: 153 25 30; /* #99191e errors (darker than brand red, Bund pattern) */
+  --cert-confirmed: 11 60 93; /* #0b3c5d */
+  --cert-sure: 29 78 137; /* #1d4e89 */
+  --cert-check: 179 88 6; /* #b35806 */
+  --cert-open: 89 89 89; /* #595959 hollow */
 
-  /* focus (sz.ch inputs/buttons) */
-  --focus-ring: rgba(21, 156, 228, 0.4);
+  /* focus: sz.ch blue, never red (Bund/zh.ch pattern) */
+  --focus: 21 156 228; /* #159ce4 */
+}
 
-  --radius: 4px; /* sz --border-radius-400 (0.19em) */
+html {
+  font-feature-settings: "cv11", "ss01";
+  scrollbar-gutter: stable;
 }
 
 html,
 body {
-  background: var(--paper);
-  color: var(--ink);
+  background: rgb(var(--paper));
+  color: rgb(var(--ink));
 }
 
 body {
-  font-family: var(--font-barlow), Helvetica, Arial, sans-serif;
-  font-size: 16px;
-  line-height: 24px;
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 18px;
   -webkit-font-smoothing: antialiased;
 }
 
-/* sz.ch focus: blue ring, and the outline stays. */
-:focus-visible {
-  outline: 1px solid var(--ink-strong);
-  outline-offset: 1px;
-  box-shadow: 0 0 0 4px var(--focus-ring);
+.tnum {
+  font-variant-numeric: tabular-nums;
 }
 
-/* sz .wrapper: 92% wide, max 1520px (16px gutter on a 390px phone). */
+::selection {
+  background: rgb(226 0 26 / 0.15);
+}
+
+/* Focus: the blue ring, keyboard only (:focus-visible). Elements with their own ring classes override this. */
+:focus-visible {
+  outline: 2px solid rgb(var(--focus) / 0.5);
+  outline-offset: 1px;
+}
+
+/* Page width: 92 %, max 1520 px (16 px gutter on a 390 px phone). */
 .wrapper {
   width: 92%;
   max-width: 1520px;
   margin-inline: auto;
 }
 
-/* Body links: red and underlined, black on hover (sz.ch). */
+/* Body links: red and underlined, black on hover. */
 .link {
-  color: var(--accent);
+  color: rgb(var(--accent));
   text-decoration: underline;
   text-underline-offset: 2px;
-  transition: color 400ms ease;
+  transition: color 200ms ease;
 }
 .link:hover {
-  color: var(--ink-strong);
+  color: rgb(var(--ink-strong));
 }
 
 @keyframes fade-in {
@@ -82,37 +93,41 @@ body {
 }
 
 .fade-in {
-  animation: fade-in 400ms ease-out both;
+  animation: fade-in 350ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
 }
 
+/* Reduced motion: no fades, no transitions anywhere. */
 @media (prefers-reduced-motion: reduce) {
-  .fade-in {
-    animation: none;
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
   }
 }
 
-/* Map (components/map/MapView.tsx). Round shapes live here in CSS; the Tailwind theme stops at 4px. */
+/* Map (components/map/MapView.tsx). Round shapes live here in CSS. */
 .map-pin {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: var(--ink);
-  border: 2px solid var(--paper);
-  box-shadow: 0 0 0 1px var(--ink);
+  background: rgb(var(--ink));
+  border: 2px solid rgb(var(--paper));
+  box-shadow: 0 0 0 1px rgb(var(--ink));
 }
 
 .maplibregl-ctrl-group:not(:empty) {
-  border: 1px solid var(--rule);
-  border-radius: 2px;
+  border: 1px solid rgb(var(--rule) / 0.12);
+  border-radius: 6px;
   box-shadow: none;
-  background: var(--paper);
+  background: rgb(var(--paper));
 }
 
 .maplibregl-ctrl-group button + button {
-  border-top-color: var(--rule);
+  border-top-color: rgb(var(--rule) / 0.08);
 }
 
-/* Zeitreise slider (components/analyse/Zeitreise.tsx): 2px rule track, round accent thumb like the map pin. */
+/* Zeitreise slider (components/analyse/Zeitreise.tsx): 2px hairline track, round accent thumb. */
 .zeitreise-slider {
   -webkit-appearance: none;
   appearance: none;
@@ -122,11 +137,11 @@ body {
 }
 .zeitreise-slider::-webkit-slider-runnable-track {
   height: 2px;
-  background: var(--rule);
+  background: rgb(var(--rule) / 0.12);
 }
 .zeitreise-slider::-moz-range-track {
   height: 2px;
-  background: var(--rule);
+  background: rgb(var(--rule) / 0.12);
 }
 .zeitreise-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
@@ -134,20 +149,20 @@ body {
   height: 14px;
   margin-top: -6px;
   border-radius: 50%;
-  background: var(--accent);
-  border: 2px solid var(--paper);
-  box-shadow: 0 0 0 1px var(--accent);
+  background: rgb(var(--accent));
+  border: 2px solid rgb(var(--paper));
+  box-shadow: 0 0 0 1px rgb(var(--accent));
 }
 .zeitreise-slider::-moz-range-thumb {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: var(--accent);
-  border: 2px solid var(--paper);
-  box-shadow: 0 0 0 1px var(--accent);
+  background: rgb(var(--accent));
+  border: 2px solid rgb(var(--paper));
+  box-shadow: 0 0 0 1px rgb(var(--accent));
 }
 
-/* Search field on the red band (components/SearchBand.tsx). */
+/* Search field on the red band (components/SearchBand.tsx, removed in polish item 2). */
 .search-band-input::placeholder {
   color: rgba(255, 255, 255, 0.85);
 }
@@ -156,7 +171,7 @@ body {
   outline-color: #fff;
 }
 
-/* Certainty marker in desk rows, same scale as the desk map (FRONTPAGE_PLAN 4): reviewed = filled + ring,
+/* Certainty marker in desk rows, same scale as the desk map: reviewed = filled + ring,
    sure / check = filled, open = hollow grey. Brand red never encodes a data state. */
 .cert-dot {
   display: inline-block;
@@ -166,24 +181,24 @@ body {
   flex-shrink: 0;
 }
 .cert-dot-confirmed {
-  background: var(--cert-confirmed);
-  box-shadow: 0 0 0 1.5px var(--paper), 0 0 0 3px var(--cert-confirmed);
+  background: rgb(var(--cert-confirmed));
+  box-shadow: 0 0 0 1.5px rgb(var(--paper)), 0 0 0 3px rgb(var(--cert-confirmed));
 }
 .cert-dot-sure {
-  background: var(--cert-sure);
+  background: rgb(var(--cert-sure));
 }
 .cert-dot-check {
-  background: var(--cert-check);
+  background: rgb(var(--cert-check));
 }
 .cert-dot-open {
   background: transparent;
-  border: 1.5px solid var(--cert-open);
+  border: 1.5px solid rgb(var(--cert-open));
 }
 
-/* Excel-Zeile: a changed cell fades in from paper-2 (components/analyse/ExcelRow.tsx). */
+/* Excel-Zeile: a changed cell fades in from the soft accent (components/analyse/ExcelRow.tsx). */
 @keyframes cell-flash {
   from {
-    background: var(--paper-2);
+    background: rgb(var(--accent-soft) / 0.06);
   }
   to {
     background: transparent;
@@ -192,35 +207,31 @@ body {
 .cell-flash {
   animation: cell-flash 400ms ease-out;
 }
-@media (prefers-reduced-motion: reduce) {
-  .cell-flash {
-    animation: none;
-  }
-}
 
 /* Desk map (components/desk/DeskMap.tsx): count labels and the "n Fotos an diesem Ort" popup. */
 .desk-count {
   pointer-events: none;
   color: #fff;
-  font: 700 11px/1 var(--font-barlow), Helvetica, Arial, sans-serif;
+  font: 600 11px/1 var(--font-inter), system-ui, sans-serif;
 }
 .maplibregl-popup-content {
-  border-radius: var(--radius);
-  box-shadow: none;
-  border: 1px solid var(--rule);
+  border-radius: 10px;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 8px 24px rgb(0 0 0 / 0.08);
+  border: 1px solid rgb(var(--rule) / 0.08);
   padding: 8px 10px;
 }
 .desk-popup p {
-  font-size: 13px;
-  color: var(--ink-muted);
+  font-size: 12px;
+  color: rgb(var(--ink-muted));
   margin-bottom: 4px;
 }
 .desk-popup button {
   display: block;
-  font: 500 13px/20px var(--font-plex-mono), ui-monospace, monospace;
-  color: var(--accent);
+  font: 500 13px/20px var(--font-geist-mono), ui-monospace, monospace;
+  color: rgb(var(--ink));
   text-decoration: underline;
+  text-decoration-color: rgb(var(--rule) / 0.2);
 }
 .desk-popup button:hover {
-  color: var(--ink-strong);
+  color: rgb(var(--ink-strong));
 }

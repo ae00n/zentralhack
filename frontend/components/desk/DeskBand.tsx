@@ -34,8 +34,8 @@ function Counter({
       aria-pressed={active}
       className={`rounded border-b-2 px-1 pb-1 text-left transition-colors duration-fade hover:border-ink-muted ${active ? "border-ink-strong" : "border-transparent"}`}
     >
-      <span className="block text-counter">{value}</span>
-      <span className="block text-body">{label}</span>
+      <span className="block text-kpi">{value}</span>
+      <span className="block text-base">{label}</span>
       <span className="block text-meta text-ink-muted">{note}</span>
     </button>
   );
@@ -49,13 +49,13 @@ export default function DeskBand({ meta, counts, prio, filter, onFilter, excelUr
       <div className="wrapper py-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="text-[30px] font-light leading-9 md:text-page">Erschliessung SG.CIV.17</h1>
-            <p className="mt-1 text-small text-ink-muted">{meta}</p>
+            <h1 className="text-[30px] font-normal leading-9 md:text-h1">Erschliessung SG.CIV.17</h1>
+            <p className="mt-1 text-ui text-ink-muted">{meta}</p>
           </div>
           <a
             href={excelUrl}
             download
-            className="inline-flex w-full items-center justify-center gap-2 rounded bg-accent px-4 py-2 font-bold text-white transition-colors duration-fade hover:bg-accent-hover sm:w-auto"
+            className="inline-flex w-full items-center justify-center gap-2 rounded bg-accent px-4 py-2 font-semibold text-white transition-colors duration-fade hover:bg-accent-hover sm:w-auto"
           >
             <Download size={18} strokeWidth={1.5} aria-hidden />
             Excel herunterladen
@@ -63,7 +63,7 @@ export default function DeskBand({ meta, counts, prio, filter, onFilter, excelUr
         </div>
 
         {/* Phone: the counters collapse into one meta line (plan 4). */}
-        <p className="mt-4 text-small sm:hidden">
+        <p className="mt-4 text-ui sm:hidden">
           {counts.sure} sicher · <span className="text-warn">{counts.check} Prüfung nötig</span> · {counts.open} nicht
           bestimmbar
           <span className="block text-ink-muted">
@@ -87,12 +87,12 @@ export default function DeskBand({ meta, counts, prio, filter, onFilter, excelUr
             onClick={() => toggle("open")}
           />
           <div className="min-w-[220px] px-1 pb-1">
-            <span className="block text-counter">
-              {prio.reviewed} <span className="text-body text-ink-muted">von {prio.total}</span>
+            <span className="block text-kpi">
+              {prio.reviewed} <span className="text-base text-ink-muted">von {prio.total}</span>
             </span>
-            <span className="block text-body">Prio 1 geprüft</span>
+            <span className="block text-base">Prio 1 geprüft</span>
             <span className="mt-1 flex items-center gap-2">
-              <span className="relative h-1 w-32 bg-rule" aria-hidden>
+              <span className="relative h-1 w-32 bg-rule/[0.08]" aria-hidden>
                 <span className="absolute inset-y-0 left-0 bg-ink" style={{ width: `${share * 100}%` }} />
               </span>
               <span className="font-mono text-meta">{formatPct(share)}</span>

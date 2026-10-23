@@ -52,7 +52,7 @@ function Editor({ k, edit }: { k: ReviewField; edit: EditState }) {
       list={GEMEINDE_FIELDS.includes(k) ? "gemeinden-list" : undefined}
       placeholder="nicht bestimmbar"
       autoComplete="off"
-      className="w-full rounded border border-ink-muted px-2 py-1 text-body focus:border-ink-strong focus:shadow-focus"
+      className="w-full rounded border border-ink-muted px-2 py-1 text-base focus-visible:border-ink-muted focus-visible:ring-2 focus-visible:ring-focus/50"
     />
   );
 }
@@ -71,12 +71,12 @@ export default function ResultPanel({ result, edit }: { result: AnalysisResult; 
       </h2>
 
       <div className="mt-3">
-        <p className="text-small text-ink-muted">Titel</p>
+        <p className="text-ui text-ink-muted">Titel</p>
         <p className="text-h2 font-normal">{title ?? "nicht bestimmbar"}</p>
         <p className="mt-0.5 text-meta text-ink-muted">{provenance(result)}</p>
       </div>
 
-      <div className="mt-4 divide-y divide-rule border-y border-rule">
+      <div className="mt-4 divide-y divide-rule/[0.08] border-y border-rule/[0.12]">
         {rows.map(({ key, label }) => {
           const field = result.fields[key];
           const corrected = isReviewField(key) && isCorrected(result, key);
@@ -111,12 +111,12 @@ export default function ResultPanel({ result, edit }: { result: AnalysisResult; 
 
       {rejected.length > 0 && (
         <details className="group mt-3">
-          <summary className="cursor-pointer text-small text-ink-muted hover:text-ink-strong">
+          <summary className="cursor-pointer text-ui text-ink-muted hover:text-ink-strong">
             Verworfene Hypothesen ({rejected.length})
           </summary>
           <ul className="mt-2 space-y-1.5">
             {rejected.map((r, i) => (
-              <li key={i} className="grid grid-cols-[112px_1fr] gap-3 text-small">
+              <li key={i} className="grid grid-cols-[112px_1fr] gap-3 text-ui">
                 <span className="text-ink-muted">{fieldLabel(r.field)}</span>
                 <span>
                   <span className="font-medium">{formatAny(r.value)}</span>
@@ -137,14 +137,14 @@ function Begruendung({ result, review }: { result: AnalysisResult; review: boole
   const sure = !review && result.overall_confidence >= SURE;
   return (
     <div className={`mt-4 border-l-4 bg-paper-2 px-4 py-3 ${sure ? "border-ink-muted" : "border-cert-check"}`}>
-      <p className="text-body">
+      <p className="text-base">
         Modell-Sicherheit gesamt <span className="font-mono">{formatPct(result.overall_confidence)}</span>
         {" · "}
         {sure ? <span>sicher</span> : <span className="text-warn">Prüfung nötig</span>}
         {result.usage?.budget_hit && <span className="text-warn"> · Budget erreicht</span>}
       </p>
       {result.confidence_explanation && (
-        <p className="mt-1 text-small">
+        <p className="mt-1 text-ui">
           <span className="text-ink-muted">Begründung: </span>
           {result.confidence_explanation}
         </p>

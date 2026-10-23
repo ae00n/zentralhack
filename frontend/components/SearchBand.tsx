@@ -28,7 +28,7 @@ export default function SearchBand() {
           onChange={(e) => setQ(e.target.value)}
           placeholder="Signatur, Ort oder Gebäude suchen"
           aria-label="Signatur, Ort oder Gebäude suchen"
-          className="search-band-input w-full border-0 border-b border-accent-light bg-transparent py-1 text-[18px] font-light text-white md:text-[22px]"
+          className="search-band-input w-full border-0 border-b border-accent-light bg-transparent py-1 text-[18px] font-normal text-white md:text-[22px]"
         />
       </form>
     </div>

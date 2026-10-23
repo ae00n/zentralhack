@@ -38,8 +38,10 @@ const WORLD: [number, number][] = [
   [-180, -85],
 ];
 
+/** A colour token as a CSS colour: globals.css holds RGB channels ("23 23 23"), MapLibre needs rgb(...). */
 function token(name: string, fallback: string): string {
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return v ? `rgb(${v.split(/\s+/).join(", ")})` : fallback;
 }
 
 function placesData(places: Place[]): GeoJSON.FeatureCollection<GeoJSON.Point> {

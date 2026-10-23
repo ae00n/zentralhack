@@ -5,7 +5,7 @@ export default function Share({ value, width = 120 }: { value: number | null | u
   const pct = Math.max(0, Math.min(1, value ?? 0)) * 100;
   return (
     <span className="inline-flex items-center gap-2">
-      <span className="relative h-[2px] bg-rule" style={{ width }}>
+      <span className="relative h-[2px] bg-rule/[0.08]" style={{ width }}>
         {value !== null && value !== undefined && (
           <span className="absolute inset-y-0 left-0 bg-ink" style={{ width: `${pct}%` }} />
         )}

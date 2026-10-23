@@ -9,11 +9,11 @@ export default function ReviewToast() {
   return (
     <div
       role="status"
-      className={`fade-in fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded px-4 py-2.5 text-small text-white ${toast.error ? "bg-bad" : "bg-ink"}`}
+      className={`fade-in fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded px-4 py-2.5 text-ui text-white ${toast.error ? "bg-bad" : "bg-ink"}`}
     >
       <span>{toast.text}</span>
       {toast.undoable && (
-        <button type="button" onClick={() => undo()} className="font-bold underline hover:text-white/80">
+        <button type="button" onClick={() => undo()} className="font-semibold underline hover:text-white/80">
           Rückgängig (⌫)
         </button>
       )}

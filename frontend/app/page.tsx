@@ -156,7 +156,7 @@ function Arbeitsplatz() {
               role="tab"
               aria-selected={view === key}
               onClick={() => setView(key)}
-              className={`flex-1 py-2 text-small font-bold transition-colors duration-fade ${view === key ? "bg-ink text-white" : "text-ink-muted"}`}
+              className={`flex-1 py-2 text-ui font-semibold transition-colors duration-fade ${view === key ? "bg-ink text-white" : "text-ink-muted"}`}
             >
               {label}
             </button>
@@ -199,7 +199,7 @@ function Arbeitsplatz() {
         <div className={`min-w-0 lg:block ${view === "list" ? "" : "hidden"}`}>
         {error && <p className="mb-4 text-bad">Server nicht erreichbar oder Fehler: {error}</p>}
 
-        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b border-rule pb-3">
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b border-rule/[0.12] pb-3">
           <div role="group" aria-label="Umfang" className="inline-flex rounded border border-ink-muted">
             {(
               [
@@ -212,14 +212,14 @@ function Arbeitsplatz() {
                 type="button"
                 onClick={() => setScope(key)}
                 aria-pressed={scope === key}
-                className={`px-3 py-1.5 text-small font-bold transition-colors duration-fade ${scope === key ? "bg-ink text-white" : "text-ink-muted hover:text-ink-strong"}`}
+                className={`px-3 py-1.5 text-ui font-semibold transition-colors duration-fade ${scope === key ? "bg-ink text-white" : "text-ink-muted hover:text-ink-strong"}`}
               >
                 {label}
               </button>
             ))}
           </div>
 
-          <div className="flex flex-wrap items-center gap-4 text-small">
+          <div className="flex flex-wrap items-center gap-4 text-ui">
             <label className="flex items-center gap-2">
               <span className="text-ink-muted">Sortierung</span>
               <select
@@ -251,7 +251,7 @@ function Arbeitsplatz() {
           </div>
         </div>
 
-        <p className="mt-3 text-small text-ink-muted" aria-live="polite">
+        <p className="mt-3 text-ui text-ink-muted" aria-live="polite">
           {shown.length} von {items.length} Fotos
           {q && (
             <>

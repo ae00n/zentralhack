@@ -398,3 +398,27 @@ What was checked on the laptop:
 
 **Not built**
 - The calibration chart and the per-bin comparison of self-rated vs measured from the old SCOPE_3 list stay as the existing tables.
+
+---
+
+# FRONTPAGE_POLISH v3.1 "Swiss modern" re-skin (from 23.10. late)
+
+`docs/FRONTPAGE_POLISH.md` replaces FRONTPAGE_PLAN section 2 (Look) and the layout sketches of sections 4 and 5. Behaviour, data, German copy and review keys stay. Sections below follow its section 9, one per item ("polish item N").
+
+## polish item 1: Foundation (23.10.)
+
+**Check:** app runs in mock mode; `border-ink/10` renders; no Barlow/Plex left. Done: desk and detail page load in mock mode without errors; body font Inter 13 px, signatures Geist Mono; `border-rule/[0.12]` computes to `rgba(0, 0, 0, 0.12)`, so opacity modifiers on the token colours work (a literal `border-ink/10` is only generated once some file uses it: Tailwind JIT); desk map pins get `rgb(11, 60, 93)` etc.; `grep -rn "Barlow\|Plex" app components` is empty.
+
+**Special**
+- Tokens in `globals.css` are RGB channels (polish section 3); new `--canvas`, `--accent-soft`, `--focus`; dropped `--accent-dark`, `--accent-light`, `--focus-ring`, `--radius`. Every plain-CSS use is now `rgb(var(--x))` / `rgb(var(--x) / a)`.
+- `tailwind.config.ts` is the polish block (replaces the defaults; radius `sm` 4, default 6, `lg` 10, `dot` for status dots only; shadows `panel`, `pop`, `kbd`; weights 400/500/600; sizes micro to hero). `maxWidth.wrapper`, `transitionDuration` (hover 200, fade 350) and the `calm` easing sit in `extend`, so Tailwind's other durations still exist. Plugin `tailwindcss-animate` 1.0.7.
+- `--rule` is black now and meant to be used with an alpha. Sweep over `app/` and `components/` (85 places): `border-rule` → `border-rule/[0.12]`, `divide-rule` → `/[0.08]`, `bg-rule` → `/[0.08]`, `hover:border-rule` → `/20`; dropped size/weight keys mapped to the new scale (`text-small` → `text-ui`, `text-body` → `text-base`, `text-page` → `text-h1`, `text-counter` → `text-kpi`, `font-bold` → `font-semibold`, `font-light` → `font-normal`), `focus:shadow-focus` → `focus-visible:ring-2 ring-focus/50`. The items that follow restyle these places properly.
+- MapLibre colours: `token()` in `MapView.tsx` and `DeskMap.tsx` turns the channels into `rgb(r, g, b)`.
+- Fonts: Inter (variable, `--font-inter`) and Geist Mono (`--font-geist-mono`) via `next/font`; Barlow and IBM Plex Mono removed. `font-feature-settings: "cv11", "ss01"`, `.tnum` utility, red `::selection`, `scrollbar-gutter: stable`.
+- Reduced motion: one global rule sets animation and transition durations to 0.01 ms.
+- `lib/cn.ts`: `cn()` = clsx + tailwind-merge. **Deviation:** tailwind-merge **2.6.1**, not 3.7.0: 3.x supports Tailwind v4 only. The custom font sizes are registered so `text-ui` and `text-ink` do not knock each other out.
+- `components/Providers.tsx` (client) mounts sonner's `<Toaster position="bottom-center">` once in the layout (white, hairline, `shadow-pop`). The undo toast still uses the old component until item 3.
+- Packages added: `sonner` 2.0.8, `clsx` 2.1.1, `tailwind-merge` 2.6.1, `tailwindcss-animate` 1.0.7.
+
+**Not built**
+- Nothing from the item's scope.

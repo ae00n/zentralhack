@@ -400,7 +400,7 @@ export default function AnalysePage() {
     <>
       <nav aria-label="Brotkrume" className="bg-paper-2">
         <div className="wrapper flex flex-wrap items-center justify-between gap-x-6 gap-y-2 py-2.5">
-          <ol className="flex items-center gap-1 overflow-x-auto whitespace-nowrap text-small font-bold">
+          <ol className="flex items-center gap-1 overflow-x-auto whitespace-nowrap text-ui font-semibold">
             <li>
               <Link href="/" className="px-1 hover:text-ink-strong hover:underline">
                 Arbeitsplatz
@@ -422,7 +422,7 @@ export default function AnalysePage() {
             </li>
           </ol>
           {pos >= 0 && (
-            <div className="flex items-center gap-4 text-small">
+            <div className="flex items-center gap-4 text-ui">
               {prev ? (
                 <Link href={analyseHref(prev)} className="hover:text-ink-strong hover:underline">
                   ← Vorheriges
@@ -457,7 +457,7 @@ export default function AnalysePage() {
       <main className="wrapper py-6" onKeyDown={onKeyDown}>
         {ended && (
           <div className="mb-6 flex flex-wrap items-center justify-between gap-4 border-l-4 border-cert-confirmed bg-paper-2 px-4 py-3">
-            <p className="text-body">
+            <p className="text-base">
               {progress.reviewed === progress.total
                 ? `Alle ${progress.total} Prio-1-Fotos geprüft`
                 : `Ende der Liste · ${progress.total - progress.reviewed} noch offen`}
@@ -466,7 +466,7 @@ export default function AnalysePage() {
             <a
               href={exportXlsxUrl({ split: "challenge", priority: 1 })}
               download
-              className="rounded bg-accent px-4 py-2 font-bold text-white transition-colors duration-fade hover:bg-accent-hover"
+              className="rounded bg-accent px-4 py-2 font-semibold text-white transition-colors duration-fade hover:bg-accent-hover"
             >
               Excel herunterladen
             </a>
@@ -486,24 +486,24 @@ export default function AnalysePage() {
 
               <div className="min-w-0 space-y-6 lg:col-start-2 lg:row-span-2 lg:row-start-1">
                 {missing && (
-                  <div className="flex flex-wrap items-baseline justify-between gap-3 border-y border-rule py-3">
+                  <div className="flex flex-wrap items-baseline justify-between gap-3 border-y border-rule/[0.12] py-3">
                     <p className="text-ink-muted">Noch kein Ergebnis für dieses Foto</p>
                     {canRunLive && <StartButton onClick={() => startLive(false)}>Analyse starten</StartButton>}
                   </div>
                 )}
 
                 {failure && (
-                  <div className="flex flex-wrap items-baseline justify-between gap-3 border-y border-rule py-3">
+                  <div className="flex flex-wrap items-baseline justify-between gap-3 border-y border-rule/[0.12] py-3">
                     <p className="text-bad">{failure}</p>
                     {canRunLive && <StartButton onClick={() => startLive(true)}>Erneut versuchen</StartButton>}
                   </div>
                 )}
 
                 {running && (
-                  <div className="flex items-baseline justify-between border-y border-rule py-3">
+                  <div className="flex items-baseline justify-between border-y border-rule/[0.12] py-3">
                     <p className="text-ink-muted">Ort wird bestimmt ...</p>
                     {replaying && (
-                      <button type="button" onClick={skipReplay} className="text-small text-ink-muted hover:text-ink-strong">
+                      <button type="button" onClick={skipReplay} className="text-ui text-ink-muted hover:text-ink-strong">
                         Überspringen
                       </button>
                     )}
@@ -515,7 +515,7 @@ export default function AnalysePage() {
                 {showResult && <ResultPanel result={shown} edit={editState} />}
                 {showResult && (
                   // Phone: a bar stuck to the bottom while the fields are on screen (plan 5).
-                  <div className="sticky bottom-0 z-10 border-t border-rule bg-paper py-3 lg:static lg:border-0 lg:py-0">
+                  <div className="sticky bottom-0 z-10 border-t border-rule/[0.12] bg-paper py-3 lg:static lg:border-0 lg:py-0">
                   <ReviewBar
                     editing={!!edit}
                     decided={decided}
@@ -537,8 +537,8 @@ export default function AnalysePage() {
             </div>
 
             {!running && steps.length > 0 && (
-              <section className="relative mt-10 border-t border-rule pt-4">
-                <div className="absolute right-0 top-4 flex gap-4 text-small text-ink-muted">
+              <section className="relative mt-10 border-t border-rule/[0.12] pt-4">
+                <div className="absolute right-0 top-4 flex gap-4 text-ui text-ink-muted">
                   {canReplay && (
                     <button type="button" onClick={() => result && startReplay(result)} className="hover:text-ink-strong">
                       Erneut abspielen
@@ -555,7 +555,7 @@ export default function AnalysePage() {
             )}
 
             {showResult && (
-              <section className="mt-10 grid grid-cols-[minmax(0,1fr)] gap-8 border-t border-rule pt-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,480px)]">
+              <section className="mt-10 grid grid-cols-[minmax(0,1fr)] gap-8 border-t border-rule/[0.12] pt-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,480px)]">
                 <ExcelRow record={record} result={shown} />
                 <div>
                 <h2 className="text-h3">Karte</h2>

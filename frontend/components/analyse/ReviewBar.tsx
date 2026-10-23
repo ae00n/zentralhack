@@ -13,9 +13,9 @@ interface Props {
 }
 
 const PRIMARY =
-  "inline-flex items-center gap-2 rounded bg-accent px-4 py-2 font-bold text-white transition-colors duration-fade hover:bg-accent-hover";
+  "inline-flex items-center gap-2 rounded bg-accent px-4 py-2 font-semibold text-white transition-colors duration-fade hover:bg-accent-hover";
 const SECONDARY =
-  "inline-flex items-center gap-2 rounded border border-rule bg-white px-4 py-2 font-bold text-ink-muted transition-colors duration-fade hover:text-ink-strong";
+  "inline-flex items-center gap-2 rounded border border-rule/[0.12] bg-white px-4 py-2 font-semibold text-ink-muted transition-colors duration-fade hover:text-ink-strong";
 
 function Key({ k, light }: { k: string; light?: boolean }) {
   return <span className={`font-mono text-meta font-normal ${light ? "text-white/80" : "text-ink-muted"}`}>{k}</span>;

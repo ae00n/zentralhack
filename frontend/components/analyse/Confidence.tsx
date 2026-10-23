@@ -8,7 +8,7 @@ export const REVIEW_THRESHOLD = SURE;
 export default function Confidence({ value }: { value: number }) {
   const low = value < REVIEW_THRESHOLD;
   return (
-    <span title={`Modell-Sicherheit ${formatPct(value)}`} className={`font-mono text-small ${low ? "text-warn" : ""}`}>
+    <span title={`Modell-Sicherheit ${formatPct(value)}`} className={`font-mono text-ui ${low ? "text-warn" : ""}`}>
       {formatPct(value)}
     </span>
   );
