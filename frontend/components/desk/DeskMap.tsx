@@ -65,6 +65,13 @@ function maskOf(canton: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>)
 
 const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+/** Room for the floating list panel (400 px + 12 px inset) on wide screens; plain padding on the phone. */
+function framePadding(): maplibregl.PaddingOptions {
+  return window.matchMedia("(min-width: 1024px)").matches
+    ? { left: 424, top: 24, right: 24, bottom: 24 }
+    : { left: 24, top: 24, right: 24, bottom: 24 };
+}
+
 export default function DeskMap({
   places,
   tiles,
@@ -94,7 +101,6 @@ export default function DeskMap({
       check: token("--cert-check", "#b35806"),
       open: token("--cert-open", "#595959"),
     };
-    const ink = token("--ink", "#191919");
     const accent = token("--accent", "#e2001a");
     const byClass = (cls: CertClass) => ["==", ["get", "worst"], cls];
     const fillByClass: maplibregl.ExpressionSpecification = [
@@ -107,12 +113,20 @@ export default function DeskMap({
       color.check,
       "rgba(255,255,255,0.9)",
     ] as unknown as maplibregl.ExpressionSpecification;
-    // 6 px for one photo, up to 11 px for ten or more; +3 on hover or selection.
-    const radius = [
-      "+",
-      ["interpolate", ["linear"], ["get", "count"], 1, 6, 10, 11],
-      ["case", ["any", ["boolean", ["feature-state", "hover"], false], ["boolean", ["feature-state", "selected"], false]], 3, 0],
-    ] as unknown as maplibregl.ExpressionSpecification;
+    // Polish 5: radius by zoom (z8 4 px, z14 7 px), a place with several photos 1.5 px larger, hover +2.
+    // Zoom must be the input of the top-level interpolate, so the bonus sits in each stop.
+    const bonus = (base: number) =>
+      [
+        "+",
+        base,
+        ["case", [">", ["get", "count"], 1], 1.5, 0],
+        ["case", ["boolean", ["feature-state", "hover"], false], 2, 0],
+      ] as unknown as number;
+    const radius = ["interpolate", ["linear"], ["zoom"], 8, bonus(4), 14, bonus(7)] as unknown as maplibregl.ExpressionSpecification;
+    const ringRadius = (extra: number) =>
+      ["interpolate", ["linear"], ["zoom"], 8, ["+", bonus(4), extra], 14, ["+", bonus(7), extra]] as unknown as maplibregl.ExpressionSpecification;
+    // Sure and reviewed places draw on top of the uncertain ones.
+    const sortKey = ["match", ["get", "worst"], "open", 0, "check", 1, "sure", 2, 3] as unknown as maplibregl.ExpressionSpecification;
 
     const m = new maplibregl.Map({
       container: container.current,
@@ -122,10 +136,26 @@ export default function DeskMap({
           base: { type: "raster", tiles: [tiles], tileSize: 256, maxzoom: offline ? 16 : 18 },
           places: { type: "geojson", data: placesData(places) },
         },
-        layers: [{ id: "base", type: "raster", source: "base" }],
+        layers: [
+          { id: "background", type: "background", paint: { "background-color": "#fafafa" } },
+          {
+            id: "base",
+            type: "raster",
+            source: "base",
+            // Softened raster (polish 5): grey, less contrast, a bit lighter, so the dots carry the colour.
+            paint: {
+              "raster-saturation": -1,
+              "raster-contrast": -0.15,
+              "raster-brightness-min": 0.12,
+              "raster-brightness-max": 0.98,
+              "raster-opacity": 0.85,
+              "raster-fade-duration": 300,
+            },
+          },
+        ],
       },
       bounds: BOUNDS,
-      fitBoundsOptions: { padding: 40 },
+      fitBoundsOptions: { padding: framePadding() },
       maxBounds: MAX_BOUNDS,
       minZoom: 8,
       maxZoom: offline ? 16 : 18,
@@ -135,6 +165,8 @@ export default function DeskMap({
     });
     m.touchZoomRotate.disableRotation();
     m.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+    // An integer zoom keeps the raster labels crisp instead of scaled.
+    m.once("load", () => m.setZoom(Math.round(m.getZoom())));
 
     m.on("load", async () => {
       try {
@@ -143,19 +175,37 @@ export default function DeskMap({
         >;
         m.addSource("mask", { type: "geojson", data: maskOf(canton) });
         m.addSource("canton", { type: "geojson", data: canton });
-        m.addLayer({ id: "mask", type: "fill", source: "mask", paint: { "fill-color": "#ffffff", "fill-opacity": 0.6 } }, undefined);
-        m.addLayer({ id: "canton-line", type: "line", source: "canton", paint: { "line-color": ink, "line-width": 1.5 } });
+        m.addLayer({ id: "mask", type: "fill", source: "mask", paint: { "fill-color": "#ffffff", "fill-opacity": 0.75 } });
+        m.addLayer({
+          id: "canton-line",
+          type: "line",
+          source: "canton",
+          paint: { "line-color": "#1a1a1a", "line-width": 1.25, "line-opacity": 0.6 },
+        });
       } catch {
         // Without the outline the map still works.
       }
-      // Reviewed places get an outer 2px ring under the circle.
+      // Dots in layers (polish 5): soft shadow, reviewed outer ring, the dot, and the selection ring on top.
+      m.addLayer({
+        id: "places-shadow",
+        type: "circle",
+        source: "places",
+        layout: { "circle-sort-key": sortKey },
+        paint: {
+          "circle-radius": ringRadius(1),
+          "circle-color": "#000000",
+          "circle-opacity": 0.18,
+          "circle-blur": 1,
+          "circle-translate": [0, 1],
+        },
+      });
       m.addLayer({
         id: "places-ring",
         type: "circle",
         source: "places",
         filter: byClass("confirmed") as maplibregl.FilterSpecification,
         paint: {
-          "circle-radius": ["+", radius, 3.5] as unknown as maplibregl.ExpressionSpecification,
+          "circle-radius": ringRadius(2.5),
           "circle-color": "rgba(0,0,0,0)",
           "circle-stroke-color": color.confirmed,
           "circle-stroke-width": 2,
@@ -165,23 +215,30 @@ export default function DeskMap({
         id: "places",
         type: "circle",
         source: "places",
+        layout: { "circle-sort-key": sortKey },
         paint: {
           "circle-radius": radius,
           "circle-color": fillByClass,
-          // White 1.5 px stroke; "open" is hollow with a grey stroke; selected gets the 3 px accent ring.
-          "circle-stroke-color": [
+          // White 1.5 px stroke; "nicht bestimmbar" is hollow with a grey stroke.
+          "circle-stroke-color": ["case", byClass("open"), color.open, "#ffffff"] as unknown as maplibregl.ExpressionSpecification,
+          "circle-stroke-width": 1.5,
+        },
+      });
+      // Selection: a separate red ring, radius +4, no fill; only the selected place shows it.
+      m.addLayer({
+        id: "places-selected",
+        type: "circle",
+        source: "places",
+        paint: {
+          "circle-radius": ringRadius(4),
+          "circle-color": "rgba(0,0,0,0)",
+          "circle-stroke-color": accent,
+          "circle-stroke-width": 3,
+          "circle-stroke-opacity": [
             "case",
             ["boolean", ["feature-state", "selected"], false],
-            accent,
-            byClass("open"),
-            color.open,
-            "#ffffff",
-          ] as unknown as maplibregl.ExpressionSpecification,
-          "circle-stroke-width": [
-            "case",
-            ["boolean", ["feature-state", "selected"], false],
-            3,
-            1.5,
+            1,
+            0,
           ] as unknown as maplibregl.ExpressionSpecification,
         },
       });
@@ -289,7 +346,7 @@ export default function DeskMap({
     if (selectedPlace !== null && selectedPlace !== prevSelected) {
       const p = latest.current.places.find((x) => x.id === selectedPlace);
       if (p) {
-        const target = { center: [p.lon, p.lat] as [number, number], zoom: Math.max(m.getZoom(), 13) };
+        const target = { center: [p.lon, p.lat] as [number, number], zoom: Math.max(m.getZoom(), 13), padding: framePadding() };
         if (reducedMotion()) m.jumpTo(target);
         else m.easeTo({ ...target, duration: 450 });
       }

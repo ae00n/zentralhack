@@ -464,7 +464,21 @@ What was checked on the laptop:
 - Rows (`PhotoRow.tsx`): `grid-cols-[64px_minmax(0,1fr)]`, hairline divider `rule/[0.06]`, hover `paper-2/70` (also when the map hovers its pin), 64×44 `object-cover` thumbnail, 6 px status dot (`rounded-dot`; reviewed = filled + 1 px ring, open = hollow), mono signature 13 px, "Serie (n)", meta 12 px `truncate tnum` with only "Prüfung nötig" in warn. Selected: soft accent fill + `before:` 2 px red bar; the "Erneut klicken oder Enter öffnet das Foto" hint stays (11 px). Focus ring inset so it is not clipped by the panel.
 - Legend: a floating card bottom centre of the free map area (`left: calc(50% + 206px)`), `bg-paper/90 backdrop-blur`, h-8, with the "N Fotos ohne Ort" filter link.
 - Empty list: one centred muted sentence.
-- The desk page sets `scroll-gutter: auto` on `<html>` while mounted: the global `scrollbar-gutter: stable` (polish tokens) otherwise leaves a 15 px blank strip right of the full-bleed map.
+- The desk page sets `scrollbar-gutter: auto` on `<html>` while mounted: the global `scrollbar-gutter: stable` (polish tokens) otherwise leaves a 15 px blank strip right of the full-bleed map.
 
 **Not built**
 - Nothing from the item's scope.
+
+## polish item 5: Map polish (24.10.)
+
+**Check:** canton fills the free area right of the panel; labels not oversized; selected pin has a red ring. Done against the item-4 fake backend at 1440×900: first view at zoom 10 (integer), the canton's bbox projects to x 421 to 1318 and y 65 to 786, i.e. the free area right of the 412 px panel; clicking a pin selects its row and the place shows the separate red ring, eased to the centre of the free area (x 920, centre 926); no MapLibre errors or warnings in the console.
+
+**Special**
+- Raster paint on `pixelkarte-grau` (offline-safe): saturation −1, contrast −0.15, brightness 0.12 to 0.98, opacity 0.85, fade 300 ms; a `background` layer `#fafafa` under it.
+- Mask (world minus canton) white at 0.75; outline `#1a1a1a`, 1.25 px, opacity 0.6.
+- Dots in four layers: `places-shadow` (black 0.18, blur 1, translate [0, 1]), `places-ring` (reviewed: outer 2 px `cert-confirmed` ring), `places` (fill by class, white 1.5 px stroke, hollow grey for "nicht bestimmbar"), `places-selected` (red 3 px ring at radius +4, no fill, shown via `feature-state` opacity). Radius by zoom (z8 4 px → z14 7 px), +1.5 px for places with several photos, +2 px on hover. `circle-sort-key` puts sure and reviewed places above uncertain ones (feature-state cannot drive a sort key; the selection ring is its own top layer instead).
+- First view: `fitBounds` with `padding {left: 424, top/right/bottom: 24}` on screens from 1024 px (room for the panel), then `setZoom(Math.round(zoom))` once so the raster labels are not scaled. The selection `easeTo` uses the same padding, so a picked place lands in the middle of the free area, not under the panel.
+- The swisstopo vector basemap (polish 5.2, optional, online only) is not tried: the demo runs offline on raster tiles, and one map style is less to check before the freeze.
+
+**Not built**
+- Nothing from the item's scope (the vector style is optional in the polish plan).
