@@ -30,11 +30,15 @@ WMTS = "https://wmts.geo.admin.ch"
 CAPS = f"{WMTS}/EPSG/3857/1.0.0/WMTSCapabilities.xml"
 ZEITREIHEN = "ch.swisstopo.zeitreihen"
 SWISSIMAGE = "ch.swisstopo.swissimage"
+GREY = "ch.swisstopo.pixelkarte-grau"  # desk map base layer (FRONTPAGE_PLAN): whole canton z8-13, demo areas up to z16
+CANTON_BBOX = (46.87, 8.38, 47.24, 9.06)  # lat0, lon0, lat1, lon1 of Kanton Schwyz, with a margin
 # (layer, ext, {zoom: radius in km})
 BUDGET = [
     (ZEITREIHEN, "png", {12: 5, 13: 5, 14: 5, 15: 2, 16: 2}),
     (SWISSIMAGE, "jpeg", {12: 5, 13: 5, 14: 5, 15: 2, 16: 2, 17: 1}),
+    (GREY, "jpeg", {14: 3, 15: 2, 16: 1}),
 ]
+GREY_CANTON_ZOOMS = range(8, 14)
 # demo places that must be covered even if demo.json changes (lat, lon)
 PLACES = {
     "Schwyz Hauptplatz": (47.0207, 8.6541),
@@ -91,6 +95,12 @@ def plan(times: list[str]) -> list[tuple[str, str, str, set]]:
         for lat, lon in pts:
             for z, r in zooms.items():
                 tiles |= tiles_around(lat, lon, z, r)
+        if layer == GREY:
+            lat0, lon0, lat1, lon1 = CANTON_BBOX
+            for z in GREY_CANTON_ZOOMS:
+                x0, y0 = _xy(lat1, lon0, z)
+                x1, y1 = _xy(lat0, lon1, z)
+                tiles |= {(z, x, y) for x in range(int(x0), int(x1) + 1) for y in range(int(y0), int(y1) + 1)}
         for t in (times if layer == ZEITREIHEN else ["current"]):
             jobs.append((layer, t, ext, tiles))
     return jobs
@@ -128,6 +138,8 @@ def fetch(dry_run: bool = False) -> dict:
                 "radius_km": {str(z): r for z, r in zooms.items()}}
         for layer, ext, zooms in BUDGET
     }
+    manifest[GREY]["zooms"] = sorted(set(GREY_CANTON_ZOOMS) | set(manifest[GREY]["zooms"]))
+    manifest[GREY]["canton_bbox"] = CANTON_BBOX
     manifest["areas"] = {k: {"lat": lat, "lon": lon} for k, (lat, lon) in areas().items()}
     manifest["map_years"] = [int(t) for t in times]
     manifest["created_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
