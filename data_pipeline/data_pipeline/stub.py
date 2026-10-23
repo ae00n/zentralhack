@@ -75,3 +75,12 @@ def timeline(lat: float, lon: float, radius_m: int = 1000) -> list[dict]:
 
 def date_hints(photo_id: str | None = None, image_path: str | None = None, exclude_ids=()) -> list[dict]:
     return _load("date_hints.json")
+
+
+def address_lookup(lat: float, lon: float, radius_m: int = 100, limit: int = 10) -> dict:
+    return _load("address_lookup.json")
+
+
+def named_buildings(lat: float | None = None, lon: float | None = None, radius_m: int = 500,
+                    name: str | None = None, kinds: list[str] | None = None, limit: int = 20) -> list[dict]:
+    return _load("named_buildings.json")[:limit]

@@ -19,7 +19,11 @@
             "archive_record",
             "swisstopo_place",
             "terrain",
-            "map_layer"
+            "map_layer",
+            "address_register",
+            "named_building",
+            "exif",
+            "session_photo"
           ]
         },
         "summary": {
@@ -109,15 +113,41 @@
     "fields": {
       "type": "object",
       "required": [
+        "locality",
         "municipality",
-        "place",
         "buildings",
         "landscape_features",
-        "decade",
-        "year_range",
+        "street",
         "coordinates"
       ],
       "properties": {
+        "locality": {
+          "type": "object",
+          "required": [
+            "value",
+            "confidence",
+            "evidence"
+          ],
+          "properties": {
+            "value": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "confidence": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/evidence"
+              }
+            }
+          }
+        },
         "municipality": {
           "type": "object",
           "required": [
@@ -341,6 +371,33 @@
               }
             }
           }
+        },
+        "street": {
+          "type": "object",
+          "required": [
+            "value",
+            "confidence",
+            "evidence"
+          ],
+          "properties": {
+            "value": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "confidence": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/evidence"
+              }
+            }
+          }
         }
       }
     },
@@ -423,6 +480,42 @@
     },
     "created_at": {
       "type": "string"
+    },
+    "confidence_explanation": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "review": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "offen",
+            "bestaetigt",
+            "korrigiert"
+          ]
+        },
+        "fields": {
+          "type": "object"
+        },
+        "note": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reviewed_at": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
     }
   }
 }
