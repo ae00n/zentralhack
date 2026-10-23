@@ -70,11 +70,17 @@ def main(argv: list[str] | None = None) -> int:
         u = r["usage"]
         total += u["cost_usd"]
         f = r["fields"]
-        print(f"result: {f['municipality']['value']} ({f['municipality']['confidence']:.2f}), "
-              f"decade {f['decade']['value']} ({f['decade']['confidence']:.2f}), status {r['status']}",
-              file=sys.stderr)
-        print(f"cost: ${u['cost_usd']:.4f} (in {u['input_tokens']} tok, cache read {u['cache_read_input_tokens']}, "
-              f"out {u['output_tokens']} tok, {u['api_calls']} calls{', BUDGET HIT' if u['budget_hit'] else ''}); "
+        def show(n):
+            v = f[n]["value"]
+            v = ", ".join(v) if isinstance(v, list) else v
+            return f"{v or 'nicht bestimmbar'} ({f[n]['confidence']:.2f})"
+        print("result: " + " | ".join(f"{label} {show(n)}" for n, label in (
+            ("locality", "Ortschaft"), ("municipality", "Gemeinde"), ("buildings", "Gebäude"),
+            ("landscape_features", "See/Fluss/Berg"), ("street", "Strasse"))), file=sys.stderr)
+        print(f"overall: {r['overall_confidence']:.2f}, {'Prüfung nötig' if r['needs_review'] else 'akzeptiert'}: "
+              f"{r.get('confidence_explanation')}", file=sys.stderr)
+        print(f"cost: ${u['cost_usd']:.4f} (in {u['input_tokens']} tok, cache read {u.get('cache_read_input_tokens', 0)}, "
+              f"out {u['output_tokens']} tok, {u.get('api_calls', 0)} calls{', BUDGET HIT' if u.get('budget_hit') else ''}); "
               f"ledger total ${llm.ledger_total():.2f} of ${config.SESSION_BUDGET_USD:.0f}", file=sys.stderr)
         if errs:
             print("INVALID analysis_result: " + "; ".join(errs[:5]), file=sys.stderr)
