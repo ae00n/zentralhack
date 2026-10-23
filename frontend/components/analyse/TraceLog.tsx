@@ -13,19 +13,19 @@ export default function TraceLog({ items, running }: Props) {
   const list = (
     <ol className="mt-2 space-y-1.5">
       {items.map((item) => (
-        <li key={item.step} className="fade-in grid grid-cols-[24px_1fr] gap-2 text-meta">
+        <li key={item.step} className="fade-in grid grid-cols-[24px_1fr] gap-2 text-small">
           <span className="font-mono text-ink-muted">{item.step}</span>
           <TraceLine item={item} />
         </li>
       ))}
-      {running && <li className="pl-8 text-meta text-ink-muted">...</li>}
+      {running && <li className="pl-8 text-small text-ink-muted">...</li>}
     </ol>
   );
 
   return (
     <details open>
-      <summary className="cursor-pointer text-meta text-ink-muted hover:text-ink">
-        {running ? "Analyse läuft" : `Analyseschritte (${items.length})`}
+      <summary className="cursor-pointer text-h3 hover:text-ink-strong">
+        So entsteht das Ergebnis{running ? " ..." : ` · ${items.length} Schritte`}
       </summary>
       {list}
     </details>

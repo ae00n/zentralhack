@@ -96,9 +96,9 @@ body {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--ink);
   border: 2px solid var(--paper);
-  box-shadow: 0 0 0 1px var(--accent);
+  box-shadow: 0 0 0 1px var(--ink);
 }
 
 .maplibregl-ctrl-group:not(:empty) {

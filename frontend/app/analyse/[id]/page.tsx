@@ -1,9 +1,10 @@
 "use client";
 
-// Analyse / "Ort & Zeit" (build step 3). Layout follows the team mock (question 2.1, 2.10):
-// left = map (step 4) + Zeitreise (step 9), right = photo, result, trace.
+// Foto (FRONTPAGE_PLAN 5): breadcrumb with Vorheriges / Nächstes, photo | Erschliessung, then the trace
+// ("So entsteht das Ergebnis") and the compact map. The Zeitreise map is not shown here in v3.
 // Mock and demo mode replay the cached trace (step 5). Live mode shows a cached result at once and
 // streams a new analysis over SSE when asked (step 8); it never starts one on its own (costs money).
+import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -19,11 +20,11 @@ import {
   getDemo,
   getPhoto,
   getResult,
+  listChallenge,
   replayTrace,
   startAnalysis,
 } from "@/lib/api";
 import { analyseHref } from "@/lib/format";
-import { estimatedYear } from "@/lib/timeline";
 import type { AnalysisResult, PhotoRecord, TraceItem } from "@/lib/types";
 
 function decodeId(raw: string | string[] | undefined): string {
@@ -43,7 +44,7 @@ export default function AnalysePage() {
   const [error, setError] = useState<string | null>(null);
   const [steps, setSteps] = useState<TraceItem[]>([]);
   const [replaying, setReplaying] = useState(false);
-  const [demoIds, setDemoIds] = useState<string[]>([]);
+  const [queue, setQueue] = useState<string[]>([]);
   // Live mode: an analysis is streaming, or it ended with an error (German text).
   const [analysing, setAnalysing] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
@@ -102,12 +103,22 @@ export default function AnalysePage() {
     );
   }, []);
 
-  // Pitch order, for the "Nächste Karte" link.
+  // Vorheriges / Nächstes: the Prio-1 list for challenge photos (all 603 when the photo is not in it),
+  // the pitch order of /demo for anything else.
   useEffect(() => {
-    getDemo()
-      .then((items) => setDemoIds(items.map((d) => d.id)))
-      .catch(() => setDemoIds([]));
-  }, []);
+    let stale = false;
+    const load = async (): Promise<string[]> => {
+      if (!id.startsWith("challenge:")) return (await getDemo()).map((d) => d.id);
+      const prio = (await listChallenge({ priority: 1 })).map((r) => r.id);
+      return prio.includes(id) ? prio : (await listChallenge()).map((r) => r.id);
+    };
+    load()
+      .then((ids) => !stale && setQueue(ids))
+      .catch(() => !stale && setQueue([]));
+    return () => {
+      stale = true;
+    };
+  }, [id]);
 
   useEffect(() => {
     // Set by the cleanup: a response for an old effect run (dev StrictMode runs effects twice,
@@ -157,90 +168,142 @@ export default function AnalysePage() {
   };
 
   const showResult = result && !replaying && !analysing;
+  const running = replaying || analysing;
   const canRunLive = MODE === "live" && record && !analysing;
   // Nothing of the result shows before the replay ends, the map included.
   const coords = showResult ? result.fields.coordinates?.value : null;
   const canReplay = MODE !== "live" && showResult && result.trace?.length > 0;
-  const demoIndex = demoIds.indexOf(id);
-  const nextDemo = demoIndex >= 0 ? demoIds[demoIndex + 1] : undefined;
+  const pos = queue.indexOf(id);
+  const prev = pos > 0 ? queue[pos - 1] : undefined;
+  const next = pos >= 0 ? queue[pos + 1] : undefined;
+  const signature = record?.signature ?? id;
 
   return (
-    <main className="wrapper py-6">
-      <div className="flex items-baseline justify-between gap-4 text-meta text-ink-muted">
-        <Link href="/" className="hover:text-ink-strong">
-          ← Archiv
-        </Link>
-        <div className="flex items-baseline gap-4">
-          {canReplay && (
-            <button type="button" onClick={() => startReplay(result)} className="hover:text-ink-strong">
-              Analyse erneut abspielen
-            </button>
-          )}
-          {canRunLive && showResult && (
-            <button type="button" onClick={() => startLive(true)} className="hover:text-ink-strong">
-              Neu analysieren
-            </button>
-          )}
-          {nextDemo && (
-            <Link href={analyseHref(nextDemo)} className="hover:text-ink-strong">
-              Nächste Karte →
-            </Link>
+    <>
+      <nav aria-label="Brotkrume" className="bg-paper-2">
+        <div className="wrapper flex flex-wrap items-center justify-between gap-x-6 gap-y-2 py-2.5">
+          <ol className="flex items-center gap-1 overflow-x-auto whitespace-nowrap text-small font-bold">
+            <li>
+              <Link href="/" className="px-1 hover:text-ink-strong hover:underline">
+                Arbeitsplatz
+              </Link>
+            </li>
+            {record?.collection && (
+              <li className="flex items-center gap-1">
+                <ChevronRight size={14} strokeWidth={1.5} className="text-ink-muted" aria-hidden />
+                <Link href="/" className="px-1 hover:text-ink-strong hover:underline">
+                  {record.collection}
+                </Link>
+              </li>
+            )}
+            <li className="flex items-center gap-1">
+              <ChevronRight size={14} strokeWidth={1.5} className="text-ink-muted" aria-hidden />
+              <span aria-current="page" className="rounded bg-accent px-2 py-0.5 font-mono font-medium text-white">
+                {signature}
+              </span>
+            </li>
+          </ol>
+          {pos >= 0 && (
+            <div className="flex items-center gap-4 text-small">
+              {prev ? (
+                <Link href={analyseHref(prev)} className="hover:text-ink-strong hover:underline">
+                  ← Vorheriges
+                </Link>
+              ) : (
+                <span className="text-ink-muted">← Vorheriges</span>
+              )}
+              <span className="font-mono text-ink-muted">
+                {pos + 1} von {queue.length}
+              </span>
+              {next ? (
+                <Link href={analyseHref(next)} className="hover:text-ink-strong hover:underline">
+                  Nächstes →
+                </Link>
+              ) : (
+                <span className="text-ink-muted">Nächstes →</span>
+              )}
+            </div>
           )}
         </div>
-      </div>
+      </nav>
 
-      {error && <p className="mt-6 text-bad">{error}</p>}
-      {!error && !record && <p className="mt-6 text-ink-muted">Lade Foto ...</p>}
+      <main className="wrapper py-6">
+        {error && <p className="text-bad">{error}</p>}
+        {!error && !record && <p className="text-ink-muted">Lade Foto ...</p>}
 
-      {record && (
-        <div className="mt-4 grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,520px)]">
-          <div className="order-2 lg:order-1">
-            <MapPanel
-              coords={coords ?? null}
-              emptyText={
-                showResult ? "Keine Koordinaten" : missing || failure ? "Keine Analyse" : "Ort wird bestimmt ..."
-              }
-              startYear={showResult ? estimatedYear(result) : null}
-              photoId={id}
-            />
-          </div>
+        {record && (
+          <>
+            <div className="grid gap-10 lg:grid-cols-2">
+              <PhotoPanel record={record} />
 
-          <div className="order-1 space-y-6 lg:order-2">
-            <PhotoPanel record={record} />
+              <div className="space-y-6">
+                {missing && (
+                  <div className="flex flex-wrap items-baseline justify-between gap-3 border-y border-rule py-3">
+                    <p className="text-ink-muted">Noch kein Ergebnis für dieses Foto</p>
+                    {canRunLive && <StartButton onClick={() => startLive(false)}>Analyse starten</StartButton>}
+                  </div>
+                )}
 
-            {missing && (
-              <div className="flex flex-wrap items-baseline justify-between gap-3 border-y border-rule py-3">
-                <p className="text-ink-muted">Für dieses Foto liegt noch keine Analyse vor.</p>
-                {canRunLive && <StartButton onClick={() => startLive(false)}>Analyse starten</StartButton>}
+                {failure && (
+                  <div className="flex flex-wrap items-baseline justify-between gap-3 border-y border-rule py-3">
+                    <p className="text-bad">{failure}</p>
+                    {canRunLive && <StartButton onClick={() => startLive(true)}>Erneut versuchen</StartButton>}
+                  </div>
+                )}
+
+                {running && (
+                  <div className="flex items-baseline justify-between border-y border-rule py-3">
+                    <p className="text-ink-muted">Ort wird bestimmt ...</p>
+                    {replaying && (
+                      <button type="button" onClick={skipReplay} className="text-small text-ink-muted hover:text-ink-strong">
+                        Überspringen
+                      </button>
+                    )}
+                  </div>
+                )}
+                {/* While it runs, the steps appear where the result will appear. */}
+                {running && <TraceLog items={steps} running />}
+
+                {showResult && <ResultPanel result={result} />}
               </div>
+            </div>
+
+            {!running && steps.length > 0 && (
+              <section className="relative mt-10 border-t border-rule pt-4">
+                <div className="absolute right-0 top-4 flex gap-4 text-small text-ink-muted">
+                  {canReplay && (
+                    <button type="button" onClick={() => startReplay(result)} className="hover:text-ink-strong">
+                      Erneut abspielen
+                    </button>
+                  )}
+                  {canRunLive && showResult && (
+                    <button type="button" onClick={() => startLive(true)} className="hover:text-ink-strong">
+                      Neu analysieren
+                    </button>
+                  )}
+                </div>
+                <TraceLog items={steps} running={false} />
+              </section>
             )}
 
-            {failure && (
-              <div className="flex flex-wrap items-baseline justify-between gap-3 border-y border-rule py-3">
-                <p className="text-bad">{failure}</p>
-                {canRunLive && <StartButton onClick={() => startLive(true)}>Erneut versuchen</StartButton>}
-              </div>
+            {showResult && (
+              <section className="mt-10 border-t border-rule pt-4">
+                <h2 className="text-h3">Karte</h2>
+                <div className="mt-3">
+                  <MapPanel
+                    coords={coords ?? null}
+                    emptyText="Ort nicht bestimmbar"
+                    startYear={null}
+                    photoId={id}
+                    zeitreise={false}
+                  />
+                </div>
+              </section>
             )}
-
-            {analysing && (
-              <p className="border-y border-rule py-3 text-ink-muted">Ort und Zeitraum werden bestimmt ...</p>
-            )}
-
-            {result && replaying && (
-              <div className="flex items-baseline justify-between border-y border-rule py-3">
-                <p className="text-ink-muted">Ort und Zeitraum werden bestimmt ...</p>
-                <button type="button" onClick={skipReplay} className="text-meta text-ink-muted hover:text-ink-strong">
-                  Überspringen
-                </button>
-              </div>
-            )}
-            {showResult && <ResultPanel result={result} />}
-
-            {(steps.length > 0 || analysing) && <TraceLog items={steps} running={replaying || analysing} />}
-          </div>
-        </div>
-      )}
-    </main>
+          </>
+        )}
+      </main>
+    </>
   );
 }
 

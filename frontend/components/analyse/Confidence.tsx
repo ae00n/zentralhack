@@ -1,15 +1,15 @@
-// Per-field confidence: number in mono plus a 2px bar, 60px wide. Below 0.5 both turn --warn.
-export const REVIEW_THRESHOLD = 0.5;
+// Per-field Modell-Sicherheit: a mono percentage, "86 %". Below 0.9 (Ralph's acceptance line) it turns --warn.
+// Never a bar on its own (FRONTPAGE_PLAN 2.1).
+import { formatPct } from "@/lib/format";
+import { SURE } from "@/lib/review";
+
+export const REVIEW_THRESHOLD = SURE;
 
 export default function Confidence({ value }: { value: number }) {
   const low = value < REVIEW_THRESHOLD;
-  const pct = Math.max(0, Math.min(1, value)) * 100;
   return (
-    <span className="inline-flex items-center gap-2" title={`Konfidenz ${value.toFixed(2)}`}>
-      <span className="relative h-[2px] w-[60px] bg-rule">
-        <span className={`absolute inset-y-0 left-0 ${low ? "bg-warn" : "bg-ink"}`} style={{ width: `${pct}%` }} />
-      </span>
-      <span className={`font-mono text-meta ${low ? "text-warn" : ""}`}>{value.toFixed(2)}</span>
+    <span title={`Modell-Sicherheit ${formatPct(value)}`} className={`font-mono text-small ${low ? "text-warn" : ""}`}>
+      {formatPct(value)}
     </span>
   );
 }

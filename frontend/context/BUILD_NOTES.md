@@ -244,3 +244,26 @@ Keep appending: a new section per step, and update an older section when somethi
 
 **Not built**
 - Nothing from the item's scope. The API functions are only exercised through the pages that use them; `listResults`, `postReview` and `bestReferenceMatch` have no caller yet.
+
+## v3 item 3: Detail page v3 (23.10.)
+
+**Check:** the SG.CIV.17.3 mock shows Schwyz / Schwyz / Alterszentrum Acherhof / Mythen / Grundstrasse 32 in that order. Done (headless Chrome, all three mocks): rows in the brief's order; percentages mono and `--warn` below 90 % (Mythen 88 % is amber, the others not); empty fields "nicht bestimmbar" in muted text without a percentage; Begründung box with a `cert-check` border on "Prüfung nötig" photos and `ink-muted` on sure ones; expanded evidence shows "spricht dagegen:" and the "Referenzfoto ansehen" link. `tsc` clean, no console errors besides the favicon.
+
+**Special**
+- Layout (plan 5): breadcrumb band on `paper-2` ("Arbeitsplatz › SG.CIV.17 › **SG.CIV.17.3**", current segment `bg-accent` white, mono) with "← Vorheriges · 3 von 50 · Nächstes →" on the right; then photo | Erschliessung in two equal columns; "So entsteht das Ergebnis" full width below; a 240 px map at the bottom.
+- Vorheriges / Nächstes run over the Prio-1 list (`listChallenge({priority: 1})`); a challenge photo outside Prio 1 gets all 603; non-challenge ids keep the `/demo` order. Keyboard arrows come with the review bar.
+- While the trace replays (or a live analysis streams), the steps appear in the right column where the result will appear, under "Ort wird bestimmt ..." + "Überspringen"; when it ends, the Erschliessung fades in there and the trace moves below (it remounts, so its lines fade in once more). "Erneut abspielen" / "Neu analysieren" sit at the right of the trace heading.
+- Erschliessung: "Titel" first, suggested in the archive pattern "Objekt, Ort" (`buildings[0]`, `locality`; plan 3) with its own provenance line; then the five fields. Postcard results still show Ort / Jahrzehnt after them; the coordinates row is gone (the map shows them).
+- Field row: label (14 px muted) | value (16 px medium, muted when empty) | `86 %` mono | chevron; meta line = up to 3 supporting source kinds in German + provenance. Corrected values (a server `review` with `korrigiert`) already render as the AI value struck through → new value, meta `korrigiert · KI: Brunnen`; editing comes with the review bar.
+- Provenance (`lib/review.ts`): no review or `offen` = "KI-Vorschlag · ungeprüft"; `bestaetigt` = "geprüft · bestätigt 24.10.2026 10:12" (local time); `korrigiert` = "korrigiert · KI: {alt}" on the changed fields, "geprüft · bestätigt ..." on the others. `effectiveValue()` = review value when corrected, else AI value.
+- Evidence links: `url` → "Quelle"; `stasz:` refs → "im Katalog" (`query.staatsarchiv.sz.ch/detail.aspx?ID=`); other refs → "Referenzfoto ansehen" (`/analyse/{ref_id}`). Red underlined `.link` style.
+- `REVIEW_THRESHOLD` = `SURE` = 0.9. `Confidence.tsx` is now only the mono percentage (no bar).
+- Begründung box (sz `.box`): "Modell-Sicherheit gesamt 94 % · sicher" or "· Prüfung nötig" (warn), then "Begründung: {confidence_explanation}".
+- `formatField` / `formatAny` / `formatPct` say "nicht bestimmbar" for empty values (the en dash placeholder is gone); lists are joined with "; " like the export.
+- Photo caption: "SG.CIV.17.3 · Aufnahmedatum 24.02.2005 · NIKON D1X" (mono), then the credit. `metaLine` says "Aufnahmedatum" for challenge photos, "Entstehung:" for archive cards.
+- v3 labels: tools `address_lookup` "Adressverzeichnis abfragen", `named_buildings` "Benannte Gebäude suchen"; evidence kinds "Adressverzeichnis", "Benanntes Gebäude", "Kameradaten (EXIF)", "Foto derselben Serie". Trace heading "So entsteht das Ergebnis · n Schritte".
+- Detail map: `MapPanel zeitreise={false}` = 240 px SWISSIMAGE, no slider, no `/timeline` call (the Zeitreise code stays for postcard use). Pin and circle switched from brand red to `--ink`.
+- "Noch kein Ergebnis für dieses Foto" replaces the old "keine Analyse" sentence (copy deck).
+
+**Not built**
+- Nothing from the item's scope.

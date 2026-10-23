@@ -66,7 +66,8 @@ export default function MapView({ center, tiles, tilesMaxZoom = 19, layerLabel, 
   // Create once; the effects below follow prop changes.
   useEffect(() => {
     if (!container.current) return;
-    const accent = token("--accent", "#9a3324");
+    // Ink, not brand red: red never encodes data (FRONTPAGE_PLAN 2).
+    const mark = token("--ink", "#191919");
     const m = new maplibregl.Map({
       container: container.current,
       style: {
@@ -81,13 +82,13 @@ export default function MapView({ center, tiles, tilesMaxZoom = 19, layerLabel, 
             id: "uncertainty-fill",
             type: "fill",
             source: "uncertainty",
-            paint: { "fill-color": accent, "fill-opacity": 0.12 },
+            paint: { "fill-color": mark, "fill-opacity": 0.12 },
           },
           {
             id: "uncertainty-line",
             type: "line",
             source: "uncertainty",
-            paint: { "line-color": accent, "line-width": 1.5 },
+            paint: { "line-color": mark, "line-width": 1.5 },
           },
         ],
       },

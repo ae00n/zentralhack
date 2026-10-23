@@ -29,9 +29,14 @@ interface Props {
   startYear: number | null;
   /** The photo under analysis. */
   photoId: string;
+  /**
+   * false = the compact v3 detail map (240px, SWISSIMAGE, no slider). The challenge photos are from
+   * 2003 to 2013, so the Zeitreise is optional there (CHALLENGE_BRIEF 5).
+   */
+  zeitreise?: boolean;
 }
 
-export default function MapPanel({ coords, emptyText, startYear, photoId }: Props) {
+export default function MapPanel({ coords, emptyText, startYear, photoId, zeitreise = true }: Props) {
   const [tiles, setTiles] = useState<{ tilesUrl: string; offline: boolean } | null>(null);
   const [timeline, setTimeline] = useState<Timeline | null>(null);
   const [photos, setPhotos] = useState<StripPhoto[]>([]);
@@ -58,7 +63,7 @@ export default function MapPanel({ coords, emptyText, startYear, photoId }: Prop
   }, [year]);
 
   useEffect(() => {
-    if (!coords) return;
+    if (!coords || !zeitreise) return;
     let stale = false;
     setStatus("loading");
     getTimeline(coords.lat, coords.lon)
@@ -76,11 +81,11 @@ export default function MapPanel({ coords, emptyText, startYear, photoId }: Prop
     return () => {
       stale = true;
     };
-  }, [coords?.lat, coords?.lon]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [coords?.lat, coords?.lon, zeitreise]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const mapYears = useMemo(() => timeline?.map_years ?? [], [timeline]);
   // Without map_years there is no valid TIME to ask for, so the map stays on SWISSIMAGE.
-  const mapTime = snapToMap(mapYear, mapYears);
+  const mapTime = zeitreise ? snapToMap(mapYear, mapYears) : ({ kind: "heute" } as const);
   const nearest = nearestPhoto(photos, year);
 
   const layer =
@@ -95,7 +100,7 @@ export default function MapPanel({ coords, emptyText, startYear, photoId }: Prop
 
   return (
     <section>
-      <div className="relative aspect-[4/3] bg-paper-2">
+      <div className={`relative bg-paper-2 ${zeitreise ? "aspect-[4/3]" : "h-60"}`}>
         {coords && tiles ? (
           <div className="fade-in absolute inset-0">
             <MapView
@@ -119,6 +124,7 @@ export default function MapPanel({ coords, emptyText, startYear, photoId }: Prop
             {formatCoordinates(coords)}
             <span className="font-sans"> · Kreis zeigt die Unsicherheit</span>
           </p>
+          {zeitreise && (
           <Zeitreise
             year={year}
             onYear={setYear}
@@ -129,6 +135,7 @@ export default function MapPanel({ coords, emptyText, startYear, photoId }: Prop
             currentId={photoId}
             status={status}
           />
+          )}
         </>
       )}
     </section>

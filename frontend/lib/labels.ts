@@ -3,7 +3,8 @@ import type { FieldKey } from "./types";
 
 /**
  * Result rows in display order: the brief's five fields first (CONTRACTS v3), then the optional
- * postcard fields, shown only when a result has them. year_range is shown inside the Jahrzehnt row.
+ * postcard fields, shown only when a result has them. year_range is shown inside the Jahrzehnt row;
+ * coordinates are on the map.
  */
 export const FIELD_ROWS: { key: FieldKey; label: string }[] = [
   { key: "locality", label: "Ortschaft" },
@@ -13,12 +14,12 @@ export const FIELD_ROWS: { key: FieldKey; label: string }[] = [
   { key: "street", label: "Strasse" },
   { key: "place", label: "Ort" },
   { key: "decade", label: "Jahrzehnt" },
-  { key: "coordinates", label: "Koordinaten" },
 ];
 
 export const FIELD_LABELS: Record<string, string> = {
   ...Object.fromEntries(FIELD_ROWS.map((r) => [r.key, r.label])),
   year_range: "Zeitraum",
+  coordinates: "Koordinaten",
 };
 
 const EVIDENCE_LABELS: Record<string, string> = {
@@ -35,6 +36,11 @@ const EVIDENCE_LABELS: Record<string, string> = {
   nb_negative: "Negativ Nationalbibliothek",
   publisher_rule: "Verlag",
   year_probe: "Bildstil",
+  // v3
+  address_register: "Adressverzeichnis",
+  named_building: "Benanntes Gebäude",
+  exif: "Kameradaten (EXIF)",
+  session_photo: "Foto derselben Serie",
 };
 
 const TOOL_LABELS: Record<string, string> = {
@@ -46,6 +52,9 @@ const TOOL_LABELS: Record<string, string> = {
   swisstopo_profile: "Höhenprofil",
   terrain_check: "Geländeprüfung",
   submit_result: "Ergebnis",
+  // v3
+  address_lookup: "Adressverzeichnis abfragen",
+  named_buildings: "Benannte Gebäude suchen",
 };
 
 export function fieldLabel(key: string): string {
