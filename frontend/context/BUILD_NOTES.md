@@ -267,3 +267,23 @@ Keep appending: a new section per step, and update an older section when somethi
 
 **Not built**
 - Nothing from the item's scope.
+
+## v3 item 4: Desk list, counters, Excel button (23.10.)
+
+**Check:** 50 rows, counters add up to 50, Excel link has the right URL. Done against a **test-only fake backend** (Node, scratchpad, not in the repo: 603 challenge records, 50 of them Prio 1, mixed results, 3 Prio-1 photos without a result, no bulk `/results`), frontend in live mode: Prio 1 shows 50 rows, counters 0 + 44 + 6 = 50 (fake data has no sure Prio-1 photo), Excel link `{API}/export.xlsx?split=challenge&priority=1`; "Alle 603" shows 603 rows, counters 261 + 262 + 80 = 603, Excel link without `priority`. Clicking "Prüfung nötig" filters to 44 rows and sets the Filter select; `/?q=brunnen` gives 9 of 50. Mock mode: 3 rows, 1 + 1 + 1, "1 von 3 Prio 1 geprüft". Real data (Said + Dijar's 603 records) not tried: the data stub has one record and the remote data server needs a URL and token.
+
+**Special**
+- `app/page.tsx` is now the Arbeitsplatz; the old Archiv grid and `PhotoCard.tsx` are gone. `useSearchParams` sits in a Suspense boundary (static build).
+- Counters (`lib/desk.ts`): one model class per photo so they always add up: **nicht bestimmbar** = Ortschaft and Gemeinde both empty **or no result yet** (the note then says "Ort offen · 3 ohne Ergebnis"); **sicher** = overall ≥ 0.9 and not flagged; **Prüfung nötig** = the rest. The counters show the model's verdict, independent of the review; review progress is its own block ("12 von 50 Prio 1 geprüft", bar + mono percent, "9 bestätigt · 3 korrigiert"), always over Prio 1. Counters are toggle buttons that set the list filter (2 px underline when active).
+- Counters follow the list scope (Prio 1 or all 603); the meta line counts from the records ("603 Fotos · 50 Prio 1 · Aufnahmen 2003 bis 2013", years from the EXIF dates).
+- Loading: one `listChallenge()` call for all 603 records, Prio 1 split client-side; results via `listResults` for the shown scope only (Prio 1 first; "Alle" fetches the other 553 on demand, cached). Against the fake: the bulk call 404s once, then 50 single calls, 6 at a time.
+- List: segmented "Prio 1 | Alle 603" (4 px radius, active = ink fill), "Sortierung" (Unsicherste zuerst default, Sicherste zuerst, Nach Signatur, Nach Serie) and "Filter" (Alle, sicher, Prüfung nötig, nicht bestimmbar, ungeprüft, geprüft) as native selects with the sz.ch input border. "n von m Fotos" line is `aria-live`.
+- Sorting: no result counts as least sure; ties and "Nach Signatur" use numeric signature order (SG.CIV.17.40 before .400); "Nach Serie" groups a session under its lowest signature.
+- Search (`?q=` from the red band): signature, title and the five values that count (review wins), accent-insensitive; "Suche «brunnen» · zurücksetzen".
+- Row (`components/desk/PhotoRow.tsx`): 96×64 thumbnail on paper-2, certainty dot (same scale as the coming map: confirmed = filled + ring, sure, check, open = hollow; CSS `.cert-dot`, never brand red), mono signature, "Serie (n)" for sessions, meta "Schwyz · Alterszentrum Acherhof · Grundstrasse 32 · 94 % · bestätigt" (street only when known; "Prüfung nötig" in warn). The whole row links to the detail page for now.
+- Excel button: primary red, download icon, plain `<a download>` to `exportXlsxUrl` (Said sends the file name). Full width on phone.
+- Counter numbers are Barlow Light (`text-counter`), not mono.
+
+**Not built**
+- "Weiteres Foto prüfen" (upload): first on the plan's cut list.
+- The error fallback "Server nicht erreichbar, Demo-Daten werden angezeigt": the desk shows the error but no demo data, because mock images and results only exist in mock mode.
