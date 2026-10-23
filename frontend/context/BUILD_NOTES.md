@@ -342,3 +342,17 @@ Keep appending: a new section per step, and update an older section when somethi
 
 **Not built**
 - Nothing from the item's scope.
+
+## v3 item 8: Demo mode run-through (23.10., partly)
+
+**Check:** full demo script (plan 11) runs offline on the M4 Air. **Not done yet**: it needs the M4 Air, Dijar's `data/` bundle (records, cached results for the Prio-1 photos, tiles incl. `pixelkarte-grau`) and Said's server with those results. None of it is on Timo's laptop.
+
+What was checked on the laptop:
+- `next build` with `NEXT_PUBLIC_MODE=demo` passes (TypeScript clean; `/` and `/nachweis` static, `/analyse/[id]` dynamic). First production build since the v3 work.
+- That build served with `next start` against the item-4 fake backend: desk with 50 rows and the map, no "Beispieldaten" tag, the dev-only `window.__deskMap` hook absent; select + second click opens a photo, the trace replays, then the Erschliessung shows. No console errors besides expected 404s.
+
+**For the M4 Air run (Sat morning):**
+1. Said's server with `AGENT_OFFLINE=1` and Dijar's `data/` (results for the 50 Prio-1 photos cached in `data/results/`).
+2. `NEXT_PUBLIC_MODE=demo NEXT_PUBLIC_API_URL=http://localhost:8000 npm run build && npm start` (README), built once online (fonts).
+3. Wi-Fi off, then plan 11: desk map + counters → SG.CIV.17.3 (replay) → fields + Begründung → photo with a match → low-confidence photo: K, fix Gemeinde, Enter, Excel-Zeile → Enter, Enter → Excel herunterladen → Nachweis.
+4. Watch for: grey map tiles offline (Dijar's cache), `/review` writes into the cached results (a second POST overwrites, so re-running the demo needs a reset of the reviews or fresh copies of `data/results/`).
