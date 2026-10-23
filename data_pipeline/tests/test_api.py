@@ -64,3 +64,9 @@ def test_similar_images_verify_reranks(tiny_data, monkeypatch):
     assert set(plain[0]) == {"id", "score", "record"}  # default shape unchanged
     out = tiny_data.similar_images("q.jpg", k=2, verify=True)
     assert [(o["id"], o["inliers"], o["verified"]) for o in out] == [("epics:4", 80, True), ("stasz:3", 40, True)]
+
+
+def test_archive_lookup_word_order_and_spelling(tiny_data):
+    assert [r["id"] for r in tiny_data.archive_lookup(place="Schwyz Hauptplatz")] == ["stasz:2"]
+    assert [r["id"] for r in tiny_data.archive_lookup(place="Hauptplaz")] == ["stasz:2"]  # typo: fuzzy fallback
+    assert tiny_data.archive_lookup(place="Einsiedeln") == []

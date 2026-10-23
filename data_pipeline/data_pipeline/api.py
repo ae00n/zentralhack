@@ -126,13 +126,16 @@ def archive_lookup(place: str | None = None, municipality: str | None = None,
                    year_from: int | None = None, year_to: int | None = None, limit: int = 20) -> list[dict]:
     """Dated, labelled Staatsarchiv records matching the filter. Never returns eval cards.
 
-    place: substring match on Thema tags and title. municipality: exact Gemeinde name
-    (with or without "(SZ)"). Years: overlap with the card's year range.
+    place: matches Thema tags and title when every word of it occurs there, in any order ("Kirche
+    Lachen" finds "Lachen, Pfarrkirche"). With no hit at all, spelling variants count too
+    ("Muotathal" finds "Muotatal"). municipality: exact Gemeinde name (with or without "(SZ)").
+    Years: overlap with the card's year range.
     """
     ev = eval_ids()
     p = _norm(place) if place else None
     m = _norm(re.sub(r"\s*\(SZ\)\s*$", "", municipality)) if municipality else None
-    out = []
+    words = [w for w in (p or "").split() if len(w) >= 3] or ([p] if p else [])
+    out, fuzzy = [], []
     for r in _records().values():
         if r["source"] != "staatsarchiv" or "#" in r["id"] or r["id"] in ev:
             continue
@@ -141,13 +144,23 @@ def archive_lookup(place: str | None = None, municipality: str | None = None,
             continue
         if m and _norm(re.sub(r"\s*\(SZ\)\s*$", "", r.get("municipality") or "")) != m:
             continue
-        if p and p not in _norm(" ".join(r.get("places") or []) + " " + (r.get("title") or "")):
-            continue
         if year_from is not None and d.get("year_to") is not None and d["year_to"] < year_from:  # "nach 1910": open end
             continue
         if year_to is not None and d["year_from"] > year_to:
             continue
+        if p:
+            text = _norm(" ".join(r.get("places") or []) + " " + (r.get("title") or ""))
+            if not all(w in text for w in words):
+                if not out:
+                    fuzzy.append((r, text))
+                continue
         out.append(r)
+    if p and not out:  # spelling variants: every query word close to some word of the card
+        import difflib
+        for r, text in fuzzy:
+            tw = text.split()
+            if all(difflib.get_close_matches(w, tw, n=1, cutoff=0.8) for w in words):
+                out.append(r)
     out.sort(key=lambda r: (r["date"]["year_from"], r["id"]))
     return out[:limit]
 
