@@ -7,6 +7,7 @@ yet (listing records, the demo list, map years), the gap is handled here in one 
 import hashlib
 import json
 import os
+import re
 from functools import lru_cache
 from pathlib import Path
 from urllib.parse import quote
@@ -59,11 +60,21 @@ def _unique(records: list[dict]) -> list[dict]:
     return out
 
 
-def list_records(split: str | None = None, municipality: str | None = None, q: str | None = None) -> list[dict]:
+def _natural(r: dict) -> tuple:
+    """Prio 1 first, then by signature with numbers compared as numbers (SG.CIV.17.3 before SG.CIV.17.10)."""
+    prio = (r.get("raw") or {}).get("priority")
+    key = re.split(r"(\d+)", r.get("signature") or r["id"])
+    return (prio if isinstance(prio, int) else 9, [int(x) if x.isdigit() else x for x in key])
+
+
+def list_records(split: str | None = None, municipality: str | None = None, q: str | None = None,
+                 priority: int | None = None) -> list[dict]:
     out = []
     ql = q.casefold() if q else None
     for r in _unique(all_records()):
         if split and r.get("split") != split:
+            continue
+        if priority is not None and (r.get("raw") or {}).get("priority") != priority:
             continue
         if municipality and (r.get("municipality") or "").casefold() != municipality.casefold():
             continue
@@ -73,6 +84,8 @@ def list_records(split: str | None = None, municipality: str | None = None, q: s
             if ql not in hay:
                 continue
         out.append(r)
+    if split == "challenge" or priority is not None:
+        out.sort(key=_natural)
     return out
 
 

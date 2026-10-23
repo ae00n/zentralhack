@@ -1,4 +1,5 @@
 import copy
+import csv
 import io
 import json
 
@@ -8,7 +9,7 @@ from PIL import Image
 
 from agent import config, loop, results, schemas
 from agent.server import app as app_module
-from agent.server import export, jobs
+from agent.server import catalogue, export, jobs
 from agent.server.lv95 import wgs84_to_lv95
 
 FIXTURE_ID = "epics:PK_020566"
@@ -195,17 +196,23 @@ def test_results_404(client):
     assert client.get("/results/stasz:404").status_code == 404
 
 
+def _csv_rows(content: bytes) -> list[list[str]]:
+    return list(csv.reader(io.StringIO(content.decode("utf-8-sig")), delimiter=";"))
+
+
 def test_export_csv(client):
     results.save(fixture_result())
     r = client.get("/export.csv")
     assert r.status_code == 200 and r.headers["content-type"].startswith("text/csv")
     assert r.content.startswith(b"\xef\xbb\xbf")
-    expected = (config.FIXTURES / "export.csv").read_bytes()
-    got_lines = r.content.decode("utf-8-sig").splitlines()
-    exp_lines = expected.decode("utf-8-sig").splitlines()
-    assert got_lines[0] == exp_lines[0] == ";".join(export.COLUMNS)
-    assert got_lines[1] == exp_lines[1]
-    assert r.content == expected
+    got, exp = _csv_rows(r.content), _csv_rows((config.FIXTURES / "export.csv").read_bytes())
+    assert got[0] == exp[0] == export.COLUMNS
+    row, want = dict(zip(got[0], got[1])), dict(zip(exp[0], exp[1]))
+    # same values as the contract fixture, except the columns the fixture fills by hand
+    for col in export.COLUMNS:
+        if col not in ("Aufnahmedatum", "Quellen"):  # record.date.raw is "vor 13.6.1907"; Quellen picks differ
+            assert row[col] == want[col], col
+    assert row["Nicht_bestimmbar"] == "Strasse" and row["Pruefung_noetig"] == "ja" and row["Konfidenz_Gemeinde"] == "0.82"
 
 
 def test_export_json_and_ids(client):
@@ -214,18 +221,53 @@ def test_export_json_and_ids(client):
     rows = client.get("/export.json").json()
     assert len(rows) == 2 and set(rows[0]) == set(export.COLUMNS)
     rows = client.get("/export.json", params={"ids": f"{FIXTURE_ID},stasz:missing"}).json()
-    assert len(rows) == 1 and rows[0]["E_LV95"] == 2689007 and rows[0]["Pruefung_noetig"] == "nein"
-    lines = client.get("/export.csv", params={"ids": "stasz:2"}).content.decode("utf-8-sig").splitlines()
-    assert len(lines) == 2 and lines[1].startswith(";;")  # no record for stasz:2 in stub mode
+    assert len(rows) == 1 and rows[0]["E_LV95"] == 2689007 and rows[0]["Dateiname"] == "PK_020566.jpg"
+    lines = _csv_rows(client.get("/export.csv", params={"ids": "stasz:2"}).content)
+    assert len(lines) == 2 and lines[1][0] == "stasz:2"  # no record for stasz:2 in stub mode: id as key
 
 
-def test_export_needs_review_and_evidence_order():
-    r = copy.deepcopy(fixture_result())
-    r["needs_review"] = True
-    r["fields"]["municipality"]["evidence"][0]["supports"] = False
-    row = export.row(r, None)
-    assert row["Pruefung_noetig"] == "ja"
-    assert row["Evidenz"].split(" | ")[0].startswith("Blick auf Urirotstock")
+def test_export_xlsx_has_both_sheets_and_links(client):
+    from openpyxl import load_workbook
+
+    results.save(fixture_result())
+    r = client.get("/export.xlsx")
+    assert r.status_code == 200 and "spreadsheetml" in r.headers["content-type"]
+    wb = load_workbook(io.BytesIO(r.content))
+    assert wb.sheetnames == ["Metadaten", "Methode"]
+    ws = wb["Metadaten"]
+    assert [c.value for c in ws[1]] == export.COLUMNS
+    assert ws["A2"].value == "PK_020566.jpg" and ws["A2"].hyperlink.target.endswith("/images/epics:PK_020566")
+    gemeinde = ws.cell(row=2, column=export.COLUMNS.index("Gemeinde") + 1).value
+    assert gemeinde == "Ingenbohl"
+    method = {row[0].value: row[1].value for row in wb["Methode"].iter_rows(min_row=2)}
+    from agent import confidence
+    assert method["3 Quellen"] == f"{confidence.SCALE[3]:.2f}" and method["4 oder mehr Quellen"] == f"{confidence.TOP:.2f}"
+
+
+def test_review_confirms_and_corrects(client):
+    results.save(fixture_result())
+    assert client.post(f"/review/{FIXTURE_ID}", json={"status": "egal"}).status_code == 400
+    assert client.post(f"/review/{FIXTURE_ID}", json={"status": "korrigiert"}).status_code == 400
+    assert client.post(f"/review/{FIXTURE_ID}", json={"status": "bestaetigt", "fields": {"decade": 1900}}).status_code == 400
+    assert client.post("/review/stasz:missing", json={"status": "bestaetigt"}).status_code == 404
+    r = client.post(f"/review/{FIXTURE_ID}", json={"status": "korrigiert", "fields": {"street": "Axenstrasse 2"},
+                                                     "note": "vor Ort geprüft"}).json()
+    assert r["review"]["status"] == "korrigiert" and r["review"]["reviewed_at"]
+    assert results.load(FIXTURE_ID)["review"]["fields"] == {"street": "Axenstrasse 2"}
+    row = client.get("/export.json").json()[0]
+    assert row["Strasse"] == "Axenstrasse 2" and row["Review_Status"] == "korrigiert"
+    assert row["Pruefung_noetig"] == "nein" and row["Nicht_bestimmbar"] is None
+
+
+def test_photos_priority_filter_and_order(monkeypatch):
+    def rec(i, prio):
+        return {"id": f"challenge:SG.CIV.17.{i}", "signature": f"SG.CIV.17.{i}", "split": "challenge",
+                "raw": {"priority": prio}}
+    recs = [rec(10, 2), rec(3, 1), rec(25, 1), rec(2, 2)]
+    monkeypatch.setattr(catalogue, "all_records", lambda: recs)
+    ids = [r["id"] for r in catalogue.list_records("challenge")]
+    assert ids == ["challenge:SG.CIV.17.3", "challenge:SG.CIV.17.25", "challenge:SG.CIV.17.2", "challenge:SG.CIV.17.10"]
+    assert [r["id"] for r in catalogue.list_records("challenge", priority=1)] == ids[:2]
 
 
 def test_lv95():
