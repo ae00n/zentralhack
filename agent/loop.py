@@ -307,8 +307,10 @@ class _Run:
             "trace": self.trace,
             "usage": {**self.usage, "api_calls": self.api_calls},
             "created_at": _now(),
-            # extra keys (allowed by CONTRACTS): inputs for data_pipeline.metrics.score
+            # extra keys (allowed by CONTRACTS): inputs for data_pipeline.metrics.score, and the settings
+            # that produced this result (the report compares runs by them)
             "estimates": body["estimates"],
+            "settings": {"effort": EFFORT, "max_steps": MAX_STEPS, "photo_budget_usd": PHOTO_BUDGET_USD},
         }
 
 
