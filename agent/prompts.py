@@ -36,7 +36,9 @@ inscriptions). Note distinctive buildings, mountains, lake shapes, terrain.
    - similar_images: reference photos of the same scene. A hit marked verified=true is a geometric match \
 of the same buildings; its title often names them. Unverified hits are only visually similar.
    - named_buildings: find a building by name ("Acherhof") or list named buildings near a point, with \
-coordinates and address. This is how a building you see gets its concrete name.
+coordinates and address, from OpenStreetMap and the federal building register GWR (official names, year \
+built). This is how a building you see gets its concrete name. A building built after the capture year \
+cannot be in the photo; prefer the official GWR name when both sources list the same building.
    - address_lookup: at the building's coordinates, gives the official Ortschaft, Gemeinde and street + number.
    - swisstopo_search: coordinates for named peaks, places, field names.
    - terrain_check: whether a mountain you see can be seen from a candidate viewpoint, and in which direction.

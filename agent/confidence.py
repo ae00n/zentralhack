@@ -35,7 +35,7 @@ LABEL = {
     "terrain": "Geländeprüfung",
     "map_layer": "Karte",
     "address_register": "Gebäudeadressverzeichnis",
-    "named_building": "OSM-Gebäude",
+    "named_building": "Gebäuderegister (OSM/GWR)",
     "exif": "EXIF-GPS",
     "session_photo": "Session-Foto",
 }

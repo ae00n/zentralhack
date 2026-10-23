@@ -32,8 +32,10 @@ ADDRESS_LOOKUP = {
 NAMED_BUILDINGS = {
     "name": "named_buildings",
     "description": (
-        "Named places in Kanton Schwyz from OpenStreetMap: buildings (churches, schools, care homes, hotels, "
-        "stations, huts, ...) and landscape names, with coordinates and address. Search by name (substring, "
+        "Named places in Kanton Schwyz from OpenStreetMap and the federal building register GWR (source "
+        "'gwr': official building name, year built, official address): buildings (churches, schools, care "
+        "homes, hotels, stations, huts, ...) and landscape names, with coordinates. A building built after "
+        "the photo's capture year cannot be in the photo. Search by name (substring, "
         "accents ignored, e.g. 'Acherhof'), near a point, or both; optionally filter by kind. Kinds are German "
         "labels such as Kirche/Kapelle, Kloster, Rathaus, Schule, Alters-/Pflegeheim, Spital, Bahnhof, "
         "Bergbahnstation, Schiffstation, Hotel, Berghütte, Museum, Restaurant, Berg, See/Gewässer, Fluss, Ort, "
@@ -84,7 +86,8 @@ def run_named_buildings(ctx: ToolContext, name: str | None = None, lat: float | 
                           is_error=True)
     hits = dp.named_buildings(lat=lat, lon=lon, radius_m=int(radius_m or 500), name=name or None,
                               kinds=kinds or None, limit=MAX_BUILDINGS)
-    keep = ("name", "kind", "address", "municipality", "lat", "lon", "distance_m", "osm", "wikidata", "alt_names")
+    keep = ("name", "kind", "source", "address", "locality", "municipality", "lat", "lon", "distance_m", "year_built",
+            "demolished", "osm", "gwr", "wikidata", "alt_names")
     out = [{k: h[k] for k in keep if h.get(k) not in (None, [], "")} for h in hits[:MAX_BUILDINGS]]
     query = {"name": name, "lat": lat, "lon": lon, "radius_m": radius_m, "kinds": kinds}
     return ToolOutput({"query": {k: v for k, v in query.items() if v is not None}, "results": out},
@@ -94,7 +97,8 @@ def run_named_buildings(ctx: ToolContext, name: str | None = None, lat: float | 
 def _buildings_summary(name: str | None, hits: list[dict]) -> str:
     what = f"«{name}»" if name else "in der Nähe"
     if not hits:
-        return f"OSM-Gebäude {what}: nichts gefunden"
+        return f"Gebäude {what}: nichts gefunden"
     first = hits[0]
     where = f", {first['municipality']}" if first.get("municipality") else ""
-    return f"OSM-Gebäude {what}: {len(hits)} Treffer, erster: {first['name']} ({first.get('kind')}{where})"
+    src = "GWR" if first.get("source") == "gwr" else "OSM"
+    return f"Gebäude {what}: {len(hits)} Treffer, erster: {first['name']} ({src}, {first.get('kind')}{where})"

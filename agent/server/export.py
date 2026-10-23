@@ -155,7 +155,8 @@ METHOD = [
     ("Prüfung nötig", "ja, wenn die Gesamtkonfidenz unter 0.90 liegt oder Ortschaft oder Gemeinde fehlt. "
                       "Nach einem Review (bestätigt oder korrigiert) nein; korrigierte Werte ersetzen die "
                       "Vorschläge der KI."),
-    ("Zählende Quellen", "Gebäudeadressverzeichnis (swisstopo), OSM-Gebäude, geometrisch verifiziertes "
+    ("Zählende Quellen", "Gebäudeadressverzeichnis (swisstopo), benanntes Gebäude aus OSM oder dem "
+                         "Gebäuderegister GWR, geometrisch verifiziertes "
                          "Referenzfoto (LightGlue) aus Staatsarchiv / E-Pics / Smapshot / LUBIS (ein nur "
                          "ähnliches Foto zählt nicht), Archivdatensatz, "
                          "swisstopo-Ortsname, Geländeprüfung (Sichtlinie), Text im Bild, Bildinhalt, "
