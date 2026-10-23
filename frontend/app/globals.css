@@ -226,3 +226,9 @@ body {
 .desk-popup button:hover {
   color: rgb(var(--ink-strong));
 }
+
+/* Programmatic focus without a ring until the keyboard is used (lib/quietFocus.ts). */
+[data-quiet-focus]:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}

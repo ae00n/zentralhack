@@ -1,6 +1,7 @@
 // Context band of the Arbeitsplatz (FRONTPAGE_PLAN 4, sz.ch "Mehr zum Thema" band): title, meta,
 // Excel button, and the counters. The three model counters are filters; review progress is Prio 1 only.
 import { Download } from "lucide-react";
+import { buttonClass } from "@/components/ui/button";
 import type { Counts, FilterKey } from "@/lib/desk";
 import { formatPct } from "@/lib/format";
 
@@ -56,7 +57,7 @@ export default function DeskBand({ meta, counts, prio, filter, onFilter, excelUr
             href={excelUrl}
             download
             // Desktop: the Excel button lives in the header. Phone keeps this full-width one (plan 5).
-            className="inline-flex w-full items-center justify-center gap-2 rounded bg-accent px-4 py-2 font-semibold text-white transition-colors duration-fade hover:bg-accent-hover sm:hidden"
+            className={buttonClass("primary", "h-10 w-full sm:hidden")}
           >
             <Download size={18} strokeWidth={1.5} aria-hidden />
             Excel herunterladen

@@ -439,3 +439,16 @@ What was checked on the laptop:
 
 **Not built**
 - Nothing from the item's scope.
+
+## polish item 3: Buttons, kbd, focus, toast (24.10.)
+
+**Check:** no 44 px outlined buttons left; no focus ring on page load; undo toast bottom-centre. Done (mock mode, 1440×900): a scan for buttons/links ≥ 40 px with a border finds none on the desk, SG.CIV.17.12 and SG.CIV.17.3; after load the focus sits on the weakest field (.12) or the heading (.3) with `data-quiet-focus`, computed `outline: none` and no box-shadow; after K + edit + Enter the sonner toast "Korrigiert: SG.CIV.17.12 · Rückgängig (⌫)" sits bottom centre (24 px from the bottom), its action undoes and "Rückgängig: SG.CIV.17.12" follows. The item-5 keyboard flow (Enter, K, save, Backspace, end of queue) is unchanged.
+
+**Special**
+- `components/ui/button.ts`: `buttonClass(variant, extra)` with the polish recipes (h-8, 13 px medium, 6 px radius): primary = red (only Bestätigen / Speichern / Excel herunterladen), secondary = soft paper-2 fill, ghost = text with hover fill; shared `FOCUS_RING` (`focus-visible:ring-2 ring-focus/50 ring-offset-1`). A class helper, not a component, so it also styles `<a download>`.
+- Review bar: Bestätigen (primary, Kbd ⏎ on red), Korrigieren (secondary, Kbd K), Überspringen (ghost, Kbd N); editing: Speichern / Abbrechen (Kbd Esc). The detail page's "Analyse starten / Erneut versuchen", the end-of-queue Excel link and the phone desk Excel button use the same recipes.
+- **No ring on load** without changing behaviour: `lib/quietFocus.ts` focuses as before (heading on sure photos, weakest field on "Prüfung nötig", the automation-bias rule of FRONTPAGE_PLAN 5) but marks the element `data-quiet-focus`; CSS hides its `:focus-visible` ring until the first key press or blur. The polish text suggests focusing the review region instead; that would make Enter confirm "Prüfung nötig" photos, so the focus targets stay.
+- Toast: `ReviewToast.tsx` removed; `lib/reviewQueue.ts` calls sonner (`toast(text, {id: "review", duration: 6000, action: Rückgängig (⌫)})`, errors with `toast.error`). One slot, so a new decision replaces the old toast. The "Rückgängig: …" note uses its own id (`review-undo`, 2.5 s), because sonner closes the decision toast after its action is clicked and would take the note with it. Action button styled soft (paper-2) in `Providers.tsx`.
+
+**Not built**
+- Nothing from the item's scope.

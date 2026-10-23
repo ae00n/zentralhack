@@ -10,7 +10,11 @@ export default function Providers({ children }: { children: React.ReactNode }) {
       <Toaster
         position="bottom-center"
         toastOptions={{
-          classNames: { toast: "bg-paper border border-rule/[0.08] shadow-pop text-ui rounded-lg font-sans text-ink" },
+          classNames: {
+            toast: "bg-paper border border-rule/[0.08] shadow-pop text-ui rounded-lg font-sans text-ink",
+            actionButton: "!bg-paper-2 !text-ink !font-medium !rounded-sm hover:!bg-rule/[0.08]",
+            error: "!text-bad",
+          },
         }}
       />
     </>

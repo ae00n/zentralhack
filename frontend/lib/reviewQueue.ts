@@ -2,6 +2,7 @@
 // held for 6 s or until the next decision, so Rückgängig works client-side. Module state, so it survives
 // moving to the next photo; pages subscribe with useReviewStore().
 import { useSyncExternalStore } from "react";
+import { toast as sonner } from "sonner";
 import { postReview, type ReviewBody } from "./api";
 import type { AnalysisResult, Review } from "./types";
 
@@ -20,6 +21,8 @@ export interface Toast {
   text: string;
   undoable: boolean;
   error?: boolean;
+  /** The "Rückgängig: …" note gets its own slot: sonner closes the decision toast after its action. */
+  undoNote?: boolean;
 }
 
 interface State {
@@ -34,7 +37,9 @@ interface State {
 
 const state: State = { overrides: new Map(), toast: null, decisions: [], skipped: new Set(), version: 0 };
 let pending: Pending | null = null;
-let toastTimer: ReturnType<typeof setTimeout> | undefined;
+/** One toast slot: a new decision replaces the previous toast (sonner, bottom centre). */
+const TOAST_ID = "review";
+const UNDO_ID = "review-undo";
 const listeners = new Set<() => void>();
 
 function emit() {
@@ -44,8 +49,15 @@ function emit() {
 
 function showToast(t: Toast | null) {
   state.toast = t;
-  if (toastTimer) clearTimeout(toastTimer);
-  if (t) toastTimer = setTimeout(() => showToast(null), HOLD_MS);
+  if (!t) sonner.dismiss(TOAST_ID);
+  else if (t.undoNote) sonner(t.text, { id: UNDO_ID, duration: 2500 });
+  else if (t.error) sonner.error(t.text, { id: TOAST_ID, duration: HOLD_MS });
+  else
+    sonner(t.text, {
+      id: TOAST_ID,
+      duration: HOLD_MS,
+      action: t.undoable ? { label: "Rückgängig (⌫)", onClick: () => void undo() } : undefined,
+    });
   emit();
 }
 
@@ -67,10 +79,8 @@ export function flush() {
   pending = null;
   clearTimeout(p.timer);
   void send(p);
-  if (state.toast?.undoable) {
-    state.toast = { ...state.toast, undoable: false };
-    emit();
-  }
+  // The decision is on its way: the toast stays, without the undo action.
+  if (state.toast?.undoable) showToast({ ...state.toast, undoable: false });
 }
 
 if (typeof window !== "undefined") window.addEventListener("pagehide", flush);
@@ -99,6 +109,7 @@ export function decide(result: AnalysisResult, signature: string, body: ReviewBo
   state.skipped.delete(id);
   const p: Pending = { photoId: id, signature, review, prev, timer: setTimeout(() => flush(), HOLD_MS) };
   pending = p;
+  sonner.dismiss(UNDO_ID);
   const verb = body.status === "korrigiert" ? "Korrigiert" : "Bestätigt";
   showToast({ text: `${verb}: ${signature}`, undoable: true });
 }
@@ -112,7 +123,8 @@ export function undo(): boolean {
   if (p.prev === undefined) state.overrides.delete(p.photoId);
   else state.overrides.set(p.photoId, p.prev);
   state.decisions.pop();
-  showToast({ text: `Rückgängig: ${p.signature}`, undoable: false });
+  sonner.dismiss(TOAST_ID);
+  showToast({ text: `Rückgängig: ${p.signature}`, undoable: false, undoNote: true });
   return true;
 }
 

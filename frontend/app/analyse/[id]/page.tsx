@@ -16,7 +16,6 @@ import ResultPanel, { type EditState } from "@/components/analyse/ResultPanel";
 import ReviewBar from "@/components/analyse/ReviewBar";
 import SeriesStrip from "@/components/analyse/SeriesStrip";
 import TraceLog from "@/components/analyse/TraceLog";
-import ReviewToast from "@/components/ReviewToast";
 import {
   ApiError,
   MODE,
@@ -32,7 +31,9 @@ import {
   replayTrace,
   startAnalysis,
 } from "@/lib/api";
+import { buttonClass } from "@/components/ui/button";
 import { countItems, modelClass } from "@/lib/desk";
+import { quietFocus } from "@/lib/quietFocus";
 import { analyseHref, isEmptyValue } from "@/lib/format";
 import { REVIEW_FIELDS, aiValue, effectiveValue } from "@/lib/review";
 import {
@@ -293,7 +294,7 @@ export default function AnalysePage() {
     setEdit({ drafts, focus: focus ?? weakestField(shown) });
   };
 
-  const focusHeading = () => setTimeout(() => document.getElementById("erschliessung-heading")?.focus(), 0);
+  const focusHeading = () => setTimeout(() => quietFocus(document.getElementById("erschliessung-heading")), 0);
 
   const saveEdit = () => {
     if (!shown || !edit) return;
@@ -382,7 +383,7 @@ export default function AnalysePage() {
       modelClass(shown) === "sure"
         ? document.getElementById("erschliessung-heading")
         : document.querySelector<HTMLElement>(`[data-review-field="${weakestField(shown)}"]`);
-    target?.focus({ preventScroll: true });
+    quietFocus(target); // no ring until the keyboard is used (polish 6)
   });
 
   const editState: EditState | null = edit
@@ -466,7 +467,7 @@ export default function AnalysePage() {
             <a
               href={exportXlsxUrl({ split: "challenge", priority: 1 })}
               download
-              className="rounded bg-accent px-4 py-2 font-semibold text-white transition-colors duration-fade hover:bg-accent-hover"
+              className={buttonClass("primary")}
             >
               Excel herunterladen
             </a>
@@ -574,18 +575,13 @@ export default function AnalysePage() {
           </>
         )}
       </main>
-      <ReviewToast />
     </>
   );
 }
 
 function StartButton({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="rounded border border-ink px-3 py-1.5 text-meta hover:border-accent hover:text-ink-strong"
-    >
+    <button type="button" onClick={onClick} className={buttonClass("secondary")}>
       {children}
     </button>
   );
