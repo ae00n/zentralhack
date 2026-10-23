@@ -144,7 +144,10 @@ METHOD = [
     ("2 Quellen", "0.70"),
     ("3 Quellen", "0.85"),
     ("4 oder mehr Quellen", "0.95"),
-    ("Widerspruch", "Spricht eine Quelle gegen den Wert, ist das Feld auf höchstens 0.60 begrenzt."),
+    ("Gegenquelle", "Sagt eine echte Gegenquelle, dass der Wert falsch ist (verifiziertes Referenzfoto eines "
+                    "anderen Orts, Adressverzeichnis mit anderer Ortschaft oder Gemeinde, Text im Bild mit anderem "
+                    "Ort, verdeckte Sichtlinie), ist das Feld auf höchstens 0.60 begrenzt. Ein bloss möglicher "
+                    "anderer Kandidat ist keine Gegenquelle; er steht bei den verworfenen Hypothesen."),
     ("Nicht bestimmbar", "Ohne stützende Quelle bleibt das Feld leer und hat Konfidenz 0. Es wird nie ein "
                          "Name geraten; leere Felder stehen in der Spalte Nicht_bestimmbar."),
     ("Konfidenz gesamt", "Der tiefere Wert von Ortschaft und Gemeinde, plus 0.05, wenn auch Gebäude und "
@@ -152,8 +155,9 @@ METHOD = [
     ("Prüfung nötig", "ja, wenn die Gesamtkonfidenz unter 0.90 liegt oder Ortschaft oder Gemeinde fehlt. "
                       "Nach einem Review (bestätigt oder korrigiert) nein; korrigierte Werte ersetzen die "
                       "Vorschläge der KI."),
-    ("Zählende Quellen", "Gebäudeadressverzeichnis (swisstopo), OSM-Gebäude, verifiziertes oder ähnliches "
-                         "Referenzfoto aus Staatsarchiv / E-Pics / Smapshot / LUBIS, Archivdatensatz, "
+    ("Zählende Quellen", "Gebäudeadressverzeichnis (swisstopo), OSM-Gebäude, geometrisch verifiziertes "
+                         "Referenzfoto (LightGlue) aus Staatsarchiv / E-Pics / Smapshot / LUBIS (ein nur "
+                         "ähnliches Foto zählt nicht), Archivdatensatz, "
                          "swisstopo-Ortsname, Geländeprüfung (Sichtlinie), Text im Bild, Bildinhalt, "
                          "Session-Foto (gleiche Kamera, unter 30 Minuten), EXIF-GPS. Werkzeug-Quellen zählen "
                          "nur, wenn das Werkzeug in dieser Analyse wirklich aufgerufen wurde."),
