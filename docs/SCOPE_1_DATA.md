@@ -41,6 +41,7 @@ Give the agent and the frontend clean, fast, honest data:
 | CONTRACTS section 4 functions + `DATA_PIPELINE_STUB=1` stub | `api.py`, `stub.py`, `__init__.py` | done, 24 tests pass |
 | Composite splitter (Claude Haiku boxes) | `split.py` | done: recall 0.90, precision 0.90 on 76 labelled cards; all 6,017 SG.CIV.12 cards split ($0.82): 543 composites, 1,851 crops in `records/crops.jsonl` |
 | Offline tile cache + laptop bundle | `tiles.py`, `bundle.py` | done: 27,178 tiles (3.9 GB): zeitreihen, one TIME per decade 1870s to 2020s (16 `map_years` in `data/tiles/manifest.json`), + swissimage, around 15 demo areas. `bundle` writes `~/zh-bundle/zh-data.tar` (10.6 GB: data without raw + model weights); unpacked, every section 4 call works with no network |
+| Remote data mode (no local `data/`) | `serve.py`, `remote.py` | done: `https://zhdata.vatra.sh` (Dijar's server, bearer token, temporary until 24 Oct). Client env `DATA_PIPELINE_URL` + `DATA_PIPELINE_TOKEN`: small files mirrored into `ZH_DATA_DIR`, images fetched on first use, `similar_images` / `date_hints` / `split_composite` run on the server. Parity run: 16 of 16 calls identical to local. The server needs `ANTHROPIC_API_KEY` or the splitter falls back to OpenCV |
 
 ## Inputs
 
@@ -63,6 +64,8 @@ Give the agent and the frontend clean, fast, honest data:
 | Fixtures `photo_record.json`, `timeline.json` (already on `main`) | Agent, Frontend | 8 |
 
 ## Stub strategy
+
+Three modes, same functions: local `data/` (default), `DATA_PIPELINE_STUB=1` (fixtures), `DATA_PIPELINE_URL` (data server, see the state table).
 
 - `DATA_PIPELINE_STUB=1` makes every section 4 function return `contracts/fixtures/` data. It is Said's fallback if real data is missing on his machine; keep it working until the code freeze.
 - Never change a signature silently: update CONTRACTS.md, stub and fixture in one commit on `main` and tell Said.
