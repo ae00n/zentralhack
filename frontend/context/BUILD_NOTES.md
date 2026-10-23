@@ -219,6 +219,7 @@ Keep appending: a new section per step, and update an older section when somethi
 - Footer (`SiteFooter.tsx`): `paper-2`, 2 px rule top border, 14 px, the three plan sentences joined by " · ".
 - Comments that named the forbidden class were reworded so the grep check is literally empty.
 
+- Side effect: the detail map pin and uncertainty circle use `--accent`, so they are now brand red.
+
 **Not built**
-- Pages inside keep their old structure (Archiv grid, Ergebnis panel); the plan rebuilds them in items 3 and 4. The detail map pin and uncertainty circle are now bright brand red because they use `--accent`; plan 2 says brand red never encodes data, so item 3 should recolour them.
-- Header on phone is the plain wrapped version (no "[=]" menu); the phone pass is item 10.
+- Nothing from the item's scope.
