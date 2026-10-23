@@ -62,14 +62,17 @@ def _photo_ids(split: str | None, priority: int | None, ids: list[str] | None) -
     return [r["photo_id"] for r in results.all_results()]
 
 
-def _card(photo_id: str) -> tuple[str, dict | None]:
+def _card(photo_id: str, images: bool = True) -> tuple[str, dict | None]:
     runs = results.history(photo_id)
     if not runs:
         return (f'<article class="card pending"><header><h2>{_esc(photo_id.split(":", 1)[-1])}</h2>'
                 f'<span class="chip none">noch nicht analysiert</span></header></article>'), None
     cur, prev = runs[-1], (runs[-2] if len(runs) > 1 else None)
-    img = _image_src(photo_id)
-    pic = f'<img src="{_esc(img)}" alt="" loading="lazy">' if img else '<div class="noimg">kein Bild lokal</div>'
+    img = _image_src(photo_id) if images else None
+    if not images:
+        pic = f'<div class="noimg">Bild nicht enthalten: {_esc(photo_id.split(":", 1)[-1])}.jpg</div>'
+    else:
+        pic = f'<img src="{_esc(img)}" alt="" loading="lazy">' if img else '<div class="noimg">kein Bild lokal</div>'
     accepted = not cur.get("needs_review")
     cons = cur.get("consistency")
     stable = "" if not cons else (
@@ -117,10 +120,10 @@ def _card(photo_id: str) -> tuple[str, dict | None]:
     return card, cur
 
 
-def build(ids: list[str], title: str, refresh: int | None = None) -> str:
+def build(ids: list[str], title: str, refresh: int | None = None, images: bool = True) -> str:
     cards, done = [], []
     for pid in ids:
-        card, cur = _card(pid)
+        card, cur = _card(pid, images)
         cards.append(card)
         if cur:
             done.append(cur)
@@ -173,7 +176,7 @@ ul {{ margin:6px 0 0; padding-left:18px; }} .hist {{ list-style:none; padding:0;
 .pending {{ opacity:.6; }}
 </style></head><body>
 <h1>{_esc(title)}</h1>
-<p class="lede">Stand {stamp}{" · aktualisiert sich alle " + str(refresh) + " s" if refresh else ""}. Nur lokal: die Bilder werden nicht hochgeladen.</p>
+<p class="lede">Stand {stamp}{" · aktualisiert sich alle " + str(refresh) + " s" if refresh else ""}. {"Nur lokal: die Bilder werden nicht hochgeladen." if images else "Ohne Bilder: die Archivbilder sind nicht offen lizenziert und bleiben lokal."}</p>
 <div class="stats">
   <div class="stat"><b>{len(done)} / {len(ids)}</b><span>analysiert</span></div>
   <div class="stat"><b>{accepted}</b><span>akzeptiert (≥ 0.90)</span></div>
@@ -211,12 +214,16 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--ids", help="comma-separated photo ids")
     ap.add_argument("--title", default="Ergebnisbericht")
     ap.add_argument("--watch", type=int, metavar="SECONDS", help="rewrite every N seconds (page reloads itself)")
+    ap.add_argument("--no-images", action="store_true",
+                    help="leave the photos out (a version that may be shared, e.g. as a Superset page)")
+    ap.add_argument("--out", type=Path, help=f"output file (default {OUT})")
     args = ap.parse_args(argv)
     ids = _photo_ids(args.split, args.priority, args.ids.split(",") if args.ids else None)
-    OUT.parent.mkdir(parents=True, exist_ok=True)
+    out = args.out or OUT
+    out.parent.mkdir(parents=True, exist_ok=True)
     while True:
-        OUT.write_text(build(ids, args.title, args.watch), encoding="utf-8")
-        print(OUT, file=sys.stderr, flush=True)
+        out.write_text(build(ids, args.title, args.watch, images=not args.no_images), encoding="utf-8")
+        print(out, file=sys.stderr, flush=True)
         if not args.watch:
             return 0
         time.sleep(args.watch)

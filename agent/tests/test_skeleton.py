@@ -33,3 +33,12 @@ def test_a_new_run_keeps_the_previous_result_in_the_history():
     assert [r["run_id"] for r in results.history("stasz:7")] == ["r1", "r2"]
     assert results.load("stasz:7")["run_id"] == "r2"
     assert len(results.all_results()) == 1  # history files are not results
+
+
+def test_report_without_images_has_no_image_tags():
+    from agent import report
+
+    fixture = json.loads((FIXTURES / "analysis_result.json").read_text(encoding="utf-8"))
+    results.save({**fixture, "photo_id": "stasz:8"})
+    page = report.build(["stasz:8"], "t", images=False)
+    assert "<img" not in page and "Bild nicht enthalten" in page
