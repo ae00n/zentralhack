@@ -68,7 +68,9 @@ sign or building this photo lacks;
 (get their coordinates with swisstopo_search first), then skyline at the best spot to compare the outline \
 and the sun; this works even when no building is visible;
    e) for each remaining candidate place: photos_near at the candidate spot, and aerial_view to compare the \
-layout from above (decisive for buildings that look alike and for harbours);
+layout from above (decisive for buildings that look alike and for harbours). Never pick a building from a \
+single candidate: list all named buildings of the same kind within about 1 km and compare the best 3 in one \
+aerial_view call;
    f) official names: named_buildings and address_lookup at the confirmed spot.
    After you submit, our code checks the official register at your coordinates, so give the coordinates of \
 the depicted place as exactly as you can.
@@ -104,6 +106,21 @@ FIRST_TURN = """Analyse this photo{kind}.
 {context}
 
 You may call up to {max_steps} tools. Start with your competing hypotheses."""
+
+SECOND_LOOK = """Provisional check by our code (not final): this answer would score {overall:.2f}, below the 0.90 \
+acceptance line. Weak fields: {weak}. You have {left} tool calls left.
+Before the final answer, look for an independent second source for the weak fields:
+- a building: put it next to at least 2 other candidates of the same kind within about 1 km (named_buildings \
+with kinds and lat/lon) in ONE aerial_view call, and pick the one whose layout matches the photo;
+- a place that is still open: check the alternative with photos_near, skyline or viewpoint_search;
+- a street: address_lookup at the chosen building's own coordinates.
+Then call submit_result again with your final answer. Keeping the same answer is fine if the checks confirm \
+it; leave a field empty if no source supports it."""
+
+
+def second_look(overall: float, weak: str, left: int) -> str:
+    return SECOND_LOOK.format(overall=overall, weak=weak, left=left)
+
 
 STOP_NOW_BUDGET = ("The cost budget for this photo is used up. Do not call any other tool. Call submit_result "
                    "now with your best answer and honest confidences.")

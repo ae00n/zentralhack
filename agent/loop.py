@@ -204,6 +204,12 @@ class _Run:
             sub = next((b for b in tool_uses if b.name == SUBMIT), None)
             if sub is not None:
                 submitted = dict(sub.input or {})
+                look = self._second_look(submitted, names, tool_uses, steps_used, final_turn)
+                if look:
+                    messages.append({"role": "assistant", "content": resp.content})
+                    messages.append({"role": "user", "content": [
+                        {"type": "tool_result", "tool_use_id": sub.id, "content": [{"type": "text", "text": look}]}]})
+                    continue
                 break
             if resp.stop_reason == "refusal":
                 reason = "Das Modell hat die Analyse abgelehnt; manuelle Prüfung nötig."
@@ -245,6 +251,28 @@ class _Run:
             messages.append({"role": "user", "content": results})
 
         return self._result(submitted, reason, names)
+
+    def _second_look(self, submitted: dict, names: list[str], tool_uses, steps_used: int, final_turn: bool) -> str | None:
+        """Once per analysis: when the answer would score below the acceptance line and there is room left,
+        tell the model which fields are weak and let it check alternatives before the final answer."""
+        if (getattr(self, "looked_twice", False) or final_turn or len(tool_uses) != 1
+                or MAX_STEPS - steps_used < SECOND_LOOK_MIN_STEPS
+                or self.usage["cost_usd"] >= PHOTO_BUDGET_USD * SECOND_LOOK_MAX_BUDGET_SHARE):
+            return None
+        body = submit.normalize(copy.deepcopy(submitted), names)
+        scored = confidence.apply(body["fields"], self.ctx.tools_called, getattr(self, "allowed", set()),
+                                  self.ctx.verified_refs)
+        if scored["overall"] >= confidence.ACCEPT:
+            return None
+        weak = [(label, body["fields"][n]["confidence"]) for n, label in confidence.FIELD_LABEL.items()
+                if body["fields"][n]["confidence"] < SECOND_LOOK_WEAK]
+        if not weak:
+            return None
+        self.looked_twice = True
+        listing = ", ".join(f"{label} {c:.2f}" for label, c in weak)
+        self.emit({"type": "thought", "ms": 0,
+                   "text": f"Vorläufige Gesamtkonfidenz {scored['overall']:.2f}, unter 0.90: zweite Prüfung ({listing})."})
+        return prompts.second_look(scored["overall"], listing, MAX_STEPS - steps_used)
 
     def _session_images(self) -> list[dict]:
         """The other photos of the same session (same camera, under 30 minutes): usually the same place from
@@ -429,6 +457,9 @@ class _Composite:
 
 
 SESSION_IMAGES, SESSION_PX = 3, 640
+SECOND_LOOK_MIN_STEPS = 2          # tool calls that must be left for a second look to be worth it
+SECOND_LOOK_MAX_BUDGET_SHARE = 0.75  # no second look once 75% of the per-photo budget is spent
+SECOND_LOOK_WEAK = 0.85            # fields below this are named as weak
 REGISTER_CHECK_MAX_RADIUS_M = 1500  # coarser coordinates cannot decide a Gemeinde boundary
 
 

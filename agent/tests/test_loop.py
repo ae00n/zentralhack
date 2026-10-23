@@ -94,6 +94,8 @@ def _isolated(monkeypatch, tmp_path):
     monkeypatch.setattr(config, "CACHE_DIR", tmp_path / "cache")
     # the automatic register check after the answer: silent by default (no register data at the point)
     monkeypatch.setattr(loop.dp, "address_lookup", lambda lat, lon, **kw: {})
+    # the second look is off by default (it needs an extra scripted response); its own tests switch it on
+    monkeypatch.setattr(loop, "SECOND_LOOK_MIN_STEPS", 10**6)
 
 
 REGISTER = {"ortschaft": "Brunnen", "municipality": "Ingenbohl", "in_canton": True, "addresses": []}
@@ -452,3 +454,25 @@ def test_capture_year_and_time_reach_the_tools(monkeypatch):
     rec["raw"]["exif"]["datetime"] = "2005:02:24 10:39:27"
     run = loop._Run("challenge:SG.CIV.17.3", None, config.MODEL, [], None, None)
     assert run.ctx.year == 2005 and run.ctx.captured == "2005:02:24 10:39:27"
+
+
+# ---------- second look when the answer is weak ----------
+
+
+def test_second_look_names_the_weak_fields_and_takes_the_better_answer(monkeypatch):
+    monkeypatch.setattr(loop, "SECOND_LOOK_MIN_STEPS", 2)
+    weak, strong = submit_input(sources=1), submit_input(sources=3)
+    r, fake, _ = _run(monkeypatch, [response(tool_use(SUBMIT, weak, "s1")), response(tool_use(SUBMIT, strong, "s2"))])
+    assert len(fake.calls) == 2 and r["overall_confidence"] == 0.9
+    second = fake.calls[1]["messages"][-1]["content"][0]
+    assert second["type"] == "tool_result" and second["tool_use_id"] == "s1" and "below the 0.90" in second["content"][0]["text"]
+    assert any("zweite Prüfung" in (t.get("text") or "") for t in r["trace"])
+
+
+def test_second_look_happens_once_and_not_for_an_accepted_answer(monkeypatch):
+    monkeypatch.setattr(loop, "SECOND_LOOK_MIN_STEPS", 2)
+    r, fake, _ = _run(monkeypatch, [response(tool_use(SUBMIT, submit_input(), "s1"))])
+    assert len(fake.calls) == 1 and r["overall_confidence"] == 0.9  # accepted: no second look
+    weak = submit_input(sources=1)
+    r, fake, _ = _run(monkeypatch, [response(tool_use(SUBMIT, weak, "a")), response(tool_use(SUBMIT, weak, "b"))])
+    assert len(fake.calls) == 2 and r["needs_review"] is True  # still weak after the one second look: done

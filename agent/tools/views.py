@@ -16,12 +16,12 @@ from .base import ToolContext, ToolOutput, image_block
 from .viewpoint import DEFAULT_FOCAL, field_of_view
 
 AERIAL_PX, SKYLINE_PX = 768, 1024
-MAX_CANDIDATES = 3
+MAX_CANDIDATES = 4
 
 AERIAL_VIEW = {
     "name": "aerial_view",
     "description": (
-        "Aerial photo (swisstopo SWISSIMAGE, north up, red cross = the point) around 1 to 3 candidate spots, "
+        "Aerial photo (swisstopo SWISSIMAGE, north up, red cross = the point) around 1 to 4 candidate spots, "
         "as of the photo's capture year when available. Compare roof shapes, wings, courtyards, harbour "
         "basins, roads, slopes and neighbouring buildings with the photo to decide which candidate it is. "
         "radius_m 30 to 300 (default 70 for a building, larger for a harbour or a village part)."
