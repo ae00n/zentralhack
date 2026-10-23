@@ -168,7 +168,9 @@ function Arbeitsplatz() {
             {tiles && (
               <DeskMap
                 places={places}
-                tiles={tileTemplate(tiles.tilesUrl, "ch.swisstopo.pixelkarte-grau", "current")}
+                // Colour map online; the offline tile bundle only has the grey one.
+                tiles={tileTemplate(tiles.tilesUrl, tiles.offline ? "ch.swisstopo.pixelkarte-grau" : "ch.swisstopo.pixelkarte-farbe", "current")}
+                grey={tiles.offline}
                 offline={tiles.offline}
                 hoveredPlace={hoveredPlace ?? placeOfHoveredPhoto}
                 selectedPlace={selected ? (placeOf.get(selected) ?? null) : null}

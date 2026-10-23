@@ -1,6 +1,6 @@
 "use client";
 
-// Desk map (FRONTPAGE_PLAN 4, "Map spec"): swisstopo grey map, canton outline with the outside veiled
+// Desk map (FRONTPAGE_PLAN 4, "Map spec"): swisstopo colour map (grey offline), canton outline with the outside veiled
 // white, one circle per place coloured by certainty, hover and selection via feature-state.
 // Client only (MapLibre needs window): load with next/dynamic and ssr: false.
 import maplibregl from "maplibre-gl";
@@ -10,8 +10,10 @@ import type { CertClass, Place } from "@/lib/desk";
 
 export interface DeskMapProps {
   places: Place[];
-  /** Raster template for ch.swisstopo.pixelkarte-grau (online WMTS or the offline /tiles route). */
+  /** Raster template for ch.swisstopo.pixelkarte-farbe online, pixelkarte-grau on the offline /tiles route. */
   tiles: string;
+  /** The tiles are pixelkarte-grau: soften them to grey instead of keeping colour. */
+  grey: boolean;
   offline: boolean;
   hoveredPlace: number | null;
   selectedPlace: number | null;
@@ -75,6 +77,7 @@ function framePadding(): maplibregl.PaddingOptions {
 export default function DeskMap({
   places,
   tiles,
+  grey,
   offline,
   hoveredPlace,
   selectedPlace,
@@ -142,15 +145,24 @@ export default function DeskMap({
             id: "base",
             type: "raster",
             source: "base",
-            // Softened raster (polish 5): grey, less contrast, a bit lighter, so the dots carry the colour.
-            paint: {
-              "raster-saturation": -1,
-              "raster-contrast": -0.15,
-              "raster-brightness-min": 0.12,
-              "raster-brightness-max": 0.98,
-              "raster-opacity": 0.85,
-              "raster-fade-duration": 300,
-            },
+            // Softened raster (polish 5): less contrast and a bit lighter, so the dots stay readable.
+            // The grey offline map loses all colour; the colour map keeps most of it.
+            paint: grey
+              ? {
+                  "raster-saturation": -1,
+                  "raster-contrast": -0.15,
+                  "raster-brightness-min": 0.12,
+                  "raster-brightness-max": 0.98,
+                  "raster-opacity": 0.85,
+                  "raster-fade-duration": 300,
+                }
+              : {
+                  "raster-saturation": -0.15,
+                  "raster-contrast": -0.1,
+                  "raster-brightness-min": 0.05,
+                  "raster-opacity": 0.9,
+                  "raster-fade-duration": 300,
+                },
           },
         ],
       },
