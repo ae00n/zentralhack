@@ -3,7 +3,7 @@
 // Archiv (build step 2): demo cards first in pitch order, then the showcase, undated before dated.
 import { useCallback, useEffect, useState } from "react";
 import PhotoCard from "@/components/PhotoCard";
-import { getDemo, listPhotos } from "@/lib/api";
+import { errorText, getDemo, listPhotos } from "@/lib/api";
 import { isUndated } from "@/lib/format";
 import type { PhotoRecord } from "@/lib/types";
 
@@ -31,7 +31,7 @@ export default function ArchivPage() {
       setShowcase((prev) => (offset === 0 ? page.items : [...prev, ...page.items]));
       setTotal(page.total);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(errorText(e));
     } finally {
       setLoading(false);
     }

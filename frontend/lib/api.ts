@@ -20,7 +20,8 @@ export const MODE: Mode = parseMode(process.env.NEXT_PUBLIC_MODE);
 export const API_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/$/, "");
 
 const FIXTURES = "/fixtures";
-const SWISSTOPO_WMTS = "https://wmts.geo.admin.ch";
+// Same value as the backend's /health tiles_url when online.
+const SWISSTOPO_WMTS = "https://wmts.geo.admin.ch/1.0.0";
 
 function parseMode(v: string | undefined): Mode {
   return v === "live" || v === "demo" ? v : "mock";
@@ -36,19 +37,33 @@ export function absolute(url: string): string {
   return /^https?:\/\//.test(url) ? url : `${API_URL}${url.startsWith("/") ? "" : "/"}${url}`;
 }
 
+/** status 0 = no response at all (backend down, Wi-Fi off without a local backend). */
 export class ApiError extends Error {
   constructor(
     public status: number,
     public path: string,
   ) {
-    super(`HTTP ${status} on ${path}`);
+    super(status === 0 ? `no response from ${path}` : `HTTP ${status} on ${path}`);
   }
 }
 
 async function getJson<T>(url: string): Promise<T> {
-  const res = await fetch(url, { cache: "no-store" });
+  let res: Response;
+  try {
+    res = await fetch(url, { cache: "no-store" });
+  } catch {
+    throw new ApiError(0, url);
+  }
   if (!res.ok) throw new ApiError(res.status, url);
   return (await res.json()) as T;
+}
+
+/** German text for an error shown in the UI. */
+export function errorText(e: unknown): string {
+  if (e instanceof ApiError) {
+    return e.status === 0 ? `Backend nicht erreichbar (${MODE === "mock" ? "Fixtures" : API_URL})` : `Fehler ${e.status}`;
+  }
+  return e instanceof Error ? e.message : String(e);
 }
 
 function backend<T>(path: string): Promise<T> {
@@ -157,6 +172,34 @@ export async function getDemo(): Promise<DemoItem[]> {
   return backend<DemoItem[]>("/demo");
 }
 
+export type TileLayer = "ch.swisstopo.swissimage" | "ch.swisstopo.zeitreihen";
+
+const TILE_EXT: Record<TileLayer, string> = {
+  "ch.swisstopo.swissimage": "jpeg",
+  "ch.swisstopo.zeitreihen": "png",
+};
+
+/** Base for tileTemplate: /health tiles_url, or swisstopo directly when the backend is not reachable. */
+export async function getTilesUrl(): Promise<{ tilesUrl: string; offline: boolean }> {
+  try {
+    const h = await getHealth();
+    return { tilesUrl: h.tiles_url || SWISSTOPO_WMTS, offline: h.offline };
+  } catch {
+    return { tilesUrl: SWISSTOPO_WMTS, offline: false };
+  }
+}
+
+/**
+ * MapLibre raster template for a layer and TIME ("current" for swissimage, a map_years value for zeitreihen).
+ * Online it is the swisstopo WMTS path; offline the backend's /tiles route, which has a different shape (question 3.3).
+ */
+export function tileTemplate(tilesUrl: string, layer: TileLayer, time: string | number): string {
+  const base = absolute(tilesUrl).replace(/\/$/, "");
+  const ext = TILE_EXT[layer];
+  if (base.startsWith(SWISSTOPO_WMTS)) return `${base}/${layer}/default/${time}/3857/{z}/{x}/{y}.${ext}`;
+  return `${base}/${layer}/${time}/{z}/{x}/{y}.${ext}`;
+}
+
 /** Download link for the export. Mock mode only has a CSV fixture. */
 export function exportUrl(format: "csv" | "json", ids?: string[]): string {
   if (MODE === "mock") return `${FIXTURES}/export.csv`;
@@ -165,9 +208,20 @@ export function exportUrl(format: "csv" | "json", ids?: string[]): string {
 
 // --- trace replay (mock + demo mode; live mode streams SSE, build step 8) ---
 
+// A real trace can have 20+ steps; the pitch cannot wait a minute for it.
+const REPLAY_MAX_MS = 15_000;
+
+/** Delay after each step: the recorded ms clamped to a calm pace, scaled down so the whole replay fits REPLAY_MAX_MS. */
+function replayDelays(trace: TraceItem[]): number[] {
+  const delays = trace.map((t) => Math.min(1500, Math.max(600, t.ms)));
+  const total = delays.reduce((a, b) => a + b, 0);
+  const scale = total > REPLAY_MAX_MS ? REPLAY_MAX_MS / total : 1;
+  return delays.map((d) => Math.max(250, Math.round(d * scale)));
+}
+
 /**
  * Plays trace items back one by one so a cached result looks live.
- * Returns a cancel function. Delay per step follows the recorded ms, clamped to a calm pace.
+ * Returns a cancel function.
  */
 export function replayTrace(
   trace: TraceItem[],
@@ -177,6 +231,7 @@ export function replayTrace(
   let cancelled = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let i = 0;
+  const delays = replayDelays(trace);
 
   const next = () => {
     if (cancelled) return;
@@ -184,9 +239,8 @@ export function replayTrace(
       onDone?.();
       return;
     }
-    const item = trace[i++];
-    onStep(item);
-    timer = setTimeout(next, Math.min(1500, Math.max(600, item.ms)));
+    onStep(trace[i]);
+    timer = setTimeout(next, delays[i++]);
   };
   timer = setTimeout(next, 300);
 

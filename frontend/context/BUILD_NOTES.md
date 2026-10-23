@@ -66,3 +66,42 @@ Keep appending: a new section per step, and update an older section when somethi
 **Not built**
 - Evidence `ref_id` (the referenced similar image / archive record) is not shown as a thumbnail or link; only summary, kind, score and `url`. Worth adding once real results show how often `ref_id` is set.
 - Expanded evidence rows were not checked in a screenshot (needs a click); only typecheck and the collapsed state are verified.
+
+---
+
+## Step 4: Map (23.10.)
+
+**Check:** fixture coordinates show on swisstopo tiles, with pin, uncertainty circle and "© swisstopo". Done (headless screenshots: result at 1440 px, replay still running).
+
+**Special**
+- MapLibre GL **5.24** (not 6.x): v6 is ESM-only and loads its worker as a separate file via `import.meta.url` at runtime, which is unproven with Turbopack and offline. v5 inlines the worker.
+- `components/map/MapView.tsx` is generic (one raster layer + pin + circle), loaded with `next/dynamic`, `ssr: false`, from `components/analyse/MapPanel.tsx`. Step 9 reuses it with the zeitreihen layer; changing the `tiles` prop swaps the source via `setTiles`, a new `center` re-fits with a 400 ms ease.
+- Layer in step 4: SWISSIMAGE `current` (cached offline at z12 to 17). The zeitreihen layer needs `map_years` and comes with the slider in step 9.
+- Tile URLs: `getTilesUrl()` + `tileTemplate()` in `lib/api.ts`. Online WMTS shape `.../{layer}/default/{time}/3857/{z}/{x}/{y}.{ext}`, offline the backend shape `/tiles/{layer}/{time}/{z}/{x}/{y}.{ext}` (question 3.3; Said's route accepts the extension). If `/health` fails, the map falls back to swisstopo directly. Mock `tiles_url` is now `https://wmts.geo.admin.ch/1.0.0`, the same value Said's `/health` returns online.
+- Offline (`/health` `offline: true`): `minZoom` 12, `maxZoom` 17, the cached range (question 4.2). Online 7 to 19. No `maxBounds` yet.
+- Pin = 14 px `--accent` dot with a paper ring (custom CSS `.map-pin`, the theme has no `rounded-full`). Circle = `radius_m` polygon, accent line 1.5 px + 12 % fill. MapLibre paint reads the colours from the CSS variables.
+- Own "© swisstopo · SWISSIMAGE" line in the bottom-right corner instead of MapLibre's attribution control (which has its own look). Zoom buttons restyled to paper + rule, no shadow. No rotation, no pitch.
+- The map stays hidden until the replay ends (same rule as the result fields); the panel says "Ort wird bestimmt ...", "Keine Koordinaten" or "Keine Analyse".
+- Gotcha: `maplibre-gl.css` sets `.maplibregl-map { position: relative }`, which beats Tailwind's `absolute inset-0` and gave the map height 0. The map container is sized with `h-full w-full` inside a positioned parent.
+
+**Not built**
+- Standalone `/karte`: dropped by the default of question 2.1.
+- `maxBounds` around the cached areas offline: needs the area list (question 4.2). Panning far away offline shows blank tiles.
+- Phone width not verified in a screenshot: headless Chrome lays out at least about 490 px wide, so the 390 px shot does not show the real phone layout.
+
+---
+
+## Step 5: Demo mode (23.10.)
+
+**Check:** works with Wi-Fi off against a local backend. Partly done: checked against Said's server from `said/agent` (4fbd332) with `AGENT_FAKE=1 DATA_PIPELINE_STUB=1 AGENT_OFFLINE=1`, frontend built with `NEXT_PUBLIC_MODE=demo` (`next start`). Archiv from `/demo` + `/photos`, image from `/images`, result from `/results` replayed, map tiles requested from `/tiles/...` in the right shape, "Erneut abspielen" restarts. The real offline run on the M4 Air with Dijar's `data/` (cached results + tiles) is still open; there is no `data/` on Timo's laptop, so tiles were 404 here.
+
+**Special**
+- Replay pacing: each step's recorded ms clamped to 600 to 1500 ms as before, then scaled down so the whole replay takes at most 15 s (each step at least 250 ms). Real traces can have 20+ steps.
+- Presenter links on the Analyse screen, top right: "Analyse erneut abspielen" (mock and demo mode, after the replay) and "Nächste Karte →" (next card of `/demo` in pitch order, only on demo cards).
+- Backend down: `fetch` network errors become `ApiError` status 0, and `errorText()` shows "Backend nicht erreichbar (http://localhost:8000)" on Archiv and Analyse instead of "Failed to fetch".
+- `NEXT_PUBLIC_MODE` and `NEXT_PUBLIC_API_URL` are inlined at build time: the demo build needs them set for `npm run build` (README).
+- No header marker in demo mode (mock shows "Beispieldaten"), so the pitch looks live.
+- Testing tip: headless Chrome's `--virtual-time-budget` screenshots catch MapLibre before its worker has drawn the GeoJSON (circle missing, wrong zoom). Use puppeteer-core with real waits.
+
+**Not built**
+- Nothing from the step's scope. For Said (not frontend): results are stored as `data/results/<photo_id>.json`, and ids contain `:`, which is not a valid filename character on Windows. Fine on the M4 Air, but the cache cannot be written or copied on a Windows laptop.

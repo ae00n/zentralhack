@@ -49,3 +49,24 @@ body {
     animation: none;
   }
 }
+
+/* Map (components/map/MapView.tsx). The pin is the one round shape; the theme has no rounded-full. */
+.map-pin {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--paper);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.maplibregl-ctrl-group:not(:empty) {
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  box-shadow: none;
+  background: var(--paper);
+}
+
+.maplibregl-ctrl-group button + button {
+  border-top-color: var(--rule);
+}

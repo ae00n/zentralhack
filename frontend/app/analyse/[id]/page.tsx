@@ -1,15 +1,17 @@
 "use client";
 
 // Analyse / "Ort & Zeit" (build step 3). Layout follows the team mock (question 2.1, 2.10):
-// left = map + Zeitreise (steps 4 and 9), right = photo, result, trace.
+// left = map (step 4) + Zeitreise (step 9), right = photo, result, trace.
+// Mock and demo mode replay the cached trace (step 5); live mode streams it (step 8).
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import MapPanel from "@/components/analyse/MapPanel";
 import PhotoPanel from "@/components/analyse/PhotoPanel";
 import ResultPanel from "@/components/analyse/ResultPanel";
 import TraceLog from "@/components/analyse/TraceLog";
-import { ApiError, MODE, getPhoto, getResult, replayTrace } from "@/lib/api";
-import { formatCoordinates } from "@/lib/format";
+import { ApiError, MODE, errorText, getDemo, getPhoto, getResult, replayTrace } from "@/lib/api";
+import { analyseHref } from "@/lib/format";
 import type { AnalysisResult, PhotoRecord, TraceItem } from "@/lib/types";
 
 function decodeId(raw: string | string[] | undefined): string {
@@ -29,7 +31,26 @@ export default function AnalysePage() {
   const [error, setError] = useState<string | null>(null);
   const [steps, setSteps] = useState<TraceItem[]>([]);
   const [replaying, setReplaying] = useState(false);
+  const [demoIds, setDemoIds] = useState<string[]>([]);
   const cancelReplay = useRef<(() => void) | undefined>(undefined);
+
+  const startReplay = useCallback((res: AnalysisResult) => {
+    cancelReplay.current?.();
+    setSteps([]);
+    setReplaying(true);
+    cancelReplay.current = replayTrace(
+      res.trace,
+      (item) => setSteps((prev) => [...prev, item]),
+      () => setReplaying(false),
+    );
+  }, []);
+
+  // Pitch order, for the "Nächste Karte" link.
+  useEffect(() => {
+    getDemo()
+      .then((items) => setDemoIds(items.map((d) => d.id)))
+      .catch(() => setDemoIds([]));
+  }, []);
 
   useEffect(() => {
     // Set by the cleanup: a response for an old effect run (dev StrictMode runs effects twice,
@@ -50,24 +71,15 @@ export default function AnalysePage() {
           return;
         }
         setResult(res);
-        // Mock and demo mode replay the cached trace so it looks live; live mode streams (step 8).
-        if (MODE !== "live" && res.trace?.length) {
-          setReplaying(true);
-          cancelReplay.current = replayTrace(
-            res.trace,
-            (item) => setSteps((prev) => [...prev, item]),
-            () => setReplaying(false),
-          );
-        } else {
-          setSteps(res.trace ?? []);
-        }
+        if (MODE !== "live" && res.trace?.length) startReplay(res);
+        else setSteps(res.trace ?? []);
       })
       .catch((e: unknown) =>
         !stale &&
         setError(
           e instanceof ApiError && e.status === 404
             ? "Dieses Foto gibt es nicht."
-            : `Foto konnte nicht geladen werden (${e instanceof Error ? e.message : String(e)}).`,
+            : `Foto konnte nicht geladen werden: ${errorText(e)}.`,
         ),
       );
 
@@ -75,7 +87,7 @@ export default function AnalysePage() {
       stale = true;
       cancelReplay.current?.();
     };
-  }, [id]);
+  }, [id, startReplay]);
 
   const skipReplay = () => {
     if (!result) return;
@@ -87,12 +99,29 @@ export default function AnalysePage() {
   const showResult = result && !replaying;
   // Nothing of the result shows before the replay ends, the map included.
   const coords = showResult ? result.fields.coordinates?.value : null;
+  const canReplay = MODE !== "live" && showResult && result.trace?.length > 0;
+  const demoIndex = demoIds.indexOf(id);
+  const nextDemo = demoIndex >= 0 ? demoIds[demoIndex + 1] : undefined;
 
   return (
     <main className="mx-auto max-w-[1440px] px-4 py-6 md:px-8">
-      <Link href="/" className="text-meta text-ink-muted hover:text-accent">
-        ← Archiv
-      </Link>
+      <div className="flex items-baseline justify-between gap-4 text-meta text-ink-muted">
+        <Link href="/" className="hover:text-accent">
+          ← Archiv
+        </Link>
+        <div className="flex items-baseline gap-4">
+          {canReplay && (
+            <button type="button" onClick={() => startReplay(result)} className="hover:text-accent">
+              Analyse erneut abspielen
+            </button>
+          )}
+          {nextDemo && (
+            <Link href={analyseHref(nextDemo)} className="hover:text-accent">
+              Nächste Karte →
+            </Link>
+          )}
+        </div>
+      </div>
 
       {error && <p className="mt-6 text-bad">{error}</p>}
       {!error && !record && <p className="mt-6 text-ink-muted">Lade Foto ...</p>}
@@ -100,12 +129,10 @@ export default function AnalysePage() {
       {record && (
         <div className="mt-4 grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,520px)]">
           <div className="order-2 lg:order-1">
-            <section className="flex aspect-[4/3] flex-col items-center justify-center bg-paper-2 text-center">
-              <p className="font-serif text-section">Karte</p>
-              <p className="mt-1 font-mono text-meta text-ink-muted">
-                {coords ? formatCoordinates(coords) : showResult ? "Keine Koordinaten" : "Ort wird bestimmt ..."}
-              </p>
-            </section>
+            <MapPanel
+              coords={coords ?? null}
+              emptyText={showResult ? "Keine Koordinaten" : missing ? "Keine Analyse" : "Ort wird bestimmt ..."}
+            />
           </div>
 
           <div className="order-1 space-y-6 lg:order-2">
