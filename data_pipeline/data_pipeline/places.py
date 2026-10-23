@@ -9,8 +9,11 @@ address_lookup: swisstopo identify (api3.geo.admin.ch, no key) on three layers:
 Responses are cached on disk (data/raw/geoadmin/places), so repeated calls cost no requests.
 
 named_buildings: named OSM features in Kanton Schwyz (churches, hotels, schools, stations, care homes,
-huts, lakes, peaks ...), downloaded once with Overpass into data/gazetteer/buildings.json
-(`python -m data_pipeline.places build` from data/raw/osm/schwyz_named.json). Offline after that.
+huts, lakes, peaks ...), downloaded once with Overpass, plus the named buildings of the federal building
+register GWR (data/raw/gwr/data.sqlite from https://public.madd.bfs.admin.ch/sz.zip: building name GBEZ,
+class GKLAS, year built, official entrance address). Both go into data/gazetteer/buildings.json
+(`python -m data_pipeline.places build`). Offline after that. A GWR building already in OSM (same
+name within 60 m) is not added twice. Every item has `source` "osm" or "gwr".
 """
 
 import argparse
@@ -29,6 +32,14 @@ ORT_LAYER = "ch.swisstopo-vd.ortschaftenverzeichnis_plz"
 GEM_LAYER = "ch.swisstopo.swissboundaries3d-gemeinde-flaeche.fill"
 BUILDINGS_FILE = GAZETTEER / "buildings.json"
 OSM_FILE = RAW / "osm" / "schwyz_named.json"
+GWR_FILE = RAW / "gwr" / "data.sqlite"
+GWR_URL = "https://api3.geo.admin.ch/rest/services/ech/MapServer/ch.bfs.gebaeude_wohnungs_register/{}_0"
+# GWR building class (GKLAS) -> the kind labels of the OSM side
+GWR_KINDS = {1130: "Soziale Einrichtung", 1211: "Hotel", 1212: "Hotel", 1220: "Büro/Verwaltung", 1230: "Geschäft",
+             1231: "Restaurant", 1241: "Bauwerk", 1261: "Freizeit", 1262: "Museum", 1263: "Schule", 1264: "Spital",
+             1265: "Sportanlage", 1272: "Kirche/Kapelle", 1275: "Soziale Einrichtung"}
+CARE = re.compile(r"alters|pflege|senior|betagt", re.I)
+ADDRESS_LIKE = re.compile(r"^[^,]+, ?\d")  # "Acher, 1, 6442, 0": an address in the name field, not a name
 
 _client: PoliteClient | None = None
 
@@ -170,10 +181,59 @@ def build_buildings() -> int:
             "wikidata": t.get("wikidata"), "alt_names": [t[k] for k in ("alt_name", "old_name", "official_name") if t.get(k)],
             "tags": {k: v for k, v in t.items() if k in KEEP or k in ("religion", "denomination", "social_facility", "ele")},
         })
+    for b in out:
+        b["source"] = "osm"
+    out += gwr_buildings(out)
     ensure(GAZETTEER)
     BUILDINGS_FILE.write_text(json.dumps(out, ensure_ascii=False))
     _buildings.cache_clear()
     return len(out)
+
+
+def _lv95_to_wgs84(e: float, n: float) -> tuple[float, float]:
+    """swisstopo approximate formulas (about 1 m)."""
+    y, x = (e - 2600000) / 1e6, (n - 1200000) / 1e6
+    lon = 2.6779094 + 4.728982 * y + 0.791484 * y * x + 0.1306 * y * x * x - 0.0436 * y ** 3
+    lat = 16.9023892 + 3.238272 * x - 0.270978 * y * y - 0.002528 * x * x - 0.0447 * y * y * x - 0.0140 * x ** 3
+    return lat * 100 / 36, lon * 100 / 36
+
+
+def gwr_buildings(osm: list[dict]) -> list[dict]:
+    """Named GWR buildings (existing, or demolished in 2003 or later) not already in the OSM list."""
+    import sqlite3
+    if not GWR_FILE.exists():
+        return []
+    db = sqlite3.connect(GWR_FILE)
+    addr = {}
+    for egid, street, num, plz, ort in db.execute(
+            "select EGID, STRNAME, DEINR, DPLZ4, DPLZNAME from entrance order by DOFFADR desc, EDID"):
+        addr.setdefault(egid, (f"{street} {num or ''}".strip() if street else None, plz, ort))
+    near = {}
+    for b in osm:
+        near.setdefault((round(b["lat"], 2), round(b["lon"], 2)), []).append(b)
+    out = []
+    rows = db.execute("select EGID, GBEZ, GKLAS, GGDENAME, GKODE, GKODN, GBAUJ, GSTAT, GABBJ from building "
+                      "where GBEZ is not null and GBEZ != '' and GKODE is not null")
+    for egid, name, klass, gem, e, n, built, status, gone in rows:
+        name = name.strip()
+        if ADDRESS_LIKE.match(name) or not (status == 1004 or (status == 1007 and (gone or 0) >= 2003)):
+            continue
+        lat, lon = _lv95_to_wgs84(e, n)
+        cell = [b for dy in (-0.01, 0, 0.01) for dx in (-0.01, 0, 0.01)
+                for b in near.get((round(lat + dy, 2), round(lon + dx, 2)), [])]
+        nn = _norm(name)
+        if any(_haversine_m(lat, lon, b["lat"], b["lon"]) < 60 and (nn in _norm(b["name"]) or _norm(b["name"]) in nn)
+               for b in cell):
+            continue
+        kind = "Alters-/Pflegeheim" if CARE.search(name) else GWR_KINDS.get(klass, "Gebäude")
+        street, plz, ort = addr.get(egid, (None, None, None))
+        out.append({
+            "name": name, "kind": kind, "lat": round(lat, 6), "lon": round(lon, 6), "address": street,
+            "municipality": gem, "osm": None, "wikidata": None, "alt_names": [], "tags": {},
+            "source": "gwr", "egid": egid, "gwr": GWR_URL.format(egid), "year_built": built,
+            "locality": ort, "plz": plz, "demolished": gone if status == 1007 else None,
+        })
+    return out
 
 
 @lru_cache(maxsize=1)
