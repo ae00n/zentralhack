@@ -44,13 +44,20 @@ const SWISS_BOUNDS: [[number, number], [number, number]] = [
   [5.956, 45.818],
   [10.492, 47.808],
 ];
-const RISE_MS = 1100;
-const HOLD_MS = 250;
-const DIVE_MS = 1900;
-const SETTLE_MS = 550;
+const RISE_MS = 850;
+const HOLD_MS = 180;
+const DIVE_MS = 1450;
+const SETTLE_MS = 420;
 const DIVE_PITCH = 48;
 const DIVE_BEARING = -14;
 const MIN_ZOOM = 8;
+// Europe underneath for the high part of the flight: swisstopo tiles are white outside Switzerland, so they
+// fade in only from FADE_FROM to FADE_TO. Sentinel-2 cloudless 2020 by EOX (CC BY-NC-SA 4.0), online only.
+const WORLD_TILES = "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2020_3857/default/g/{z}/{y}/{x}.jpg";
+const FADE_FROM = 7.5;
+const FADE_TO = 9;
+const fadeIn = (opacity: number) =>
+  ["interpolate", ["linear"], ["zoom"], FADE_FROM, 0, FADE_TO, opacity] as unknown as maplibregl.ExpressionSpecification;
 const easeOut = (t: number) => 1 - (1 - t) ** 3;
 const easeInOut = (t: number) => (t < 0.5 ? 4 * t ** 3 : 1 - (-2 * t + 2) ** 3 / 2);
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -157,11 +164,14 @@ export default function DeskMap({
         version: 8,
         sources: {
           base: { type: "raster", tiles: [tiles], tileSize: 256, maxzoom: offline ? 16 : 18 },
+          world: { type: "raster", tiles: [WORLD_TILES], tileSize: 256, maxzoom: 12 },
           aerial: { type: "raster", tiles: [aerialTiles], tileSize: 256, maxzoom: offline ? 17 : 19 },
           places: { type: "geojson", data: placesData(places) },
         },
         layers: [
           { id: "background", type: "background", paint: { "background-color": "#fafafa" } },
+          // Europe from space, under both backgrounds; only seen while the camera is high (the flight).
+          ...(offline ? [] : [{ id: "world", type: "raster" as const, source: "world", paint: { "raster-fade-duration": 200 } }]),
           {
             id: "base",
             type: "raster",
@@ -175,14 +185,14 @@ export default function DeskMap({
                   "raster-contrast": -0.15,
                   "raster-brightness-min": 0.12,
                   "raster-brightness-max": 0.98,
-                  "raster-opacity": 0.85,
+                  "raster-opacity": offline ? 0.85 : fadeIn(0.85),
                   "raster-fade-duration": 300,
                 }
               : {
                   "raster-saturation": -0.15,
                   "raster-contrast": -0.1,
                   "raster-brightness-min": 0.05,
-                  "raster-opacity": 0.9,
+                  "raster-opacity": offline ? 0.9 : fadeIn(0.9),
                   "raster-fade-duration": 300,
                 },
           },
@@ -192,7 +202,7 @@ export default function DeskMap({
             type: "raster",
             source: "aerial",
             layout: { visibility: basemap === "luftbild" ? "visible" : "none" },
-            paint: { "raster-fade-duration": 300 },
+            paint: { "raster-fade-duration": 300, "raster-opacity": offline ? 1 : fadeIn(1) },
           },
         ],
       },
@@ -549,7 +559,9 @@ export default function DeskMap({
   return (
     <div role="region" aria-label="Karte der Fotostandorte" className="relative h-full w-full">
       <div ref={container} className="h-full w-full" />
-      <p className="pointer-events-none absolute bottom-0 right-0 bg-paper px-1.5 py-0.5 text-meta text-ink-muted">© swisstopo</p>
+      <p className="pointer-events-none absolute bottom-0 right-0 bg-paper px-1.5 py-0.5 text-meta text-ink-muted">
+        © swisstopo{offline ? "" : " · Sentinel-2 cloudless by EOX (Copernicus Sentinel data 2020)"}
+      </p>
     </div>
   );
 }
