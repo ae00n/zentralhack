@@ -28,7 +28,7 @@ export default function PhotoDetail({ item, onBack }: Props) {
   const status = STATUS[certClass(result)];
   const series = record.raw?.session?.length ?? 0;
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="detail-enter flex min-h-0 flex-1 flex-col">
       <div className="flex items-center gap-2 border-b border-rule/[0.08] px-2 py-2">
         <button
           type="button"
@@ -45,9 +45,12 @@ export default function PhotoDetail({ item, onBack }: Props) {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={imageUrl(record.id, 800)} alt={`Foto ${record.signature ?? record.id}`} className="aspect-[4/3] w-full bg-paper-2 object-cover" />
+        <div className="burn-in">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={imageUrl(record.id, 960)} alt={`Foto ${record.signature ?? record.id}`} className="aspect-[4/3] w-full bg-paper-2 object-cover" />
+        </div>
 
+        <div className="write-in">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 pt-3">
           <span className={cn("rounded-sm px-2 py-0.5 text-meta font-medium", status.cls)}>{status.label}</span>
           {result && <span className="text-meta tnum text-ink-muted">Gesamt {formatPct(result.overall_confidence)}</span>}
@@ -61,6 +64,7 @@ export default function PhotoDetail({ item, onBack }: Props) {
           ) : (
             <p className="py-6 text-ui text-ink-muted">Noch kein Ergebnis für dieses Foto.</p>
           )}
+        </div>
         </div>
       </div>
 

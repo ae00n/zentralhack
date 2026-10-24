@@ -215,6 +215,7 @@ function Arbeitsplatz() {
                 onHover={setHoveredPlace}
                 onPickPhoto={pickFromMap}
                 labelOf={signatureOf}
+                panelWide={Boolean(selectedItem)}
               />
             )}
           </div>
@@ -251,12 +252,15 @@ function Arbeitsplatz() {
 
         <div
           className={cn(
-            "flex-col bg-paper lg:absolute lg:bottom-3 lg:left-3 lg:top-3 lg:z-10 lg:flex lg:w-[400px] lg:overflow-hidden lg:rounded-lg lg:border lg:border-rule/[0.08] lg:shadow-panel",
+            "flex-col bg-paper lg:absolute lg:bottom-3 lg:left-3 lg:top-3 lg:z-10 lg:flex lg:overflow-hidden lg:rounded-lg lg:border lg:border-rule/[0.08] lg:shadow-panel",
+            // Wider while a photo is open (Said, 24.10.), with a smooth change of width.
+            "lg:transition-[width] lg:duration-500 lg:ease-[cubic-bezier(0.2,0.7,0.2,1)]",
+            selectedItem ? "lg:w-[480px]" : "lg:w-[400px]",
             view === "list" ? "flex" : "hidden",
           )}
         >
           {selectedItem ? (
-            <PhotoDetail item={selectedItem} onBack={backToList} />
+            <PhotoDetail key={selectedItem.record.id} item={selectedItem} onBack={backToList} />
           ) : (
           <>
           <DeskBand

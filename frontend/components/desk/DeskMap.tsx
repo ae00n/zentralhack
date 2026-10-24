@@ -27,6 +27,8 @@ export interface DeskMapProps {
   onPickPhoto: (photoId: string) => void;
   /** Signature shown in the popup of a place with several photos. */
   labelOf: (photoId: string) => string;
+  /** The side panel is wide (a photo is open): the map keeps the place clear of it. */
+  panelWide?: boolean;
 }
 
 const BOUNDS: [[number, number], [number, number]] = [
@@ -36,8 +38,8 @@ const BOUNDS: [[number, number], [number, number]] = [
 const CANTON_CENTRE: [number, number] = [8.696, 47.055];
 const FIRST_ZOOM = 11.6;
 // Close-up on a picked place; a fractional zoom for the same reason as FIRST_ZOOM (detailed tiles, small labels).
-const PICK_ZOOM = 14.6; // closer on a picked photo (Said, 24.10.)
-const PICK_FLOOR = 13;
+const PICK_ZOOM = 15.3; // closer on a picked photo (Said, 24.10.)
+const PICK_FLOOR = 13.8;
 // The flight to a newly picked photo (Said, 24.10.): rise to all of Switzerland, mark the target with a
 // beacon, dive in with a slight drone tilt, settle flat. Offline only the canton is cached, so it rises to
 // the canton instead.
@@ -96,9 +98,11 @@ function placesData(places: Place[]): GeoJSON.FeatureCollection<GeoJSON.Point> {
 const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /** Room for the floating list panel (400 px + 12 px inset) on wide screens; plain padding on the phone. */
+// Left padding for the floating panel: 400 px, or 480 px while a photo is open, plus its 12 px inset.
+let panelLeft = 424;
 function framePadding(): Required<maplibregl.PaddingOptions> {
   return window.matchMedia("(min-width: 1024px)").matches
-    ? { left: 424, top: 24, right: 24, bottom: 24 }
+    ? { left: panelLeft, top: 24, right: 24, bottom: 24 }
     : { left: 24, top: 24, right: 24, bottom: 24 };
 }
 
@@ -114,7 +118,9 @@ export default function DeskMap({
   onHover,
   onPickPhoto,
   labelOf,
+  panelWide = false,
 }: DeskMapProps) {
+  panelLeft = panelWide ? 504 : 424;
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const ready = useRef(false);
