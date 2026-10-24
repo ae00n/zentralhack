@@ -36,7 +36,8 @@ const BOUNDS: [[number, number], [number, number]] = [
 const CANTON_CENTRE: [number, number] = [8.696, 47.055];
 const FIRST_ZOOM = 11.6;
 // Close-up on a picked place; a fractional zoom for the same reason as FIRST_ZOOM (detailed tiles, small labels).
-const PICK_ZOOM = 12.6;
+const PICK_ZOOM = 14.6; // closer on a picked photo (Said, 24.10.)
+const PICK_FLOOR = 13;
 // The flight to a newly picked photo (Said, 24.10.): rise to all of Switzerland, mark the target with a
 // beacon, dive in with a slight drone tilt, settle flat. Offline only the canton is cached, so it rises to
 // the canton instead.
@@ -616,7 +617,8 @@ export default function DeskMap({
                 padding: { top: pad.top + 40, right: pad.right + 40, bottom: pad.bottom + 40, left: pad.left + 40 },
               })?.zoom
             : undefined;
-        const zoom = Math.min(Math.max(m.getZoom(), PICK_ZOOM), fit ?? Infinity);
+        // Close in on the place; a wide uncertainty circle may pull it back out, but never below PICK_FLOOR.
+        const zoom = Math.max(Math.min(PICK_ZOOM, fit ?? Infinity), PICK_FLOOR);
         const target = { center: [p.lon, p.lat] as [number, number], zoom, padding: pad };
         if (reducedMotion()) m.jumpTo(target);
         else void fly(m, p, target);

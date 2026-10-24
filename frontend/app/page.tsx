@@ -11,6 +11,7 @@ import DeskBand from "@/components/desk/DeskBand";
 import { FOCUS_RING } from "@/components/ui/button";
 import Segmented from "@/components/ui/Segmented";
 import Select from "@/components/ui/Select";
+import PhotoDetail from "@/components/desk/PhotoDetail";
 import PhotoRow, { rowId } from "@/components/desk/PhotoRow";
 import { errorText, exportXlsxUrl, getTilesUrl, listChallenge, listResults, tileTemplate } from "@/lib/api";
 import {
@@ -159,6 +160,22 @@ function Arbeitsplatz() {
     select(photoId);
   };
 
+  // The side panel shows the picked photo instead of the list (Said, 24.10.); Escape goes back.
+  const selectedItem = selected ? (items.find((i) => i.record.id === selected) ?? null) : null;
+  const backToList = () => {
+    const id = selected;
+    setSelected(null);
+    if (id) setTimeout(() => document.getElementById(rowId(id))?.scrollIntoView({ block: "nearest" }), 0);
+  };
+  useEffect(() => {
+    if (!selected) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !(e.target instanceof HTMLInputElement)) backToList();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selected]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const meta = records
     ? [`${records.length} Fotos`, `${prioRecords.length} Prio 1`, yearSpan(records)].filter(Boolean).join(" · ")
     : "Lade Fotos ...";
@@ -238,6 +255,10 @@ function Arbeitsplatz() {
             view === "list" ? "flex" : "hidden",
           )}
         >
+          {selectedItem ? (
+            <PhotoDetail item={selectedItem} onBack={backToList} />
+          ) : (
+          <>
           <DeskBand
             meta={meta}
             counts={counts}
@@ -290,6 +311,8 @@ function Arbeitsplatz() {
                 />
               ))}
             </ul>
+          )}
+          </>
           )}
         </div>
       </main>
