@@ -325,6 +325,17 @@ body {
 .write-in section > *:nth-child(13), .write-in section > div > *:nth-child(13) { --i: 13; }
 .write-in section > *:nth-child(14), .write-in section > div > *:nth-child(14) { --i: 14; }
 .write-in section > *:nth-child(15), .write-in section > div > *:nth-child(15) { --i: 15; }
+/* Aerial photos the agent compared, in the trace (Said, 24.10.): each one develops in, one after another. */
+.aerial-tile {
+  animation: aerial-in 700ms cubic-bezier(0.25, 0.6, 0.2, 1) both;
+}
+@keyframes aerial-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+    filter: blur(6px) brightness(1.5) saturate(0);
+  }
+}
 /* Beacon on the flight target (Said, 24.10.): three radar rings and a glowing core while the camera is high. */
 .desk-beacon {
   position: relative;

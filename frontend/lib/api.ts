@@ -334,12 +334,14 @@ export function bestReferenceMatch(result: AnalysisResult): ReferenceMatch | nul
 
 export type TileLayer =
   | "ch.swisstopo.swissimage"
+  | "ch.swisstopo.swissimage-product"
   | "ch.swisstopo.zeitreihen"
   | "ch.swisstopo.pixelkarte-grau"
   | "ch.swisstopo.pixelkarte-farbe";
 
 const TILE_EXT: Record<TileLayer, string> = {
   "ch.swisstopo.swissimage": "jpeg",
+  "ch.swisstopo.swissimage-product": "jpeg", // aerial photo time series, TIME = year
   "ch.swisstopo.zeitreihen": "png",
   "ch.swisstopo.pixelkarte-grau": "jpeg",
   "ch.swisstopo.pixelkarte-farbe": "jpeg",

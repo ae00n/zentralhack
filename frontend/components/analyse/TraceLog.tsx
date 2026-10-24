@@ -1,6 +1,7 @@
 "use client";
 
 // Quiet log of the agent's steps. Lines fade in as they arrive; collapsible once the analysis is done.
+import AerialCompare, { type AerialCandidate } from "@/components/analyse/AerialCompare";
 import { toolLabel } from "@/lib/labels";
 import type { TraceItem } from "@/lib/types";
 
@@ -9,15 +10,27 @@ interface Props {
   running: boolean;
   /** Collapsed on the phone once the analysis is done. */
   defaultOpen?: boolean;
+  /** Tile base and capture year: "aerial_view" steps show the aerial photos the agent compared. */
+  aerial?: { tilesUrl: string; year?: number };
 }
 
-export default function TraceLog({ items, running, defaultOpen = true }: Props) {
+export default function TraceLog({ items, running, defaultOpen = true, aerial }: Props) {
   const list = (
     <ol className="mt-2 space-y-1.5">
       {items.map((item) => (
         <li key={item.step} className="fade-in grid grid-cols-[24px_1fr] gap-2 text-ui">
           <span className="font-mono text-ink-muted">{item.step}</span>
-          <TraceLine item={item} />
+          <span className="min-w-0">
+            <TraceLine item={item} />
+            {aerial && item.type === "tool_call" && item.tool === "aerial_view" && (
+              <AerialCompare
+                candidates={((item.input?.candidates as AerialCandidate[] | undefined) ?? [])}
+                radiusM={Number(item.input?.radius_m) || 70}
+                tilesUrl={aerial.tilesUrl}
+                year={aerial.year}
+              />
+            )}
+          </span>
         </li>
       ))}
       {running && <li className="pl-8 text-ui text-ink-muted">...</li>}

@@ -27,6 +27,7 @@ import {
   getGemeinden,
   getPhoto,
   getResult,
+  getTilesUrl,
   listChallenge,
   listResults,
   replayTrace,
@@ -236,6 +237,13 @@ export default function AnalysePage() {
       cancelLive.current?.(); // the job keeps running on the server; only the stream closes
     };
   }, [id, startReplay]);
+
+  // Tile base for the aerial photos in "Luftbild vergleichen" steps, as of the photo's capture year.
+  const [tilesUrl, setTilesUrl] = useState<string | null>(null);
+  useEffect(() => {
+    getTilesUrl().then((t) => setTilesUrl(t.tilesUrl));
+  }, []);
+  const aerial = tilesUrl ? { tilesUrl, year: record?.date?.year_from ?? undefined } : undefined;
 
   const skipReplay = () => {
     if (!result) return;
@@ -563,7 +571,7 @@ export default function AnalysePage() {
                     </button>
                   )}
                 </div>
-                <TraceLog items={steps} running />
+                <TraceLog items={steps} running aerial={aerial} />
               </div>
             )}
 
@@ -572,7 +580,7 @@ export default function AnalysePage() {
 
             {!running && steps.length > 0 && (
               <div className="relative">
-                <TraceLog items={steps} running={false} defaultOpen={false} />
+                <TraceLog items={steps} running={false} defaultOpen={false} aerial={aerial} />
                 <div className="absolute right-0 top-0 flex gap-1">
                   {canReplay && (
                     <button type="button" onClick={() => result && startReplay(result)} className={buttonClass("ghost", "h-6 text-meta")}>
