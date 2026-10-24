@@ -35,7 +35,7 @@ MODELS = ("dinov2", "clip", "megaloc")
 RRF_K = 60  # reciprocal rank fusion constant (Cormack et al.)
 BATCH = int(os.environ.get("EMBED_BATCH", "16"))
 SOURCE_PREFIX = {"staatsarchiv": "stasz:", "smapshot": "smapshot:", "epics": "epics:", "lubis": "lubis:", "nb": "nb:",
-                 "upload": "upload:"}
+                 "upload": "upload:", "commons": "commons:", "mapillary": "mapillary:"}
 
 
 def _device():

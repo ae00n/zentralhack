@@ -95,7 +95,8 @@ def similar_images(image_path: str, k: int = 8, model: str = "best",
     excluded = {_base(i) for i in exclude_ids}
     want = k * 3 + len(excluded) + 10
     out, seen = [], set()
-    for pid, score in embed.search(image_path, want, model):
+    # sources go into the index search, so a filter like ["commons"] pages past the older photos ranked above them
+    for pid, score in embed.search(image_path, want, model, sources=sources):
         if _base(pid) in excluded or _base(pid) in seen:  # a card and its crops count once (best one wins)
             continue
         rec = get_record(pid)

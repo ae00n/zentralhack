@@ -31,7 +31,7 @@ def test_timeline_sorted_and_leak_free(tiny_data):
 
 def test_similar_images_excludes_query_and_its_crops(tiny_data, monkeypatch):
     fake = types.ModuleType("data_pipeline.embed")
-    fake.search = lambda path, k, model: [("stasz:2#1", 0.99), ("stasz:2", 0.95), ("epics:4", 0.9), ("stasz:1", 0.8)]
+    fake.search = lambda path, k, model, sources=None: [("stasz:2#1", 0.99), ("stasz:2", 0.95), ("epics:4", 0.9), ("stasz:1", 0.8)]
     monkeypatch.setitem(sys.modules, "data_pipeline.embed", fake)
     import data_pipeline
     monkeypatch.setattr(data_pipeline, "embed", fake, raising=False)
@@ -50,7 +50,7 @@ def test_eval_ids(tiny_data):
 
 def test_similar_images_verify_reranks(tiny_data, monkeypatch):
     fake = types.ModuleType("data_pipeline.embed")
-    fake.search = lambda path, k, model: [("stasz:2", 0.95), ("epics:4", 0.9), ("stasz:3", 0.8)]
+    fake.search = lambda path, k, model, sources=None: [("stasz:2", 0.95), ("epics:4", 0.9), ("stasz:3", 0.8)]
     geo = types.ModuleType("data_pipeline.verify")
     inl = {"2.jpg": 5, "4.jpg": 80, "3.jpg": 40}
     geo.verify = lambda q, paths: [{"path": str(p), "matches": 99, "inliers": inl[p.name],
