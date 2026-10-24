@@ -4,6 +4,8 @@ One section per build step (`docs/SCOPE_3_FRONTEND.md`, Build order). Each step 
 
 Keep appending: a new section per step, and update an older section when something from it gets built later (mark it "done in step N").
 
+The upload flow (Hochladen, Analyse, Prüfen, Export) has its own plan with the notes under each step: `UPLOAD_PLAN.md`.
+
 ---
 
 ## Step 1: Scaffold (22.10.)

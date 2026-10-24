@@ -257,6 +257,34 @@ export interface EvalSummary {
   _fixture_note?: string;
 }
 
+/**
+ * Batch upload (frontend/context/UPLOAD_PLAN.md). Proposed shape for /batches, not in the contract yet;
+ * the client runner keeps the same shape in localStorage.
+ */
+export type BatchItemStatus = "queued" | "uploading" | "running" | "done" | "error" | "skipped";
+
+export interface BatchItem {
+  /** Path inside the ZIP or folder, e.g. "Brunnen/IMG_0012.jpg": the Excel key (Dateiname). */
+  file_name: string;
+  size: number;
+  /** upload:<sha1>, or challenge:<signature> for a known challenge photo, once the image is stored. */
+  photo_id: string | null;
+  job_id: string | null;
+  status: BatchItemStatus;
+  /** German, for status "error" and "skipped". */
+  error: string | null;
+}
+
+export interface Batch {
+  id: string;
+  name: string;
+  created_at: string;
+  /** "server": the backend runs the queue (/batches); "client": this browser does, over POST /analyze. */
+  runner: "server" | "client";
+  items: BatchItem[];
+  cost_usd?: number | null;
+}
+
 /** Status "needs_review" and the needs_review flag both mean "Prüfung nötig" (OPEN_FRONTEND_QUESTIONS 3.5). */
 export function needsReview(r: AnalysisResult): boolean {
   return r.needs_review || r.status === "needs_review";

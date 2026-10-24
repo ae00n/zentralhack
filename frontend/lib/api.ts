@@ -3,6 +3,7 @@
 // demo = real backend, results replayed from the cache (no analysis is ever triggered).
 import type {
   AnalysisResult,
+  Batch,
   DemoItem,
   EvalSummary,
   Evidence,
@@ -124,6 +125,8 @@ export async function listPhotos(params: PhotoQuery = {}): Promise<PhotoList> {
 
 export async function getPhoto(id: string): Promise<PhotoRecord> {
   if (MODE === "mock") {
+    const upload = mockUploads.get(id);
+    if (upload) return upload.record;
     const found = (await mockPhotos()).find((r) => r.id === id);
     if (!found) throw new ApiError(404, `/photos/${enc(id)}`);
     return found;
@@ -131,16 +134,18 @@ export async function getPhoto(id: string): Promise<PhotoRecord> {
   return backend<PhotoRecord>(`/photos/${enc(id)}`);
 }
 
-/** Every image goes through here; in mock mode all ids show the public-domain fixture image. */
+/** Every image goes through here; in mock mode all ids show the public-domain fixture image, uploads their own. */
 export function imageUrl(id: string, width?: number): string {
-  if (MODE === "mock") return `${FIXTURES}/sample.jpg`;
+  if (MODE === "mock") return mockUploads.get(id)?.url ?? `${FIXTURES}/sample.jpg`;
   return `${API_URL}/images/${enc(id)}${query({ w: width })}`;
 }
 
 /** Cached result, or null when the backend has none (404). */
 export async function getResult(photoId: string): Promise<AnalysisResult | null> {
   if (MODE === "mock") {
-    const mock = MOCK_CHALLENGE_RESULTS[photoId];
+    const upload = mockUploads.get(photoId);
+    if (upload && !upload.result) return null; // still running
+    const mock = MOCK_CHALLENGE_RESULTS[photoId] ?? upload?.result;
     if (mock) return mockReviews.has(photoId) ? { ...mock, review: mockReviews.get(photoId) } : mock;
     const base = await fixture<AnalysisResult>("analysis_result.json");
     return { ...base, photo_id: photoId };
@@ -301,9 +306,11 @@ export function getGemeinden(): Promise<string[]> {
  * The Excel deliverable (sheets Metadaten + Methode). A plain <a download> link: Said sends a
  * Content-Disposition file name. Mock mode has no .xlsx fixture and links the CSV fixture instead.
  */
-export function exportXlsxUrl(q: { split?: string; priority?: number; ids?: string[] } = { split: "challenge", priority: 1 }): string {
+export function exportXlsxUrl(
+  q: { split?: string; priority?: number; ids?: string[]; batch?: string } = { split: "challenge", priority: 1 },
+): string {
   if (MODE === "mock") return `${FIXTURES}/export.csv`;
-  return `${API_URL}/export.xlsx${query({ split: q.split, priority: q.priority, ids: q.ids?.join(",") })}`;
+  return `${API_URL}/export.xlsx${query({ split: q.split, priority: q.priority, ids: q.ids?.join(","), batch: q.batch })}`;
 }
 
 export interface ReferenceMatch {
@@ -403,6 +410,7 @@ const POLL_MS = 1000;
  * (question 3.1). Trace items arrive at most once per step. Returns a cancel function.
  */
 export function followAnalysis(jobId: string, h: AnalysisHandlers): () => void {
+  if (MODE === "mock") return followMockJob(jobId, h);
   let done = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const seen = new Set<number>();
@@ -417,6 +425,8 @@ export function followAnalysis(jobId: string, h: AnalysisHandlers): () => void {
     result.trace?.forEach(trace); // steps the stream may have missed
     done = true;
     es.close();
+    // Lists that asked before the job finished cached null for this photo.
+    if (result.status !== "error") resultCache.set(result.photo_id, result);
     h.onResult(result);
   };
 
@@ -494,4 +504,164 @@ export function replayTrace(
     cancelled = true;
     if (timer) clearTimeout(timer);
   };
+}
+
+// --- batch upload (frontend/context/UPLOAD_PLAN.md) ---
+
+async function send<T>(url: string, init: RequestInit): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(url, init);
+  } catch {
+    throw new ApiError(0, url);
+  }
+  if (!res.ok) throw new ApiError(res.status, url);
+  return (await res.json()) as T;
+}
+
+function postJson<T>(path: string, body: unknown): Promise<T> {
+  return send<T>(`${API_URL}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+interface MockUpload {
+  record: PhotoRecord;
+  /** Object URL of the uploaded file, so the mock desk shows the real image. */
+  url: string;
+  result: AnalysisResult | null;
+}
+
+/** Mock mode keeps uploads in memory, so the whole batch flow runs without a backend. */
+const mockUploads = new Map<string, MockUpload>();
+/** Mock job id -> photo id. */
+const mockJobs = new Map<string, string>();
+let mockSeq = 0;
+const MOCK_JOB_MS: [number, number] = [1500, 4500];
+
+/** Shaped like the backend's catalogue.upload_record: the file name is the title, no archive fields. */
+function mockUploadRecord(id: string, fileName: string): PhotoRecord {
+  return {
+    id,
+    source: "upload",
+    source_id: id.slice("upload:".length),
+    source_url: null,
+    signature: null,
+    collection: null,
+    kind: "unknown",
+    title: fileName,
+    date: { raw: null, year_from: null, year_to: null, approximate: false },
+    places: [],
+    municipality: null,
+    location: null,
+    camera: null,
+    photographer: null,
+    license: { code: "upload", credit: "Hochgeladen", url: null },
+    image: null,
+    parent_id: null,
+    crop_bbox: null,
+    split: "none",
+    raw: {},
+  };
+}
+
+/** The mock challenge results in turn (sure + confirmed, Prüfung nötig, nicht bestimmbar), unreviewed. */
+function mockUploadResult(n: number, photoId: string): AnalysisResult {
+  const all = Object.values(MOCK_CHALLENGE_RESULTS);
+  const base = all[n % all.length];
+  return { ...base, photo_id: photoId, run_id: `mock-${n}`, review: null, created_at: new Date().toISOString() };
+}
+
+/** A mock job finishes after a few seconds; every 7th fails once, so the error state can be shown. */
+function followMockJob(jobId: string, h: AnalysisHandlers): () => void {
+  const photoId = mockJobs.get(jobId);
+  const upload = photoId ? mockUploads.get(photoId) : undefined;
+  let cancelled = false;
+  if (!photoId || !upload) {
+    setTimeout(() => !cancelled && h.onError(new ApiError(404, `/analyze/${enc(jobId)}`)), 0);
+    return () => (cancelled = true);
+  }
+  const n = Number(jobId.slice("mockjob-".length));
+  const [min, max] = MOCK_JOB_MS;
+  const timer = setTimeout(() => {
+    if (cancelled) return;
+    const result = mockUploadResult(n, photoId);
+    if (n % 7 === 6) return h.onResult({ ...result, status: "error", error: "Die Analyse ist fehlgeschlagen." });
+    upload.result = result;
+    resultCache.set(photoId, result);
+    h.onResult(result);
+  }, min + Math.random() * (max - min));
+  return () => {
+    cancelled = true;
+    clearTimeout(timer);
+  };
+}
+
+/**
+ * POST /analyze with a file (multipart "file", filename = path in the ZIP). The backend stores it as
+ * upload:<sha1>: the same image gives the same id, so a photo analysed before comes back at once (cache).
+ */
+export async function uploadPhoto(file: Blob, fileName: string): Promise<{ job_id: string; photo_id: string }> {
+  if (MODE === "mock") {
+    const n = mockSeq++;
+    const photo_id = `upload:mock${String(n).padStart(8, "0")}`;
+    const job_id = `mockjob-${n}`;
+    mockUploads.set(photo_id, { record: mockUploadRecord(photo_id, fileName), url: URL.createObjectURL(file), result: null });
+    mockJobs.set(job_id, photo_id);
+    return { job_id, photo_id };
+  }
+  const form = new FormData();
+  form.append("file", file, fileName);
+  return send(`${API_URL}/analyze`, { method: "POST", body: form });
+}
+
+let batchProbe: Promise<boolean> | null = null;
+
+/**
+ * Whether the backend runs batches (GET /batches). 404 / 405: not yet, this browser runs them over
+ * POST /analyze (the client runner). Other errors are thrown and probed again next time.
+ */
+export function serverBatches(): Promise<boolean> {
+  if (MODE === "mock") return Promise.resolve(false);
+  batchProbe ??= backend<unknown>("/batches").then(
+    () => true,
+    (e: unknown) => {
+      batchProbe = null;
+      if (e instanceof ApiError && (e.status === 404 || e.status === 405)) return false;
+      throw e;
+    },
+  );
+  return batchProbe;
+}
+
+export async function listServerBatches(): Promise<Batch[]> {
+  const r = await backend<Batch[] | { items: Batch[] }>("/batches");
+  return Array.isArray(r) ? r : r.items;
+}
+
+export function getServerBatch(id: string): Promise<Batch> {
+  return backend<Batch>(`/batches/${enc(id)}`);
+}
+
+export function createServerBatch(name: string, skipped: { file_name: string; reason: string }[]): Promise<Batch> {
+  return postJson<Batch>("/batches", { name, skipped });
+}
+
+/** One chunk of files (field "files" repeated, filename = path in the ZIP); the server queues them. */
+export function addServerFiles(id: string, files: { file_name: string; file: Blob }[]): Promise<Batch> {
+  const form = new FormData();
+  for (const f of files) form.append("files", f.file, f.file_name);
+  return send<Batch>(`${API_URL}/batches/${enc(id)}/files`, { method: "POST", body: form });
+}
+
+/** Queues failed items again; no names = every item with status error. */
+export function retryServerBatch(id: string, fileNames?: string[]): Promise<Batch> {
+  return postJson<Batch>(`/batches/${enc(id)}/retry`, fileNames ? { file_names: fileNames } : {});
+}
+
+/** Images unchanged under their file names plus metadaten.xlsx (server runner only). */
+export function exportZipUrl(batchId: string): string {
+  return `${API_URL}/export.zip${query({ batch: batchId })}`;
 }
