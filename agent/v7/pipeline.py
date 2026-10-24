@@ -154,7 +154,11 @@ def analyze(photo_id: str | None = None, image_path: str | None = None, *, model
         # judge rejected all: the outside-canton verdict of a majority still counts
         outside = [c for c in cands if c.get("outside") and len(c["attempts"]) >= 2]
         chosen = outside[0] if outside else None
-    return result(rec, model, runs, cands, chosen, pick, v, usd, trace, emit)
+    r = result(rec, model, runs, cands, chosen, pick, v, usd, trace, emit)
+    from ..photo_marks import marks
+    r["photo_marks"], cost = marks(rec, r)
+    r["usage"]["cost_usd"] = round(r["usage"]["cost_usd"] + cost, 6)
+    return r
 
 
 def result(rec, model, runs, cands, chosen, pick, v, usd, trace, emit) -> dict:
