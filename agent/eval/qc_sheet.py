@@ -2,7 +2,7 @@
 
     python -m agent.eval.qc_sheet [--port 8012]     # then https://zhfront.vatra.sh/qc/ (tailnet only)
 
-Per photo: the photo, what v3, v5 and v6 answered (each with Google Maps / Street View links at its point),
+Per photo: the photo, what v7, v6, v5 and v3 answered (each with Google Maps / Street View links at its point),
 and four fields to fill: Ortschaft, Gemeinde, Gebäude, Strasse. "übernehmen" copies a suggestion into the
 fields; the checker confirms it on the map before saving. An empty field means "could not tell" and is
 skipped by the scorer (data_pipeline.metrics.score_challenge), never counted as wrong.
@@ -21,7 +21,7 @@ from data_pipeline.jsonl import read_jsonl, write_jsonl
 from data_pipeline.paths import DATA_DIR, RECORDS
 from data_pipeline.qc import QC_FILE, clean_row
 
-VERSIONS = {"v6": DATA_DIR / "results_v6", "v5": DATA_DIR / "results_v5", "v3": DATA_DIR / "results_v3"}
+VERSIONS = {"v7": DATA_DIR / "results_v7", "v6": DATA_DIR / "results_v6", "v5": DATA_DIR / "results_v5", "v3": DATA_DIR / "results_v3"}
 FIELDS = [("locality", "Ortschaft"), ("municipality", "Gemeinde"), ("buildings", "Gebäude"), ("street", "Strasse")]
 ID = re.compile(r"^challenge:SG\.CIV\.17\.\d+$")
 

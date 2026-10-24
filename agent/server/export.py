@@ -140,37 +140,32 @@ def to_csv(rows: list[dict]) -> bytes:
     return ("﻿" + buf.getvalue()).encode("utf-8")
 
 
-PATHS = {"pick": "Claude erkennt denselben Ort auf einem geometrisch bestätigten Referenzfoto",
-         "building": "Gebäudename gelesen oder erkannt und im Gebäuderegister gefunden",
-         "street": "Strasse gelesen oder erkannt und im Adressregister gefunden",
-         "match": "Stark geometrisch bestätigtes Referenzfoto, von Claude nicht widersprochen",
-         "claude": "Nur Claudes Bildeinschätzung (sicher / wahrscheinlich / vermutet)"}
-
-
 def method() -> list[tuple[str, str]]:
-    """Sheet Methode: how a value and its confidence come about (agent.v6), with the measured table."""
-    from .. import v6
+    """Sheet Methode: how a value and its confidence come about (agent.v7), with the measured table."""
+    from ..v7 import tiers
 
     rows = [
-        ("Ablauf", "1. Claude (Opus 5.5) sieht das Foto, das EXIF-Datum, Fotos derselben Aufnahmeserie und bis zu "
-                   "4 geometrisch bestätigte Referenzfotos (MegaLoc-Suche, LightGlue-Prüfung) und nennt, was es liest "
-                   "und erkennt. 2. Unser Code sucht Gebäude, Strasse oder Referenzpunkt in den amtlichen Registern. "
-                   "3. Ortschaft, Gemeinde, Strasse und Gebäude kommen aus dem Register am gefundenen Punkt (GWR, "
-                   "swissBOUNDARIES3D), Berge und Seen aus swissNAMES3D. Claude tippt nie Koordinaten."),
-        ("Nicht bestimmbar", "Ohne Hinweis bleibt das Feld leer mit Konfidenz 0. Ein Name, der in keinem Register "
-                             "steht, wird nicht übernommen; leere Felder stehen in der Spalte Nicht_bestimmbar."),
-        ("Konfidenz", "Gemessene Trefferquote des Wegs, auf dem der Wert entstand, auf den von Hand geprüften "
-                      "Prio-1-Fotos: (Treffer + 1) / (geprüfte + 2). Ein Weg mit weniger als 3 geprüften Fotos "
-                      "trägt einen Schätzwert, das steht dann in Konfidenz_Begruendung."),
-        ("Prüfung nötig", "ja, wenn die Gesamtkonfidenz unter 0.90 liegt oder die Gemeinde fehlt. Nach einem "
-                          "Review (bestätigt oder korrigiert) nein; korrigierte Werte ersetzen die Vorschläge."),
+        ("Ablauf", "1. Bildsuche über rund 52'000 Referenzfotos (Wikimedia Commons, Mapillary; MegaLoc, LightGlue). "
+                   "2. Drei unabhängige Untersuchungen mit Claude (Opus 5.5): mit den Referenzfotos, ohne sie, und eine "
+                   "dritte ebenfalls nur mit dem Foto. Jede zoomt ins Original, liest Schrift, sucht im Web und in den amtlichen Registern (GWR, OSM, "
+                   "KGS-Inventar, swissNAMES3D) und nennt das Motiv mit seinem Registereintrag. 3. Ortschaft, Gemeinde, "
+                   "Strasse und Gebäude kommen aus dem Register am Ort des Motivs (nie vom Standort eines "
+                   "Vergleichsfotos). 4. Bildvergleich vor Ort: Fotos, die dort aufgenommen wurden (Mapillary, "
+                   "Wikimedia Commons), werden mit LightGlue geometrisch mit dem Foto verglichen. 5. Eine Schlussprüfung "
+                   "(Claude) sieht das Foto und alle Kandidaten mit ihren Vergleichsfotos, ohne zu wissen, wer sie "
+                   "vorgeschlagen hat, und wählt einen oder keinen."),
+        ("Nicht bestimmbar", "Ohne belastbaren Hinweis bleibt das Feld leer mit Konfidenz 0. Fotos ausserhalb des "
+                             "Kantons werden als solche markiert; leere Felder stehen in der Spalte Nicht_bestimmbar."),
+        ("Konfidenz", "Stufe nach Regel, Zahl = gemessene Trefferquote der Stufe auf den von Hand geprüften "
+                      "Prio-1-Fotos (Gemeinde und Ortschaft richtig). Ohne Messung ein Schätzwert, das steht dann in "
+                      "Konfidenz_Begruendung."),
+        ("Prüfung nötig", "ja, wenn die gemessene Konfidenz unter 0.90 liegt oder die Gemeinde fehlt. Nach einem Review (bestätigt oder korrigiert) nein; korrigierte "
+                          "Werte ersetzen die Vorschläge."),
     ]
-    rows += [(f"Weg: {k}", v) for k, v in PATHS.items()]
-    table = v6._table()
-    for b, cells in sorted(table.items()):
-        c = cells.get("municipality") or {}
-        if c:
-            rows.append((f"Gemessen {b}", f"Gemeinde {c['hits']} von {c['n']} richtig, Konfidenz {c['rate']:.2f}"))
+    rows += [(f"Stufe {t}", w) for t, w in tiers.WHY.items() if t != "-"]
+    table = tiers.table()
+    for t, c in sorted(table.items()):
+        rows.append((f"Gemessen Stufe {t}", f"{c['hits']} von {c['n']} richtig, Konfidenz {c['rate']:.2f}"))
     if not table:
         rows.append(("Gemessen", "Noch keine Handprüfung: alle Konfidenzen sind Schätzwerte."))
     return rows
