@@ -257,6 +257,7 @@ function Arbeitsplatz() {
                 panelWide={Boolean(selectedItem)}
                 reasoning={reasoningPromise}
                 onLanded={onLanded}
+                unplaced={Boolean(selectedItem && !placeOf.has(selectedItem.record.id))}
                 paneWidth={streetOpen ? paneW : 0}
               />
             )}

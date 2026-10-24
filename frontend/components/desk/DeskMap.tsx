@@ -36,6 +36,8 @@ export interface DeskMapProps {
   onLanded?: () => void;
   /** Width of the street view pane on the right (0 = closed): the map keeps the place clear of it. */
   paneWidth?: number;
+  /** A photo is picked but has no place ("nicht bestimmbar"): the map backs out to the canton. */
+  unplaced?: boolean;
 }
 
 const BOUNDS: [[number, number], [number, number]] = [
@@ -145,6 +147,7 @@ export default function DeskMap({
   reasoning = null,
   onLanded,
   paneWidth = 0,
+  unplaced = false,
 }: DeskMapProps) {
   panelLeft = panelWide ? 504 : 424;
   paneRight = paneWidth;
@@ -836,6 +839,21 @@ export default function DeskMap({
       }
     }
   }, [hoveredPlace, selectedPlace]);
+
+  // A photo without a place (Said, 24.10.): back out gently to the whole canton, "somewhere here, not
+  // determinable", instead of staying close on the previous photo. Already further out: stay.
+  useEffect(() => {
+    const m = map.current;
+    if (!m || !unplaced) return;
+    flight.current++;
+    m.stop();
+    endFlight(m);
+    clearReasoning(m);
+    const cam = m.cameraForBounds(BOUNDS, { padding: framePadding() });
+    if (!cam?.zoom || m.getZoom() <= cam.zoom + 0.3) return;
+    m.flyTo({ center: cam.center, zoom: cam.zoom, pitch: 0, bearing: 0, duration: reducedMotion() ? 0 : 1400, curve: 1.2,
+              easing: easeInOut, essential: true });
+  }, [unplaced, selectedPlace]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // The street view pane opens or closes: slide the landed place into the free map area between the panels.
   useEffect(() => {
