@@ -32,6 +32,7 @@ import {
   type SortKey,
 } from "@/lib/desk";
 import { reasoningOf } from "@/lib/reasoning";
+import { nearestStreetView, type StreetSpot } from "@/lib/streetview";
 import { useReviewStore, withLocalReview } from "@/lib/reviewQueue";
 import { cn } from "@/lib/cn";
 import { analyseHref, deskHref } from "@/lib/format";
@@ -175,13 +176,24 @@ function Arbeitsplatz() {
   const selectedItem = selected ? (items.find((i) => i.record.id === selected) ?? null) : null;
   // Its reasoning for the map (landmark lookups start now, the flight picks them up on the way down).
   const reasoningPromise = useMemo(() => (selectedItem ? reasoningOf(selectedItem.result) : null), [selected, Boolean(selectedItem?.result)]); // eslint-disable-line react-hooks/exhaustive-deps
-  // Street view split on the right (Said, 24.10.): opens once the flight to the picked photo has landed.
+  // Street view split on the right (Said, 24.10.): opens once the flight to the picked photo has landed, and
+  // only when Google has Street View near the spot (checked during the flight); otherwise no pane at all.
   const [landed, setLanded] = useState<string | null>(null);
   const [streetClosed, setStreetClosed] = useState(false);
   const [paneW, setPaneW] = useState(0);
-  useEffect(() => setStreetClosed(false), [selected]);
+  const [pano, setPano] = useState<{ id: string; spot: StreetSpot } | null>(null);
   const spot = selectedItem?.result?.fields.coordinates?.value ?? null;
-  const streetOpen = Boolean(selectedItem && spot && landed === selected && !streetClosed && paneW > 0 && !tiles?.offline);
+  useEffect(() => {
+    setStreetClosed(false);
+    if (!selected || !spot || tiles?.offline) return;
+    let live = true;
+    void nearestStreetView(spot.lat, spot.lon).then((s) => live && s && setPano({ id: selected, spot: s }));
+    return () => {
+      live = false;
+    };
+  }, [selected, spot?.lat, spot?.lon, tiles?.offline]); // eslint-disable-line react-hooks/exhaustive-deps
+  const streetSpot = pano && pano.id === selected ? pano.spot : null;
+  const streetOpen = Boolean(selectedItem && spot && streetSpot && landed === selected && !streetClosed && paneW > 0 && !tiles?.offline);
   const onLanded = () => {
     setLanded(selected);
     // Wide screens only: about 42 % of the window, at most 760 px.
@@ -251,11 +263,16 @@ function Arbeitsplatz() {
               />
             )}
           </div>
-          {streetOpen && selectedItem && spot && (
+          {streetOpen && selectedItem && spot && streetSpot && (
             <StreetPane
               key={selectedItem.record.id}
               lat={spot.lat}
               lon={spot.lon}
+              pano={streetSpot}
+              building={(() => {
+                const b = selectedItem.result?.fields.buildings?.value;
+                return Array.isArray(b) && typeof b[0] === "string" ? b[0] : null;
+              })()}
               signature={selectedItem.record.signature ?? selectedItem.record.id}
               reasoning={reasoningPromise}
               width={paneW}

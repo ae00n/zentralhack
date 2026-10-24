@@ -1,18 +1,24 @@
 "use client";
 
-// The place today, at street level (Said, 24.10.): once the map flight has landed on a picked photo, a pane
-// splits off on the right with Google Street View at the found spot, looking towards the main landmark of
-// the reasoning when there is one. Keyless Google embed (the one maps.google.com hands out for
-// "output=svembed"); only the coordinates go to Google, never the photo.
+// The place today, at street level (Said, 24.10.): once the map flight has landed on a picked photo with
+// Street View nearby (lib/streetview.ts), a pane splits off on the right. It stands on the nearest covered
+// street and looks at the found spot; when the spot is on the street itself, towards the main landmark of
+// the reasoning. Keyless Google embed (the one maps.google.com hands out for "output=svembed"); only the
+// coordinates go to Google, never the photo.
 import { useEffect, useState } from "react";
 import { ArrowUpRight, X } from "lucide-react";
 import { FOCUS_RING } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import type { Reasoning } from "@/lib/reasoning";
+import type { StreetSpot } from "@/lib/streetview";
 
 interface Props {
   lat: number;
   lon: number;
+  /** The nearest point with Street View. */
+  pano: StreetSpot;
+  /** The result's building, the target when the panorama stands off the spot. */
+  building: string | null;
   signature: string;
   reasoning: Promise<Reasoning | null> | null;
   width: number;
@@ -32,14 +38,21 @@ const embedUrl = (lat: number, lon: number, heading: number) =>
 const mapsUrl = (lat: number, lon: number, heading: number) =>
   `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat},${lon}&heading=${heading.toFixed(0)}`;
 
+/** Closer than this, the panorama is on the spot: look at the landmark instead. */
+const ON_SPOT_M = 12;
+
 const coord = (v: number, pos: string, neg: string) => `${Math.abs(v).toFixed(5)}° ${v >= 0 ? pos : neg}`;
 
-export default function StreetPane({ lat, lon, signature, reasoning, width, onClose }: Props) {
+export default function StreetPane({ lat, lon, pano, building, signature, reasoning, width, onClose }: Props) {
   const [view, setView] = useState<{ heading: number; toward: string | null } | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     let live = true;
+    if (pano.metres > ON_SPOT_M) {
+      setView({ heading: bearing(pano, { lat, lon }), toward: building ?? "Standort" });
+      return;
+    }
     (reasoning ?? Promise.resolve(null))
       .catch(() => null)
       .then((why) => {
@@ -50,7 +63,7 @@ export default function StreetPane({ lat, lon, signature, reasoning, width, onCl
     return () => {
       live = false;
     };
-  }, [lat, lon, reasoning]);
+  }, [lat, lon, pano, building, reasoning]);
 
   return (
     <aside
@@ -65,7 +78,7 @@ export default function StreetPane({ lat, lon, signature, reasoning, width, onCl
             Strassenansicht heute · {signature}
           </p>
           <p className="mt-0.5 truncate font-mono text-ui tnum text-white">
-            {coord(lat, "N", "S")}&nbsp;&nbsp;{coord(lon, "O", "W")}
+            {coord(pano.lat, "N", "S")}&nbsp;&nbsp;{coord(pano.lon, "O", "W")}
           </p>
           <p className="truncate font-mono text-micro tnum text-white/55">
             {view ? `Blick ${view.heading.toFixed(0).padStart(3, "0")}°${view.toward ? ` · Richtung ${view.toward}` : ""}` : "Blickrichtung ..."}
@@ -84,9 +97,9 @@ export default function StreetPane({ lat, lon, signature, reasoning, width, onCl
       <div className="relative min-h-0 flex-1 bg-black">
         {view && (
           <iframe
-            key={`${lat},${lon},${view.heading.toFixed(0)}`}
+            key={`${pano.lat},${pano.lon},${view.heading.toFixed(0)}`}
             title={`Google Street View bei ${signature}`}
-            src={embedUrl(lat, lon, view.heading)}
+            src={embedUrl(pano.lat, pano.lon, view.heading)}
             onLoad={() => setLoaded(true)}
             className={cn("absolute inset-0 h-full w-full border-0 transition-opacity duration-700", loaded ? "opacity-100" : "opacity-0")}
             loading="eager"
@@ -107,10 +120,12 @@ export default function StreetPane({ lat, lon, signature, reasoning, width, onCl
       </div>
 
       <footer className="flex items-center gap-2 border-t border-white/10 px-3 py-1.5 font-mono text-micro text-white/55">
-        <span className="truncate">Google Street View, nächstes Panorama zum Standort</span>
+        <span className="truncate">
+          Google Street View, {pano.metres > ON_SPOT_M ? `${pano.metres} m vom Standort` : "am Standort"}
+        </span>
         {view && (
           <a
-            href={mapsUrl(lat, lon, view.heading)}
+            href={mapsUrl(pano.lat, pano.lon, view.heading)}
             target="_blank"
             rel="noreferrer"
             className={cn("ml-auto inline-flex shrink-0 items-center gap-1 rounded-sm text-white/80 hover:text-white", FOCUS_RING)}
