@@ -28,7 +28,7 @@ from typing import Callable
 import data_pipeline as dp
 
 from . import llm, results
-from .config import CACHE_DIR, MODEL, REPO_ROOT
+from .config import CACHE_DIR, DATA_DIR as DATA_DIR_, MODEL, REPO_ROOT
 from . import fields as submit
 from .fields import image_block
 
@@ -43,6 +43,13 @@ CONFIDENCE_FILE = REPO_ROOT / "agent" / "v6_confidence.json"
 CLAUDE_CACHE = CACHE_DIR / "v6"
 CACHE_ONLY = os.environ.get("AGENT_CACHE_ONLY") == "1"
 SURE = ("sicher", "wahrscheinlich", "vermutet")
+IMAGE_PX = 1568  # the API's largest size without downscaling: small signs stay readable
+TILE_PX = 1024   # each quarter of the original once more, for text the full view shrinks away
+# server-side web search (only the query leaves, never the photo), as on claude.ai
+SEARCH = os.environ.get("AGENT_WEB_SEARCH", "1") == "1"
+SEARCH_TOOL = {"type": "web_search_20250305", "name": "web_search", "max_uses": 4,
+               "user_location": {"type": "approximate", "country": "CH", "region": "Schwyz", "timezone": "Europe/Zurich"}}
+MAX_TURNS = 4
 # register kinds whose point is not where a photo is taken from ("Fronalpstock" is a summit, not a building)
 NOT_PLACES = {"Berg", "See/Gewässer", "Fluss", "Bach", "Natur", "Ort", "Areal", "Park"}
 
@@ -65,6 +72,8 @@ clue; use null only when you have no clue at all.
 - building: a proper name, never a type ("Wohnhaus", "Kirche" alone is not a name). null if you do not know it.
 - If the photo is outside Kanton Schwyz, put its political municipality and canton in outside_canton \
 (e.g. "Glarus Nord GL", "Schwende-Rüte AI") and municipality null.
+- You can search the web to check a name you read or a building you think you recognise (e.g. the hotel's \
+address, the chapel's village). Search for facts, not for the photo.
 - Call the answer tool exactly once. reason: German, one or two sentences, what gave it away."""
 
 
@@ -116,6 +125,40 @@ def references(photo_id: str | None, image_path: str) -> list[dict]:
     return out
 
 
+def original(rec: dict, fallback: str) -> str:
+    """The photo at full resolution: the challenge originals (data/challenge/<folder>/<file>, 3000 px and more)
+    or a downloaded Commons original, else the 1024 px copy the data pipeline keeps."""
+    raw = rec.get("raw") or {}
+    from data_pipeline.paths import DATA_DIR, IMAGES
+    if rec.get("source") == "challenge" and raw.get("folder") and raw.get("file_name"):
+        p = DATA_DIR / "challenge" / raw["folder"] / raw["file_name"]
+    else:
+        p = IMAGES / f"{rec.get('source')}_full" / f"{rec.get('source_id')}.jpg"
+    return str(p) if p.exists() else fallback
+
+
+def tiles(path: str) -> list[dict]:
+    """The four quarters of a large photo (overlapping by 10%), each as its own image block."""
+    import base64
+    import io
+
+    from PIL import Image
+    with Image.open(path) as im:
+        im = im.convert("RGB")
+        w, h = im.size
+        if max(w, h) <= IMAGE_PX * 1.2:
+            return []
+        out = []
+        for x0, y0 in ((0, 0), (0.45, 0), (0, 0.45), (0.45, 0.45)):
+            t = im.crop((int(x0 * w), int(y0 * h), int((x0 + 0.55) * w), int((y0 + 0.55) * h)))
+            t.thumbnail((TILE_PX, TILE_PX))
+            buf = io.BytesIO()
+            t.save(buf, format="JPEG", quality=88)
+            out.append({"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
+                                                    "data": base64.standard_b64encode(buf.getvalue()).decode("ascii")}})
+    return out
+
+
 def _siblings(rec: dict) -> list[str]:
     return [s for s in ((rec.get("raw") or {}).get("session") or []) if dp.get_record(s)][:2]
 
@@ -146,7 +189,13 @@ def ask(image_path: str, rec: dict, refs: list[dict], meta: dict) -> tuple[dict 
     """(tool input or None, cost_usd, from_cache)."""
     names = submit.municipalities()
     sibs = _siblings(rec)
-    content = [image_block(image_path, 1024, 88), {"type": "text", "text": f"Das Foto. {_context(rec)}"}]
+    full = original(rec, image_path)
+    content = [image_block(full, IMAGE_PX, 90), {"type": "text", "text": f"Das Foto. {_context(rec)}"}]
+    quarters = tiles(full)
+    if quarters:
+        content.append({"type": "text", "text": "Dasselbe Foto in vier Ausschnitten (oben links, oben rechts, "
+                                                "unten links, unten rechts), damit kleine Schrift lesbar ist:"})
+        content += quarters
     for s in sibs:
         content += [{"type": "text", "text": "Foto aus derselben Aufnahmeserie (gleiche Kamera, wenige Minuten "
                                              "davor oder danach):"}, image_block(dp.image_file(dp.get_record(s)), 512, 80)]
@@ -155,25 +204,151 @@ def ask(image_path: str, rec: dict, refs: list[dict], meta: dict) -> tuple[dict 
         if p and p.exists():
             content += [{"type": "text", "text": _label(i, r)}, image_block(p, 512, 80)]
     tool = _tool(names)
-    key = hashlib.sha256(json.dumps([MODEL, EFFORT, SYSTEM, tool, (rec.get("image") or {}).get("sha1") or image_path,
-                                     _context(rec), sibs, [r["id"] for r in refs]], ensure_ascii=False).encode()).hexdigest()[:24]
+    tools = [tool] + ([SEARCH_TOOL] if SEARCH else [])
+    key = hashlib.sha256(json.dumps([MODEL, EFFORT, SYSTEM, tools, (rec.get("image") or {}).get("sha1") or image_path,
+                                     full != image_path, _context(rec), sibs, [r["id"] for r in refs]],
+                                    ensure_ascii=False).encode()).hexdigest()[:24]
     cache = CLAUDE_CACHE / f"{key}.json"
     if cache.exists():
         c = json.loads(cache.read_text())
         return c["input"], 0.0, True
     if CACHE_ONLY:
         return None, 0.0, False
-    resp, usd = llm.create(
-        llm.make_client(), model=MODEL, meta=meta, max_tokens=MAX_TOKENS,
-        system=[{"type": "text", "text": SYSTEM, "cache_control": {"type": "ephemeral"}}],
-        tools=[tool], tool_choice={"type": "auto"}, output_config={"effort": EFFORT},
-        messages=[{"role": "user", "content": content}])
-    use = next((b for b in resp.content if b.type == "tool_use" and b.name == TOOL), None)
-    answer = dict(use.input) if use else None
+    client, messages, usd, searches, answer = llm.make_client(), [{"role": "user", "content": content}], 0.0, [], None
+    for _ in range(MAX_TURNS):  # searches can pause the turn; and an answer in prose gets one reminder
+        resp, cost = llm.create(
+            client, model=MODEL, meta=meta, max_tokens=MAX_TOKENS,
+            system=[{"type": "text", "text": SYSTEM, "cache_control": {"type": "ephemeral"}}],
+            tools=tools, tool_choice={"type": "auto"}, output_config={"effort": EFFORT}, messages=messages)
+        usd += cost
+        searches += [b.input.get("query") for b in resp.content if b.type == "server_tool_use"]
+        use = next((b for b in resp.content if b.type == "tool_use" and b.name == TOOL), None)
+        if use:
+            answer = dict(use.input)
+            break
+        messages.append({"role": "assistant", "content": [b.model_dump() for b in resp.content]})
+        if resp.stop_reason != "pause_turn":
+            messages.append({"role": "user", "content": "Call the answer tool now."})
     if answer is not None:
+        answer["searches"] = searches
         CLAUDE_CACHE.mkdir(parents=True, exist_ok=True)
         cache.write_text(json.dumps({"input": answer, "usd": usd, "photo_id": meta.get("photo_id")}, ensure_ascii=False))
     return answer, usd, False
+
+
+# ---------------------------------------------------------------- compare look-alike buildings
+
+# kinds that look alike from outside: a guessed care home is compared with hospitals and schools too
+LOOKALIKE = [{"Spital", "Alters-/Pflegeheim", "Soziale Einrichtung", "Schule"},
+             {"Hotel", "Restaurant", "Tourismus"}, {"Kirche/Kapelle", "Kloster"}, {"Bahnhof", "Station", "Bergbahnstation"}]
+N_CANDIDATES = 8
+COMPARE_TOOL = {
+    "name": "pick", "description": "Which candidate place the photo shows. Call exactly once.", "strict": True,
+    "input_schema": {"type": "object", "additionalProperties": False,
+                     "properties": {"candidate": {"type": ["integer", "null"]},
+                                    "certainty": {"type": "string", "enum": list(SURE)},
+                                    "reason": {"type": "string"}},
+                     "required": ["candidate", "certainty", "reason"]}}
+
+
+def _bearing(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    import math
+    y = math.sin(math.radians(lon2 - lon1)) * math.cos(math.radians(lat2))
+    x = (math.cos(math.radians(lat1)) * math.sin(math.radians(lat2))
+         - math.sin(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.cos(math.radians(lon2 - lon1)))
+    return math.degrees(math.atan2(y, x)) % 360
+
+
+def facing(b: dict, n: int = 2) -> list[dict]:
+    """Reference photos that look at the building: taken 15 to 200 m away with the camera turned towards
+    it (within 35 degrees). A photo next to it facing the other way shows other houses."""
+    out = []
+    for p in dp.photos_near(b["lat"], b["lon"], 200, max_precision_m=100, limit=300):
+        if p["source"] not in ("mapillary", "commons") or p["heading_deg"] is None or p["distance_m"] < 15:
+            continue
+        r = dp.get_record(p["id"])
+        to = _bearing(r["location"]["lat"], r["location"]["lon"], b["lat"], b["lon"])
+        off = abs((p["heading_deg"] - to + 180) % 360 - 180)
+        if off <= 35:
+            out.append((off / 35 + p["distance_m"] / 200, p))
+    return [p for _, p in sorted(out, key=lambda x: x[0])[:n]]
+
+
+def candidates(guess: str, municipality: str) -> list[dict]:
+    """The guessed building and the look-alike buildings of its Gemeinde (same kind group), each with up to
+    two reference photos taken within 150 m (Mapillary, Commons). Only candidates with photos count."""
+    hits = [h for h in dp.find_building(guess, municipality) if h["kind"] not in NOT_PLACES]
+    group = next((g for g in LOOKALIKE if hits and hits[0]["kind"] in g), None)
+    if not group:
+        return []
+    from data_pipeline.places import named_buildings
+    g = _center(municipality) or hits[0]
+    same = [b for b in named_buildings(lat=g["lat"], lon=g["lon"], radius_m=8000, limit=2000)
+            if b["kind"] in group and not b.get("generic") and _gem(b.get("municipality")) == _gem(municipality)]
+    # the guessed kind first (care homes count as hospitals), then nearest the guessed building: Claude usually
+    # knows the area and confuses neighbours
+    care = {"Spital", "Alters-/Pflegeheim", "Soziale Einrichtung"}
+    pool = hits[:1] + sorted(same, key=lambda b: (b["kind"] != hits[0]["kind"] and not {b["kind"], hits[0]["kind"]} <= care,
+                                                  _dist(b, hits[0])))
+    out = []
+    for b in pool:
+        if any(_dist(b, o) < 80 for o in out):  # OSM and GWR name the same house twice
+            continue
+        photos = facing(b)
+        facts = dp.registers.building_facts(b["lat"], b["lon"])
+        if photos or (facts and facts.get("floors")):
+            out.append({"name": b["name"], "kind": b["kind"], "lat": b["lat"], "lon": b["lon"], "photos": photos,
+                        "facts": facts})
+        if len(out) == N_CANDIDATES:
+            break
+    return out
+
+
+def compare(full: str, answer: dict, meta: dict) -> tuple[dict | None, float, int]:
+    """Claude only guessed the building: show it the look-alike buildings of the Gemeinde, each with photos
+    taken there, and let it pick. (pick {building, certainty, reason} or None, cost_usd, candidates shown)."""
+    cands = candidates(answer["building"], answer["municipality"])
+    if len(cands) < 2:
+        return None, 0.0, len(cands)
+    content = [image_block(full, IMAGE_PX, 90),
+               {"type": "text", "text": f"Das Foto. Vermutet wurde: {answer['building']} in {answer['municipality']}. "
+                                        "Unten Kandidaten aus dem Gebäuderegister derselben Gemeinde, je mit Fotos, "
+                                        "die in der Nähe aufgenommen wurden (2015 und später: Fassaden können seither renoviert sein) und den "
+                                        "Geschossen aus dem Gebäuderegister. Welcher Kandidat zeigt dasselbe Gebäude? "
+                                        "Zähle zuerst die Geschosse auf dem Foto und vergleiche sie mit dem Register; dann "
+                                        "Grundriss, Fensterraster, Dach, Umgebung und den Blick auf die Berge. Keiner "
+                                        "passt: candidate null."}]
+    for i, c in enumerate(cands, 1):
+        f = c.get("facts") or {}
+        reg = ", ".join(x for x in (f"{f['floors']} Geschosse" if f.get("floors") else None,
+                                    f"Grundfläche {f['area_m2']} m²" if f.get("area_m2") else None) if x)
+        content.append({"type": "text", "text": f"Kandidat {i}: {c['name']} ({c['kind']})"
+                                                + (f", laut Gebäuderegister {reg}" if reg else "")
+                                                + ("" if c["photos"] else ", keine Fotos aus der Nähe")})
+        content += [image_block(DATA_DIR_ / p["image_path"], 512, 80) for p in c["photos"]]
+    key = hashlib.sha256(json.dumps([MODEL, "compare", COMPARE_TOOL, full, content[1]["text"],
+                                     [(c["name"], c.get("facts"), [p["id"] for p in c["photos"]]) for c in cands]],
+                                    ensure_ascii=False).encode()).hexdigest()[:24]
+    cache = CLAUDE_CACHE / f"{key}.json"
+    if cache.exists():
+        pick = json.loads(cache.read_text())["input"]
+        usd = 0.0
+    elif CACHE_ONLY:
+        return None, 0.0, len(cands)
+    else:
+        resp, usd = llm.create(llm.make_client(), model=MODEL, meta=meta, max_tokens=MAX_TOKENS,
+                               tools=[COMPARE_TOOL], tool_choice={"type": "auto"}, output_config={"effort": EFFORT},
+                               messages=[{"role": "user", "content": content}])
+        use = next((b for b in resp.content if b.type == "tool_use" and b.name == "pick"), None)
+        pick = dict(use.input) if use else None
+        if pick is None:
+            return None, usd, len(cands)
+        CLAUDE_CACHE.mkdir(parents=True, exist_ok=True)
+        cache.write_text(json.dumps({"input": pick, "usd": usd, "photo_id": meta.get("photo_id")}, ensure_ascii=False))
+    k = pick.get("candidate")
+    if not isinstance(k, int) or not 1 <= k <= len(cands):
+        return {"building": None, "certainty": pick["certainty"], "reason": pick["reason"]}, usd, len(cands)
+    return {"building": cands[k - 1]["name"], "certainty": pick["certainty"], "reason": pick["reason"]}, usd, len(cands)
 
 
 # ---------------------------------------------------------------- resolve
@@ -189,7 +364,8 @@ def _gem(s: str | None) -> str:
 
 def resolve(answer: dict, refs: list[dict]) -> dict:
     """Claude's answer + references -> {path, point, building, agree, ref}. Rules, first that applies:
-    pick (Claude names a reference as the same place), building (its name is in the registers),
+    pick (Claude names a reference as the same place), building (its name is in the registers; a name Claude
+    only guessed counts after compare() picked it among the look-alike buildings of the Gemeinde),
     street (the street is in the register of that Gemeinde), match (a strong verified reference, unless
     Claude names another Gemeinde with "sicher" or "wahrscheinlich"), claude (names only, no point)."""
     mun, sure = answer.get("municipality"), answer.get("municipality_certainty")
@@ -198,7 +374,7 @@ def resolve(answer: dict, refs: list[dict]) -> dict:
     if isinstance(k, int) and 1 <= k <= len(refs):
         r = refs[k - 1]
         return {"path": "pick", "point": {"lat": r["lat"], "lon": r["lon"], "radius_m": 50}, "ref": r, "building": None}
-    if answer.get("building"):
+    if answer.get("building") and (answer.get("building_certainty") != "vermutet" or answer.get("compared")):
         hits = [h for h in dp.find_building(answer["building"], mun) if h["kind"] not in NOT_PLACES]
         if not mun and len({h["municipality"] for h in hits}) > 1:
             hits = []  # same name in several Gemeinden and no Gemeinde to tell them apart
@@ -226,7 +402,7 @@ def resolve(answer: dict, refs: list[dict]) -> dict:
 # ---------------------------------------------------------------- confidence
 
 PRIORS = {  # used until the hand check exists; guesses, labelled as such in the explanation
-    "pick": 0.85, "building": 0.85, "street": 0.75, "match": 0.8, "claude": 0.5,
+    "pick": 0.85, "building": 0.85, "compare": 0.7, "street": 0.75, "match": 0.8, "claude": 0.5,
 }
 
 
@@ -250,6 +426,8 @@ def confidence(b: str, field: str) -> tuple[float, bool]:
     base = PRIORS.get(b.split("|")[0], 0.0)
     if b.startswith("claude|"):
         base = {"sicher": 0.7, "wahrscheinlich": 0.55, "vermutet": 0.35}.get(b.split("|")[1], 0.0)
+    if b.startswith("compare|"):
+        base = {"sicher": 0.8, "wahrscheinlich": 0.65, "vermutet": 0.4}.get(b.split("|")[1], 0.0)
     return base, False
 
 
@@ -289,6 +467,18 @@ def analyze(photo_id: str | None = None, image_path: str | None = None, *, model
     emit({"type": "tool_call", "tool": "claude", "input": {"references": len(refs), "cached": cached},
           "output_summary": (answer or {}).get("reason") or "keine Antwort", "ms": round((time.monotonic() - t1) * 1000)})
     answer = answer or {}
+    if answer.get("building_certainty") == "vermutet" and answer.get("municipality"):
+        t2 = time.monotonic()
+        picked, cost, n = compare(original(rec, image_path), answer, {"photo_id": photo_id, "pipeline": 6, "step": "compare"})
+        usd += cost
+        if n:
+            emit({"type": "tool_call", "tool": "compare", "input": {"candidates": n},
+                  "output_summary": (picked or {}).get("reason") or "kein Kandidat passt",
+                  "ms": round((time.monotonic() - t2) * 1000)})
+        if picked:  # the street came with the guessed building: it goes when the comparison rejects that building
+            same = picked.get("building") == answer["building"]
+            answer = {**answer, "building": picked.get("building"), "building_certainty": picked["certainty"],
+                      "compared": True, **({} if same else {"street": None, "street_certainty": None})}
     res = resolve(answer, refs) if answer else {"path": None, "point": None, "ref": None, "building": None}
     return _result(photo_id, model, rec, year, answer, refs, res, usd, trace, emit)
 
@@ -302,6 +492,8 @@ def _result(photo_id, model, rec, year, answer, refs, res, usd, trace, emit) -> 
     near_ref = next((r for r in refs if point and _dist(r, point) <= SAME_PLACE_M), None)
     agree = bool(point) and (near_ref is not None or _gem(claude_mun) == _gem(at.get("municipality")))
     b = bucket(path, agree, answer.get("municipality_certainty"))
+    if path == "building" and answer.get("compared"):
+        b = f"compare|{answer.get('building_certainty')}"
     measured = []
 
     claude_ev = [_ev("visual_cue", answer["reason"])] if answer.get("reason") else []

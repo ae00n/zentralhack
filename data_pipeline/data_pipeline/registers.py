@@ -4,7 +4,8 @@
     python -m data_pipeline.registers check    # known answers (Acherhof, Mythen) must come out right
 
 - addresses.json: every official GWR entrance in the canton (data/raw/gwr/data.sqlite, 63,922 entrances)
-  with street, number, PLZ, Ortschaft (postal locality), Gemeinde, building name, class and year built.
+  with street, number, PLZ, Ortschaft (postal locality), Gemeinde, building name, class, year built,
+  floors (GASTW) and footprint (GAREA).
   Buildings that exist, or were demolished in 2003 or later (the photos are 2003 to 2013).
 - landmarks.json: named peaks, hills, passes, lakes, islands, rivers, valleys and cable cars from
   swissNAMES3D (swisstopo, data/raw/swissnames3d/swissnames3d_2026.csv.zip), canton plus 25 km around,
@@ -52,8 +53,8 @@ CELL = 0.005  # about 550 x 380 m grid cell for the point index
 def build_addresses() -> int:
     db = sqlite3.connect(GWR_FILE)
     bld = {}
-    for egid, name, klass, gem, built, status, gone in db.execute(
-            "select EGID, GBEZ, GKLAS, GGDENAME, GBAUJ, GSTAT, GABBJ from building"):
+    for egid, name, klass, gem, built, status, gone, floors, area in db.execute(
+            "select EGID, GBEZ, GKLAS, GGDENAME, GBAUJ, GSTAT, GABBJ, GASTW, GAREA from building"):
         if not (status == 1004 or (status == 1007 and (gone or 0) >= 2003)):
             continue
         name = GBD_NR.sub("", (name or "").strip()).strip() or None
@@ -61,7 +62,7 @@ def build_addresses() -> int:
             name = None
         kind = "Alters-/Pflegeheim" if name and CARE.search(name) else GWR_KINDS.get(klass)
         bld[egid] = {"name": name, "kind": kind, "municipality": gem, "year_built": built,
-                     "demolished": gone if status == 1007 else None}
+                     "demolished": gone if status == 1007 else None, "floors": floors, "area_m2": area}
     out = []
     for egid, street, num, plz, ort, e, n, official in db.execute(
             "select EGID, STRNAME, DEINR, DPLZ4, DPLZNAME, DKODE, DKODN, DOFFADR from entrance"):
@@ -213,6 +214,16 @@ def find_building(name: str, gemeinde: str | None = None, limit: int = 10) -> li
                     "municipality": h.get("municipality"), "source": h.get("source"), "egid": h.get("egid"),
                     "match": match})
     return out
+
+
+def building_facts(lat: float, lon: float, radius_m: int = 60) -> dict | None:
+    """The largest register building within radius_m: {egid, name, floors, area_m2, year_built} (GWR).
+    Floors and footprint tell look-alike buildings apart (a 6-storey care home vs a 3-storey hospital)."""
+    rows = [r for _, r in _near(lat, lon, radius_m) if r.get("area_m2")]
+    if not rows:
+        return None
+    r = max(rows, key=lambda r: r["area_m2"])
+    return {k: r.get(k) for k in ("egid", "name", "floors", "area_m2", "year_built")}
 
 
 def find_address(street: str, number: str | None = None, gemeinde: str | None = None, limit: int = 10) -> list[dict]:
