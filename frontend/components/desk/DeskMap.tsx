@@ -9,6 +9,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef } from "react";
 import { circleBox, circleData } from "@/lib/circle";
 import type { CertClass, Place } from "@/lib/desk";
+import type { Waypoint } from "@/lib/journey";
 
 export interface DeskMapProps {
   places: Place[];
@@ -29,6 +30,8 @@ export interface DeskMapProps {
   labelOf: (photoId: string) => string;
   /** The side panel is wide (a photo is open): the map keeps the place clear of it. */
   panelWide?: boolean;
+  /** Places the selected photo's analysis visited, replayed on the way down (Said, 24.10.). */
+  journey?: Waypoint[];
 }
 
 const BOUNDS: [[number, number], [number, number]] = [
@@ -53,6 +56,11 @@ const DIVE_MS = 1450;
 const SETTLE_MS = 420;
 // Every flight takes its own route (Said, 24.10.): the camera rises off to a new side of the target (never
 // the side of the last flight) and dives back in with a tilt and turn that vary.
+// Replay of the analysis: a short hop to each place the agent checked, a sign with the step, then the dive.
+const STOP_ZOOM = 13.2;
+const STOP_MS = 850;
+const STOP_HOLD_MS = 420;
+const FOUND_M = 300; // a stop this close to the result counts as the place found
 const RISE_OFFSET_DEG = 1.1; // how far the high point lies from the target, in degrees of latitude
 const DIVE_PITCH: [number, number] = [38, 52];
 const DIVE_BEARING: [number, number] = [8, 20];
@@ -119,6 +127,7 @@ export default function DeskMap({
   onPickPhoto,
   labelOf,
   panelWide = false,
+  journey = [],
 }: DeskMapProps) {
   panelLeft = panelWide ? 504 : 424;
   const container = useRef<HTMLDivElement>(null);
@@ -133,8 +142,10 @@ export default function DeskMap({
   // Compass direction of the last flight's high point, so the next one comes from another side.
   const lastSide = useRef<number | null>(null);
   // Latest props for the map event handlers, which are bound once.
-  const latest = useRef({ places, basemap, onHover, onPickPhoto, labelOf });
-  latest.current = { places, basemap, onHover, onPickPhoto, labelOf };
+  const latest = useRef({ places, basemap, onHover, onPickPhoto, labelOf, journey });
+  latest.current = { places, basemap, onHover, onPickPhoto, labelOf, journey };
+  // The replay's stops (HTML signs) and the dashed track between them.
+  const stops = useRef<maplibregl.Marker[]>([]);
   const state = useRef<{ hovered: number | null; selected: number | null }>({ hovered: null, selected: null });
 
   // Create once.
@@ -268,6 +279,15 @@ export default function DeskMap({
       }
       // Uncertainty circle (radius_m) of the selected place, under the dots; ink like the detail map,
       // with a white casing so it also reads on the aerial photo.
+      // The replay's track, dashed white, under the dots.
+      m.addSource("journey", { type: "geojson", data: NO_CIRCLE });
+      m.addLayer({
+        id: "journey-line",
+        type: "line",
+        source: "journey",
+        layout: { "line-cap": "round", "line-join": "round" },
+        paint: { "line-color": "#ffffff", "line-width": 2.5, "line-opacity": 0.9, "line-dasharray": [1.5, 1.5] },
+      });
       m.addSource("uncertainty", { type: "geojson", data: NO_CIRCLE });
       m.addLayer({ id: "uncertainty-fill", type: "fill", source: "uncertainty", paint: { "fill-color": ink, "fill-opacity": 0.12 } });
       m.addLayer({
@@ -392,6 +412,7 @@ export default function DeskMap({
       if (!e.originalEvent || !beacon.current) return;
       flight.current++;
       endFlight(m);
+      stops.current.forEach((st) => st.getElement().classList.add("settled"));
       placePin(m, state.current.selected, true);
       // Hand rotation is off on the desk, so level the drone tilt once the hand lets go.
       m.once("moveend", () => m.easeTo({ pitch: 0, bearing: 0, duration: 300 }));
@@ -481,6 +502,40 @@ export default function DeskMap({
     }
   }
 
+  function clearJourney(m: maplibregl.Map) {
+    stops.current.forEach((s) => s.remove());
+    stops.current = [];
+    (m.getSource("journey") as maplibregl.GeoJSONSource | undefined)?.setData(NO_CIRCLE);
+  }
+
+  function drawTrack(m: maplibregl.Map, coords: [number, number][]) {
+    (m.getSource("journey") as maplibregl.GeoJSONSource | undefined)?.setData({
+      type: "FeatureCollection",
+      features: coords.length > 1 ? [{ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: coords } }] : [],
+    });
+  }
+
+  function addStop(m: maplibregl.Map, w: Waypoint, n: number) {
+    const el = document.createElement("div");
+    el.className = "desk-stop";
+    const dot = document.createElement("i");
+    const label = document.createElement("span");
+    label.textContent = `${n}. ${w.label}`;
+    el.append(dot, label);
+    stops.current.push(new maplibregl.Marker({ element: el, anchor: "left", offset: [-6, 0] }).setLngLat([w.lon, w.lat]).addTo(m));
+  }
+
+  /** After the replay: the stops near the result are the find, the others were checked and dropped. */
+  function settleStops(target: [number, number]) {
+    const k = Math.PI / 180;
+    stops.current.forEach((s) => {
+      const { lng, lat } = s.getLngLat();
+      const x = (lng - target[0]) * k * Math.cos(((lat + target[1]) / 2) * k);
+      const d = 6371000 * Math.hypot(x, (lat - target[1]) * k);
+      s.getElement().classList.add(d < FOUND_M ? "found" : "rejected", "settled");
+    });
+  }
+
   /** One leg of the flight; resolves when it ends, false when a newer flight or the user took over. */
   function leg(m: maplibregl.Map, id: number, run: () => void): Promise<boolean> {
     return new Promise((resolve) => {
@@ -509,6 +564,7 @@ export default function DeskMap({
   async function fly(m: maplibregl.Map, p: Place, target: { center: [number, number]; zoom: number; padding: maplibregl.PaddingOptions }) {
     const id = ++flight.current;
     m.stop();
+    clearJourney(m);
     m.setMaxBounds(null);
     m.setMinZoom(4);
     const high = m.cameraForBounds(offline ? BOUNDS : SWISS_BOUNDS, { padding: target.padding });
@@ -529,6 +585,25 @@ export default function DeskMap({
     if (!up) return;
     await wait(HOLD_MS);
     if (flight.current !== id) return;
+    // The replay: hop to every place the analysis checked, with a sign for the step, drawing the track.
+    const track: [number, number][] = [];
+    const route = latest.current.journey;
+    for (let n = 0; n < route.length; n++) {
+      const w = route[n];
+      const hop = await leg(m, id, () =>
+        m.flyTo({ center: [w.lon, w.lat], zoom: STOP_ZOOM, pitch: 28, bearing: turn / 2, padding: target.padding,
+                  duration: n === 0 ? STOP_MS + 300 : STOP_MS, curve: 1.15, easing: easeInOut, essential: true }));
+      if (!hop) return;
+      track.push([w.lon, w.lat]);
+      drawTrack(m, track);
+      addStop(m, w, n + 1);
+      await wait(STOP_HOLD_MS);
+      if (flight.current !== id) return;
+    }
+    if (route.length) {
+      settleStops(target.center);
+      drawTrack(m, [...track, target.center]);
+    }
     const down = await leg(m, id, () =>
       m.flyTo({ ...target, pitch: between(DIVE_PITCH), bearing: turn, duration: DIVE_MS, curve: 1.3, easing: easeInOut,
                 essential: true }));
@@ -607,6 +682,7 @@ export default function DeskMap({
     if (!m) return;
     applyState(m);
     if (selectedPlace !== prevSelected) {
+      if (selectedPlace === null) clearJourney(m);
       if (reducedMotion() || selectedPlace === null) placePin(m, selectedPlace, true);
       else placePin(m, null, false); // the pin drops in when the flight lands
       drawCircle(m);

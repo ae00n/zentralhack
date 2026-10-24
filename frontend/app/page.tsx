@@ -28,6 +28,7 @@ import {
   type FilterKey,
   type SortKey,
 } from "@/lib/desk";
+import { journeyOf } from "@/lib/journey";
 import { useReviewStore, withLocalReview } from "@/lib/reviewQueue";
 import { cn } from "@/lib/cn";
 import { analyseHref } from "@/lib/format";
@@ -224,6 +225,7 @@ function Arbeitsplatz() {
                 onPickPhoto={pickFromMap}
                 labelOf={signatureOf}
                 panelWide={Boolean(selectedItem)}
+                journey={journeyOf(selectedItem?.result ?? null)}
               />
             )}
           </div>

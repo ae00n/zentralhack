@@ -336,6 +336,56 @@ body {
     filter: blur(6px) brightness(1.5) saturate(0);
   }
 }
+/* Replay stops on the desk map (Said, 24.10.): a dot and a sign per place the analysis checked; after the
+   replay the find turns red and the dropped ones grey, and the signs fold away to their dots. */
+.desk-stop {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+  animation: stop-in 380ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.desk-stop i {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgb(var(--ink) / 0.85), 0 0 14px 4px rgb(255 255 255 / 0.6);
+  transition: background 300ms, box-shadow 300ms;
+}
+.desk-stop span {
+  white-space: nowrap;
+  font: 500 12px/1 var(--font-inter), system-ui, sans-serif;
+  color: #fff;
+  background: rgb(var(--ink) / 0.88);
+  padding: 5px 8px;
+  border-radius: 4px;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.25);
+  transition: opacity 400ms 500ms, transform 400ms 500ms;
+}
+.desk-stop.found i {
+  background: rgb(var(--accent));
+  box-shadow: 0 0 0 3px #fff, 0 0 18px 6px rgb(var(--accent) / 0.6);
+}
+.desk-stop.rejected i {
+  background: rgb(var(--ink-muted));
+  box-shadow: 0 0 0 2px #fff;
+}
+.desk-stop.rejected span {
+  text-decoration: line-through;
+  background: rgb(var(--ink-muted) / 0.85);
+}
+.desk-stop.settled span {
+  opacity: 0;
+  transform: translateX(-6px);
+}
+@keyframes stop-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.9);
+  }
+}
 /* Beacon on the flight target (Said, 24.10.): three radar rings and a glowing core while the camera is high. */
 .desk-beacon {
   position: relative;
