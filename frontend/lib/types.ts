@@ -302,4 +302,8 @@ export interface QcSummary {
   bins: { bin: string; n: number; correct: number }[];
   cost_usd_per_photo?: number | null;
   created_at?: string;
+  /** Checked photos the agent left open (no Gemeinde): neither hit nor miss. */
+  abstained?: number;
+  /** v7: hits per confidence tier, and the rate shown for it (agent/v7_tiers.json). */
+  tiers?: { tier: string; n: number; hits: number; rate: number | null }[];
 }

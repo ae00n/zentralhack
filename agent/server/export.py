@@ -157,8 +157,10 @@ def method() -> list[tuple[str, str]]:
         ("Nicht bestimmbar", "Ohne belastbaren Hinweis bleibt das Feld leer mit Konfidenz 0. Fotos ausserhalb des "
                              "Kantons werden als solche markiert; leere Felder stehen in der Spalte Nicht_bestimmbar."),
         ("Konfidenz", "Stufe nach Regel, Zahl = gemessene Trefferquote der Stufe auf den von Hand geprüften "
-                      "Prio-1-Fotos (Gemeinde und Ortschaft richtig). Ohne Messung ein Schätzwert, das steht dann in "
-                      "Konfidenz_Begruendung."),
+                      "Prio-1-Fotos (Gemeinde und Ortschaft richtig), als (Treffer + 1) / (geprüft + 2), damit 11 von 11 "
+                      "nicht als 100 % gilt. Eine stärkere Stufe zeigt nie weniger als eine schwächere: Stufe A erfüllt "
+                      "alles, was Stufe B verlangt, und wird darum mit B zusammen gerechnet, wenn ihre kleine Stichprobe "
+                      "allein tiefer läge. Ohne Messung ein Schätzwert, das steht dann in Konfidenz_Begruendung."),
         ("Prüfung nötig", "ja, wenn die gemessene Konfidenz unter 0.90 liegt oder die Gemeinde fehlt. Nach einem Review (bestätigt oder korrigiert) nein; korrigierte "
                           "Werte ersetzen die Vorschläge."),
     ]

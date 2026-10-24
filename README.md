@@ -1,17 +1,50 @@
-# Zentral Hack 2026: Historische Fotos, Kanton Schwyz
+# Zentral Hack 2026: Fotos verorten, Kanton Schwyz
 
-Challenge "KI-Bilderkennung für historische Fotos" (Kanton Schwyz, category AI Agentic).
-Our pitch: thousands of archive photos have no date and no exact location. Our agent finds place and period, with evidence and confidence, and turns the archive into a time journey.
+Challenge "KI-Bilderkennung" of the Staatsarchiv Schwyz (category AI Agentic): 603 uncatalogued photos
+(`SG.CIV.17.*`, taken 2003 to 2013), 50 of them Prio 1. Not when (every photo has its EXIF date) but
+**where**: Ortschaft, Gemeinde, Gebäude, See/Fluss/Berg, Strasse, each with its sources and a measured
+confidence, and one Excel row per photo. What cannot be proven stays empty ("nicht bestimmbar") and is
+flagged for review. Details: [CHALLENGE_BRIEF](docs/CHALLENGE_BRIEF.md).
 
-Hack: Fri 23 Oct 19:00 to Sat 24 Oct 17:00 (submission + presentations at 17:00).
+How it works (agent v7): three independent Claude investigations, the official registers (GWR, OSM,
+KGS, swissNAMES3D) at the subject, an image check against photos taken there (LightGlue), a blind final
+judge, and confidence tiers whose number is the hit rate measured by hand (40 Prio-1 photos: 38 right,
+35 of 35 right at 90 % or more).
+
+## Starten
+
+Needs Python 3.12, Node 20+, an Anthropic API key and access to the team's data server.
+
+```bash
+# 1. Backend (FastAPI on :8000)
+python3.12 -m venv .venv && .venv/bin/pip install -r agent/requirements.txt
+cat > .env <<'ENV'
+ANTHROPIC_API_KEY=...
+DATA_PIPELINE_URL=https://zhdata.vatra.sh
+DATA_PIPELINE_TOKEN=...
+ENV
+unzip -o agent/reports/results.zip -d data/      # the 50 Prio-1 results (JSON, no images)
+.venv/bin/uvicorn agent.server.app:app --port 8000
+
+# 2. Frontend (Next.js on :3000), second terminal
+cd frontend && npm install
+NEXT_PUBLIC_MODE=live NEXT_PUBLIC_API_URL=http://localhost:8000 npm run dev
+```
+
+Then open http://localhost:3000: the map desk with all photos, a photo opens its result, sources, the
+agent's steps and review (Bestätigen / Korrigieren). "Excel herunterladen" gives the deliverable
+(`/export.xlsx`, sheets Metadaten and Methode); `/nachweis` shows the hand check and the method.
+"Foto hochladen" analyses a new photo live. `NEXT_PUBLIC_MODE=mock` runs the frontend without a backend.
+
+Ready-made results without starting anything: `agent/reports/` (Excel, HTML reports without images).
 
 ## Who owns what
 
 | Scope | Owner | Folder | Doc |
 |---|---|---|---|
 | Data: scraping, splitting, embeddings, index, eval set | Dijar | `data_pipeline/` | [SCOPE_1_DATA](docs/SCOPE_1_DATA.md) |
-| Agent: VLM loop, tools, FastAPI backend, eval runner | Said | `agent/` | [SCOPE_2_AGENT](docs/SCOPE_2_AGENT.md) |
-| Frontend: map, time slider, then vs now, export, demo mode | Timo | `frontend/` | [SCOPE_3_FRONTEND](docs/SCOPE_3_FRONTEND.md) |
+| Agent: v7 pipeline, tools, FastAPI backend, export | Said, then Dijar | `agent/` | [SCOPE_2_AGENT](docs/SCOPE_2_AGENT.md) |
+| Frontend: map desk, review, upload, Nachweis | Timo and Said | `frontend/` | [SCOPE_3_FRONTEND](docs/SCOPE_3_FRONTEND.md) |
 
 Shared: [CONTRACTS](docs/CONTRACTS.md) (read first), `contracts/` (schemas + fixtures).
 

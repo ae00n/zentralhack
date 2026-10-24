@@ -34,10 +34,11 @@ A good first prompt: "I'm Timo. Read the repo docs, explain my scope in 10 bulle
 - No em dashes anywhere (code, comments, UI, docs, commits).
 - Agent output must never leak eval cards into its own tools (see the eval leakage rule in CONTRACTS.md section 4).
 
-## Running things (filled in during the skeleton step)
-- Data pipeline: `TODO`
-- Backend: `TODO` (FastAPI on :8000)
-- Frontend: `TODO` (Next.js on :3000, `NEXT_PUBLIC_MODE=mock|live|demo`)
+## Running things
+- Data: served by the team's data server (`DATA_PIPELINE_URL`, `DATA_PIPELINE_TOKEN` in `.env`); results: `unzip -o agent/reports/results.zip -d data/`
+- Backend: `.venv/bin/uvicorn agent.server.app:app --port 8000` (FastAPI on :8000, needs `ANTHROPIC_API_KEY`)
+- Frontend: `cd frontend && npm install && NEXT_PUBLIC_MODE=live npm run dev` (Next.js on :3000, `NEXT_PUBLIC_MODE=mock|live|demo`)
+- Agent v7: `python -m agent.v7.pipeline` (runs), `python -m agent.v7.score --fit` (hand check -> tier table), `python -m agent.v7.rescore` (apply table and sentences to stored results, no Claude calls)
 
 ## Git workflow
 - One repo, one branch per person: `dijar/data`, `said/agent`, `timo/frontend`. Work and push only on your own branch.

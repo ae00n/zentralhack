@@ -112,6 +112,17 @@ def dist_m(a: dict, b: dict) -> float:
     return 2 * 6371000 * math.asin(math.sqrt(h))
 
 
+# A building "name" that is only its type (the register's OSM name "Kirche"): the brief wants concrete names,
+# so such a building stays empty instead.
+GENERIC_NAMES = {"kirche", "kapelle", "pfarrkirche", "gebäude", "gebaeude", "haus", "wohnhaus", "bauernhaus",
+                 "schulhaus", "schule", "hotel", "restaurant", "gasthaus", "stall", "scheune", "bahnhof", "brücke",
+                 "kloster", "museum", "turm", "hütte", "alphütte", "spital", "altersheim", "friedhof"}
+
+
+def generic_name(s: str | None) -> bool:
+    return (s or "").strip().casefold() in GENERIC_NAMES
+
+
 def gem(s: str | None) -> str:
     """Gemeinde key: "Küssnacht (SZ)" and "Küssnacht" compare equal."""
     return re.sub(r"\s*\(SZ\)\s*$", "", s or "").strip().casefold()

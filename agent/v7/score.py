@@ -15,7 +15,7 @@ from data_pipeline.metrics import _same, score_challenge
 from data_pipeline.qc import QC_FILE
 
 from ..config import DATA_DIR
-from .tiers import TABLE
+from .tiers import TABLE, monotone
 
 
 def load(d: Path) -> list[dict]:
@@ -65,9 +65,9 @@ def main() -> None:
         c = tiers[t]
         print(f"  tier {t}: {c['hits']}/{c['n']} right, {c['abstained']} abstained, misses {c['misses']}")
     if a.fit:
-        # (hits + 1) / (n + 2): 11 of 11 is evidence for "very often right", not proof of "always right"
-        TABLE.write_text(json.dumps({t: {"n": c["n"], "hits": c["hits"], "rate": round((c["hits"] + 1) / (c["n"] + 2), 3)}
-                                     for t, c in tiers.items() if c["n"] and t in ("A", "B", "C")}, indent=1))
+        # (hits + 1) / (n + 2): 11 of 11 is evidence for "very often right", not proof of "always right";
+        # and a stronger tier never shows less than a weaker one (tiers.monotone)
+        TABLE.write_text(json.dumps(monotone({t: c for t, c in tiers.items() if t in ("A", "B", "C")}), indent=1))
         print(f"wrote {TABLE}")
 
 

@@ -272,6 +272,46 @@ def eval_summary():
     return JSONResponse(json.loads(p.read_text(encoding="utf-8")))
 
 
+@app.get("/qc/summary")
+def qc_summary():
+    """The hand check of the Prio-1 photos (data/splits/challenge_qc.jsonl) against the current v7 results:
+    Gemeinde (and Ortschaft where checked) right per confidence bin and per tier, for /nachweis. Photos the
+    agent left open count apart (abstained), not as hits or misses."""
+    from data_pipeline.jsonl import read_jsonl
+    from data_pipeline.qc import QC_FILE
+
+    from ..v7 import score, tiers
+
+    if not QC_FILE.exists():
+        raise _not_found("Handprüfung")
+    qc = list(read_jsonl(QC_FILE))
+    res = [r for r in score.load(config.RESULTS_DIR) if (r.get("settings") or {}).get("pipeline") == 7]
+    by_tier = score.by_tier(res, qc)
+    shown = tiers.table()
+    truth = {t["id"] for t in qc if t.get("municipality")}
+    bins = {"<0.5": [0, 0], "0.5-0.9": [0, 0], ">=0.9": [0, 0]}
+    hit_ids = {r["photo_id"] for r in res if r["photo_id"] in truth} - {m for c in by_tier.values() for m in c["misses"]}
+    for r in res:
+        if r["photo_id"] not in truth or not r["fields"]["municipality"]["value"]:
+            continue
+        c = r["overall_confidence"]
+        b = bins["<0.5" if c < 0.5 else "0.5-0.9" if c < 0.9 else ">=0.9"]
+        b[0] += 1
+        b[1] += r["photo_id"] in hit_ids
+    costs = [r["usage"]["cost_usd"] for r in res if (r.get("usage") or {}).get("cost_usd")]
+    n = sum(c["n"] for c in by_tier.values())
+    return {
+        "n": n,
+        "municipality_correct": sum(c["hits"] for c in by_tier.values()),
+        "abstained": sum(c["abstained"] for c in by_tier.values()),
+        "checked": len(truth),
+        "bins": [{"bin": k, "n": v[0], "correct": v[1]} for k, v in bins.items()],
+        "tiers": [{"tier": t, "n": c["n"], "hits": c["hits"], "rate": (shown.get(t) or {}).get("rate")}
+                  for t, c in sorted(by_tier.items()) if t in ("A", "B", "C")],
+        "cost_usd_per_photo": round(sum(costs) / len(costs), 2) if costs else None,
+    }
+
+
 @app.get("/demo")
 def demo():
     return catalogue.demo()

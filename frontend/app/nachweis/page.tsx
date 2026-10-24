@@ -13,13 +13,16 @@ import type { EvalSummary, MuniMetrics, QcSummary } from "@/lib/types";
 
 const QC_BIN_LABELS: Record<string, string> = { "<0.5": "unter 50 %", "0.5-0.9": "50 bis 89 %", ">=0.9": "ab 90 %" };
 
-/** CHALLENGE_BRIEF 4 in German; mirrors the Excel's Methode sheet. Said owns the method: keep in sync. */
+/** The v7 method in German; the same content as the Excel's Methode sheet (agent/server/export.py method()). */
 const METHOD: string[] = [
-  "Unabhängige Quellen zählen, die einen Wert stützen: verifiziertes Referenzfoto, benanntes Gebäude im Umkreis von 150 m, amtliches Adressverzeichnis, lesbarer Text im Foto, Foto derselben Serie, Geländeprüfung. Zwei Quellen zählen nur doppelt, wenn Art oder Referenz verschieden sind.",
-  "Grundwert aus der Anzahl: 1 Quelle 50 %, 2 Quellen 70 %, 3 Quellen 85 %, 4 oder mehr 95 %. Spricht eine Quelle dagegen, höchstens 60 %.",
-  "Modell-Sicherheit gesamt: der tiefere Wert von Ortschaft und Gemeinde, höchstens 5 Prozentpunkte höher, wenn Gebäude und Strasse dazu passen.",
-  "Prüfung nötig, wenn der Gesamtwert unter 90 % liegt oder Ortschaft oder Gemeinde nicht bestimmbar sind. Das ist die Spalte Pruefung_noetig im Excel.",
-  "Die Begründung nennt in einem Satz, wie der Wert zustande kam, und welche Felder offen bleiben.",
+  "Bildsuche über rund 52'000 Referenzfotos (Wikimedia Commons, Mapillary).",
+  "Drei unabhängige Untersuchungen mit Claude: mit allen Hinweisen, mit Websuche und nur mit dem Bild. Jede liest Schrift im Foto, sucht in den amtlichen Registern (GWR, OSM, KGS-Inventar, swissNAMES3D) und nennt das Motiv.",
+  "Ortschaft, Gemeinde, Strasse und Gebäude kommen aus dem Register am Ort des Motivs, nie vom Standort eines Vergleichsfotos.",
+  "Bildvergleich vor Ort: Fotos, die dort aufgenommen wurden, werden geometrisch mit dem Foto verglichen (LightGlue). Ab 100 passenden Punkten gilt der Ort als bestätigt.",
+  "Eine Schlussprüfung sieht das Foto und alle Kandidaten, ohne zu wissen, wer sie vorgeschlagen hat, und wählt einen oder keinen.",
+  "Stufe A: Bildvergleich bestätigt, Gebäude oder Adresse im Register und mindestens 2 von 3 Untersuchungen einig. Stufe B: zwei dieser drei Belege. Stufe C: nur ein Beleg.",
+  "Die Modell-Sicherheit ist die gemessene Trefferquote der Stufe in der Handprüfung, gerechnet als (Treffer + 1) / (geprüft + 2), damit 11 von 11 nicht als 100 % gilt. Eine stärkere Stufe zeigt nie weniger als eine schwächere.",
+  "Prüfung nötig unter 90 % oder ohne Gemeinde. Ohne belastbaren Hinweis bleibt ein Feld leer: nicht bestimmbar, nie erfunden.",
 ];
 
 const CONF_LEVELS = ["0.7", "0.8", "0.9"];
@@ -102,29 +105,33 @@ export default function NachweisPage() {
       <div className="border-b border-rule/[0.12] pb-4">
         <h1 className="text-h1">Nachweis</h1>
         <p className="mt-1 text-meta text-ink-muted">
-          Wie oft der Agent richtig liegt: von Hand geprüft an einer Stichprobe der neuen Fotos, und gemessen an
-          Postkarten, deren Ort das Archiv kennt.
+          Wie oft der Agent richtig liegt: von Hand geprüft an den Prio-1-Fotos, verglichen mit Karte und Street View.
         </p>
       </div>
 
       {qc && qc.n > 0 && <QcSection qc={qc} />}
 
-      <h2 className="mt-10 text-h2">
-        {qc && qc.n > 0 ? "Zweiter Nachweis: " : ""}
-        {summary?.n_eval ?? 350} katalogisierte Postkarten
-      </h2>
-      {error && <p className="mt-6 text-bad">Auswertung konnte nicht geladen werden: {error}</p>}
-      {!error && loading && <p className="mt-6 text-ink-muted">Lade Auswertung ...</p>}
-      {!error && !loading && !summary && (
-        <p className="mt-6 text-ink-muted">Noch keine Auswertung. Die Zahlen erscheinen nach dem Eval-Lauf.</p>
+      {/* The postcard eval only when it exists; with the hand check above, an empty second block is noise. */}
+      {(summary || !(qc && qc.n > 0)) && (
+        <>
+          <h2 className="mt-10 text-h2">
+            {qc && qc.n > 0 ? "Zweiter Nachweis: " : ""}
+            {summary?.n_eval ?? 350} katalogisierte Postkarten
+          </h2>
+          {error && <p className="mt-6 text-bad">Auswertung konnte nicht geladen werden: {error}</p>}
+          {!error && loading && <p className="mt-6 text-ink-muted">Lade Auswertung ...</p>}
+          {!error && !loading && !summary && (
+            <p className="mt-6 text-ink-muted">Noch keine Auswertung. Die Zahlen erscheinen nach dem Eval-Lauf.</p>
+          )}
+          {summary && <Report s={summary} />}
+        </>
       )}
-      {summary && <Report s={summary} />}
 
       <section id="methode" className="mt-12 scroll-mt-6 border-t border-rule/[0.12] pt-4">
         <h2 className="text-h2">Methode</h2>
         <p className="mt-1 text-ui text-ink-muted">
-          So entsteht die Modell-Sicherheit. Sie ist ein gezählter Quellenwert, keine Wahrscheinlichkeit; wie gut sie
-          trifft, zeigt die Stichprobe oben.
+          So entstehen Ergebnis und Modell-Sicherheit. Die Zahl ist gemessen, nicht geschätzt: wie gut sie trifft,
+          zeigt die Handprüfung oben.
         </p>
         <ol className="mt-4 max-w-3xl list-decimal space-y-2 pl-5">
           {METHOD.map((step, i) => (
@@ -173,6 +180,23 @@ function QcSection({ qc }: { qc: QcSummary }) {
               <Row key={b.bin} label={QC_BIN_LABELS[b.bin] ?? b.bin} n={b.n} value={b.n ? b.correct / b.n : null} />
             ))}
           </Table>
+        </div>
+      )}
+      {qc.tiers && qc.tiers.length > 0 && (
+        <div className="mt-8 max-w-xl">
+          <Table head="Stufe (angezeigte Sicherheit)">
+            {qc.tiers.map((t) => (
+              <Row
+                key={t.tier}
+                label={`Stufe ${t.tier}${typeof t.rate === "number" ? ` (${formatPct(t.rate)})` : ""}`}
+                n={t.n}
+                value={t.n ? t.hits / t.n : null}
+              />
+            ))}
+          </Table>
+          {typeof qc.abstained === "number" && qc.abstained > 0 && (
+            <p className="mt-2 text-meta text-ink-muted">{qc.abstained} geprüfte Fotos offen gelassen, nicht mitgezählt.</p>
+          )}
         </div>
       )}
     </section>

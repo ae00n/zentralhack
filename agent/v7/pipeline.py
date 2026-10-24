@@ -16,7 +16,7 @@ from .. import fields as submit
 from .. import results
 from ..config import MODEL
 from . import attempt, check, ground, judge, tiers, vision
-from .common import dist_m, gem, original, small, upload_record
+from .common import dist_m, gem, generic_name, original, small, upload_record
 from .tools import NOT_PLACES
 
 MAX_CANDIDATES = 5
@@ -196,7 +196,8 @@ def result(rec, model, runs, cands, chosen, pick, v, usd, trace, emit) -> dict:
         common = img_ev + reg_ev + agree_ev + web_ev + reasons
         put("municipality", chosen["municipality"], conf, common)
         put("locality", chosen.get("locality"), conf, common)
-        put("buildings", [chosen["building"]] if chosen.get("building") else [], conf if reg else min(conf, 0.5),
+        named = chosen.get("building") and not generic_name(chosen["building"])  # "Kirche" is no name
+        put("buildings", [chosen["building"]] if named else [], conf if reg else min(conf, 0.5),
             reg_ev + img_ev + web_ev + reasons)
         put("street", chosen.get("street"), conf if reg else min(conf, 0.4), reg_ev)
         if chosen.get("lat") is not None:
@@ -206,10 +207,8 @@ def result(rec, model, runs, cands, chosen, pick, v, usd, trace, emit) -> dict:
         put("landscape_features", marks, min(conf, 0.8), [_ev("map_layer", "swissNAMES3D (swisstopo)")] + reasons)
     overall = f["municipality"]["confidence"]
     needs_review = overall < ACCEPT or not f["municipality"]["value"]
-    how = "gemessene Trefferquote der Handprüfung" if measured else "Schätzwert, noch nicht gemessen"
-    if rec.get("upload_path") and measured:
-        how = "Trefferquote der Handprüfung auf den Prio-1-Fotos, für hochgeladene Fotos nicht eigens gemessen"
-    expl = f"Stufe {t}: {tiers.WHY[t]}. Konfidenz: {how}."
+    expl = tiers.explain(t, facts, f, (chosen or {}).get("anchor"), chk.get("best_inliers"), overall, measured,
+                         upload=bool(rec.get("upload_path")))
     if chosen and chosen.get("outside") and not chosen.get("municipality"):
         expl = f"Nicht im Kanton Schwyz: vermutlich {chosen['outside']}. Felder offen gelassen."
     rejected = [{"hypothesis": f"{c.get('building') or c.get('locality') or c.get('municipality') or c.get('outside')}"
