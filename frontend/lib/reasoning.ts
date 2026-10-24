@@ -2,7 +2,7 @@
 // nearby buildings it compared from above and dropped. Only what lies plausibly around the found spot is
 // shown; far matches of a name are left out. Coordinates come from the swisstopo SearchServer (open, CORS),
 // so the backend needs no change. Offline or on failure the list is just shorter.
-import type { AnalysisResult } from "@/lib/types";
+import type { AnalysisResult, PhotoMark } from "@/lib/types";
 
 export type LandmarkKind = "mountain" | "water" | "place";
 
@@ -48,7 +48,7 @@ function kindOf(label: string): LandmarkKind {
 }
 
 /** The kind a name suggests by itself ("...stock", "...see"), for hits that are a hut or a camp site. */
-function kindOfName(name: string): LandmarkKind {
+export function kindOfName(name: string): LandmarkKind {
   if (/(see|seeli|bach|fluss|muota|reuss|sihl|\baa\b|weiher)$/i.test(name) || /see\b/i.test(name)) return "water";
   if (/(stock|horn|berg|flue|fluh|spitz|gipfel|egg|grat|kopf|mythen|rigi|stuckli|chulm|kulm)/i.test(name)) return "mountain";
   return "place";
@@ -106,6 +106,27 @@ function sameName(a: string, b: string): boolean {
   const x = a.toLowerCase().replace(/[()]/g, "");
   const y = b.toLowerCase().replace(/[()]/g, "");
   return x.includes(y) || y.includes(x);
+}
+
+/**
+ * Marks for the photo itself: the backend's photo_marks when present, else the landmarks the agent placed
+ * by hand in a viewpoint_search step (horizontal position only).
+ */
+export function photoMarksOf(result: AnalysisResult | null): PhotoMark[] {
+  if (!result) return [];
+  if (result.photo_marks?.length) return result.photo_marks.filter((m) => m.x >= 0 && m.x <= 1);
+  const features = new Set(list(result.fields.landscape_features?.value).map((n) => n.toLowerCase()));
+  const out: PhotoMark[] = [];
+  for (const t of result.trace ?? []) {
+    if (t.type !== "tool_call" || t.tool !== "viewpoint_search") continue;
+    for (const l of ((t.input?.landmarks as { name?: string; x?: number }[] | undefined) ?? [])) {
+      if (!l.name || typeof l.x !== "number" || l.x < 0 || l.x > 1) continue;
+      if (features.size && !features.has(l.name.toLowerCase())) continue; // only what the result names
+      if (out.some((m) => m.name === l.name)) continue;
+      out.push({ name: l.name, kind: kindOfName(l.name) === "water" ? "water" : "mountain", x: l.x, y: null });
+    }
+  }
+  return out;
 }
 
 const list = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);

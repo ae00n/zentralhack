@@ -159,6 +159,18 @@ export interface AnalysisResult {
   /** status "error" only: German message for the UI (Said's jobs.py), plus a technical detail. */
   error?: string;
   error_detail?: string;
+  /**
+   * Where the result's landmarks are in the photo (Said, 24.10., for the backend: one vision pass per
+   * photo). x and y are 0..1 of the image width and height, y null when only the direction is known.
+   */
+  photo_marks?: PhotoMark[] | null;
+}
+
+export interface PhotoMark {
+  name: string;
+  kind: "mountain" | "water" | "building" | "place";
+  x: number;
+  y: number | null;
 }
 
 export interface Health {

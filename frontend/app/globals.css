@@ -403,6 +403,56 @@ body {
     transform: translateY(6px) scale(0.9);
   }
 }
+/* Landmark marks on the photo (Said, 24.10.): the map's icons (white triangle mountain, blue dot water, red
+   building) with a small sign; "edge" = only the direction is known, a pointer on the top edge. */
+.photo-mark {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transform: translate(-7px, -50%);
+  pointer-events: none;
+  animation: stop-in 380ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.photo-mark i {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgb(var(--ink) / 0.85), 0 0 12px 3px rgb(255 255 255 / 0.6);
+}
+.photo-mark.mountain i {
+  width: 14px;
+  height: 12px;
+  border-radius: 0;
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  box-shadow: none;
+  filter: drop-shadow(0 0 2px rgb(var(--ink) / 0.9));
+}
+.photo-mark.water i {
+  background: #3f9fe0;
+  box-shadow: 0 0 0 2px #fff, 0 0 10px 3px rgb(63 159 224 / 0.55);
+}
+.photo-mark.building i {
+  background: rgb(var(--accent));
+  box-shadow: 0 0 0 2px #fff, 0 0 12px 4px rgb(var(--accent) / 0.55);
+}
+.photo-mark span {
+  white-space: nowrap;
+  font: 500 11px/1 var(--font-inter), system-ui, sans-serif;
+  color: #fff;
+  background: rgb(var(--ink) / 0.82);
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+.photo-mark.edge {
+  flex-direction: column;
+  transform: translate(-50%, 6px);
+}
+.photo-mark.edge i {
+  transform: rotate(180deg);
+}
 /* Beacon on the flight target (Said, 24.10.): three radar rings and a glowing core while the camera is high. */
 .desk-beacon {
   position: relative;

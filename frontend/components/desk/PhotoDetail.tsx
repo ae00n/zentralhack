@@ -5,6 +5,7 @@ import { FOCUS_RING } from "@/components/ui/button";
 import { imageUrl } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { certClass, type DeskItem } from "@/lib/desk";
+import { photoMarksOf } from "@/lib/reasoning";
 import { analyseHref, formatPct } from "@/lib/format";
 
 // The picked photo in the desk's side panel (Said, 24.10.): picking a photo on the map or in the list
@@ -45,9 +46,23 @@ export default function PhotoDetail({ item, onBack }: Props) {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="burn-in">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={imageUrl(record.id, 960)} alt={`Foto ${record.signature ?? record.id}`} className="aspect-[4/3] w-full bg-paper-2 object-cover" />
+        <div className="relative">
+          <div className="burn-in">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={imageUrl(record.id, 960)} alt={`Foto ${record.signature ?? record.id}`} className="block w-full bg-paper-2" />
+          </div>
+          {/* The same landmarks as on the map, with the same icons (Said, 24.10.): placed where they are in the
+              photo, or as a pointer on the top edge when only their direction is known. */}
+          {photoMarksOf(result).map((m, i) => (
+            <span
+              key={m.name}
+              className={cn("photo-mark", m.kind, m.y === null && "edge")}
+              style={{ left: `${m.x * 100}%`, top: m.y === null ? 0 : `${m.y * 100}%`, animationDelay: `${1150 + i * 220}ms` }}
+            >
+              <i aria-hidden />
+              <span>{m.name}</span>
+            </span>
+          ))}
         </div>
 
         <div className="write-in">
