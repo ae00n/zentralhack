@@ -152,13 +152,45 @@ verarbeitet"). The current desk moves to `/stapel/[id]`. Header: the step strip 
 field (the search moves into the desk panel).
 
 **Check:** in mock mode a ZIP with 5 images plus a .txt shows "5 Bilder · 1 übersprungen", starts, and opens
-`/stapel/<id>`; `/stapel/challenge` shows today's desk unchanged.
+`/stapel/<id>`; `/stapel/challenge` shows today's desk unchanged. Done (24.10.), headless Chrome over CDP
+against the mock dev server: a ZIP "Brunnen Schwyz.zip" (5 JPEGs in a folder, `notizen.txt`, `__MACOSX`) shows
+"5 Bilder · 1 übersprungen", the name "Brunnen Schwyz", `notizen.txt` with its reason; "Analyse starten" opens
+`/stapel/local-...`, the strip shows "2 Analyse" while it runs and "3 Prüfen" when 5 of 5 are done; the start
+page then lists the batch card next to SG.CIV.17. `/stapel/challenge` shows the desk with the search in the
+panel, no footer. Phone 390 px: no horizontal scroll, strip as "1/4 · Hochladen". No console errors.
+`npm run typecheck` and `npm run build` pass.
 
 **Special**
--
+- The desk moved unchanged from `app/page.tsx` to `components/desk/Arbeitsplatz.tsx`; `app/stapel/[id]`
+  renders it for the id `challenge` and `BatchView` for every other id. All links to `/` and `/?foto=` (desk
+  reset link, analyse back button and breadcrumb) go through `deskHref()` in `lib/format.ts`
+  (`CHALLENGE_DESK = "/stapel/challenge"`).
+- Header: the step strip "1 Hochladen > 2 Analyse > 3 Prüfen > 4 Export" replaces the search field. The step
+  comes from the route: `/` = 1, an upload batch = 2 while it runs and 3 after, the desk and the photo view
+  = 3, Nachweis = none. Hochladen links to `/`, Analyse / Prüfen to the current batch, Export downloads that
+  batch's Excel until the dialog of step 5 exists. The red underline marks the current step (no number
+  circles: the theme has no pill radius). Phone: "2/4 · Analyse" as text, menu with "Hochladen und Stapel".
+- The header Excel button is contextual: none on `/`, the batch Excel on an upload batch (once something
+  is done), the SG.CIV.17 Prio-1 Excel as before on the desk, photo view and Nachweis.
+- The search moved into the desk panel (`DeskSearch.tsx`, full width above Prio 1 | Alle), same `?q=` and
+  ⌘K behaviour.
+- Footer hidden on `/stapel/challenge` (the desk fits one viewport), shown on the start page and batches.
+- Upload preview: up to 12 thumbnails (object URLs, freed on change), count, skipped files in a
+  `<details>`, estimate (mock: "Beispieldaten: keine echte Analyse, keine Kosten"; live also says that cache
+  hits cost nothing), name proposal from the ZIP or folder name (kept once edited), "Weitere Dateien" adds to
+  the selection (everything is read again, so a ZIP is unpacked twice). The "Fenster offen lassen" note shows
+  only for the client runner.
+- The SG.CIV.17 card reads only the records (`listChallenge`), not the 50 results, to keep the start page
+  light: "N Fotos · 50 Prio 1 · Beispiel: bereits verarbeitet".
+- Batch card "×" asks with `window.confirm` and only forgets the batch in this browser.
+- `useBatches()` now returns `{ batches, ready }`, so a batch page shows "Lade Stapel ..." instead of
+  flashing "nicht gefunden" before localStorage and the server answered.
+- `BatchView` is the first version of step 3: progress line, bar, list with status, error, Öffnen and
+  Erneut versuchen, Excel button. Cost is hidden in mock mode (mock results carry made-up costs).
 
 **Not built**
--
+- Drag and drop of a folder is only covered by the code path (`filesFromDrop`); the headless test used the
+  file input. Needs one manual drop test in Chrome and Edge.
 
 ---
 

@@ -1,5 +1,5 @@
 // German UI labels for contract keys. Unknown keys fall back to the raw key.
-import type { FieldKey } from "./types";
+import type { BatchItemStatus, FieldKey } from "./types";
 
 /**
  * Result rows in display order: the brief's five fields first (CONTRACTS v3), then the optional
@@ -85,3 +85,13 @@ export const SUBSET_LABELS: Record<string, string> = {
 export function subsetLabel(key: string): string {
   return SUBSET_LABELS[key] ?? key;
 }
+
+/** Batch item status (UPLOAD_PLAN). */
+export const BATCH_STATUS_LABELS: Record<BatchItemStatus, string> = {
+  queued: "wartet",
+  uploading: "lädt hoch",
+  running: "läuft",
+  done: "fertig",
+  error: "Fehler",
+  skipped: "übersprungen",
+};

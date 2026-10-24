@@ -38,7 +38,7 @@ import Segmented from "@/components/ui/Segmented";
 import { cn } from "@/lib/cn";
 import { countItems, modelClass } from "@/lib/desk";
 import { quietFocus } from "@/lib/quietFocus";
-import { analyseHref, isEmptyValue } from "@/lib/format";
+import { analyseHref, deskHref, isEmptyValue } from "@/lib/format";
 import { REVIEW_FIELDS, aiValue, effectiveValue } from "@/lib/review";
 import {
   consumeAdvance,
@@ -431,7 +431,7 @@ export default function AnalysePage() {
       >
         {/* Back to the desk with this photo open in the side panel (Said, 24.10.). */}
         <Link
-          href={`/?foto=${encodeURIComponent(id)}`}
+          href={deskHref({ foto: id })}
           className={cn(
             "-ml-1 inline-flex items-center gap-1.5 rounded px-2 py-1 text-ui font-medium text-ink transition-colors duration-hover hover:bg-paper-2",
             FOCUS_RING,
@@ -442,7 +442,7 @@ export default function AnalysePage() {
         </Link>
         <ol aria-label="Brotkrume" className="flex min-w-0 items-center gap-1.5 overflow-x-auto whitespace-nowrap text-ui text-ink-muted">
           <li>
-            <Link href="/" className={cn("rounded-sm hover:text-ink", FOCUS_RING)}>
+            <Link href={deskHref()} className={cn("rounded-sm hover:text-ink", FOCUS_RING)}>
               Arbeitsplatz
             </Link>
           </li>
@@ -450,7 +450,7 @@ export default function AnalysePage() {
             <>
               <li aria-hidden>/</li>
               <li>
-                <Link href="/" className={cn("rounded-sm hover:text-ink", FOCUS_RING)}>
+                <Link href={deskHref()} className={cn("rounded-sm hover:text-ink", FOCUS_RING)}>
                   {record.collection}
                 </Link>
               </li>

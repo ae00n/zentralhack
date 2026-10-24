@@ -10,6 +10,7 @@ import {
   addServerFiles,
   createServerBatch,
   errorText,
+  exportXlsxUrl,
   followAnalysis,
   getResult,
   getServerBatch,
@@ -33,7 +34,8 @@ const USD_PER_PHOTO = 0.19;
 const FATAL = /Kostenlimit|API-Schlüssel/;
 const INTERRUPTED = "Upload unterbrochen: Datei bitte erneut hochladen";
 
-const state = { batches: [] as Batch[], version: 0, loaded: false };
+// ready: local batches restored and the server asked (or known to have no /batches).
+const state = { batches: [] as Batch[], version: 0, loaded: false, ready: false };
 /** Files not yet stored by the backend, by fileKey(). Memory only. */
 const files = new Map<string, Blob>();
 const listeners = new Set<() => void>();
@@ -244,6 +246,10 @@ function load() {
     })
     .catch(() => {
       // Backend not reachable: only the local batches show.
+    })
+    .finally(() => {
+      state.ready = true;
+      emit();
     });
 }
 
@@ -252,11 +258,11 @@ function subscribe(l: () => void) {
   return () => listeners.delete(l);
 }
 
-/** All batches, newest first; re-renders on every change. */
-export function useBatches(): Batch[] {
+/** All batches, newest first; re-renders on every change. ready: false while they are still loading. */
+export function useBatches(): { batches: Batch[]; ready: boolean } {
   useSyncExternalStore(subscribe, () => state.version, () => 0);
   useEffect(load, []);
-  return state.batches;
+  return { batches: state.batches, ready: state.ready };
 }
 
 export function getBatch(id: string): Batch | null {
@@ -345,6 +351,11 @@ export function isRunning(b: Batch): boolean {
 /** Photos of the batch with a result, in batch order (desk, review queue, export ?ids=). */
 export function batchPhotoIds(b: Batch): string[] {
   return b.items.filter((i) => i.status === "done" && i.photo_id).map((i) => i.photo_id as string);
+}
+
+/** Excel of a batch: the server knows its batches; for a client batch the photo ids are listed. */
+export function batchExportUrl(b: Batch): string {
+  return b.runner === "server" ? exportXlsxUrl({ batch: b.id }) : exportXlsxUrl({ ids: batchPhotoIds(b) });
 }
 
 /** Time and cost for n photos at the measured medians, CONCURRENCY at a time. */

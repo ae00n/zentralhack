@@ -3,9 +3,10 @@
 // Compact footer (FRONTPAGE_POLISH 4): one muted line with the three facts. Not on the desk, which must
 // fit one viewport; the Prototyp tag in the header stays visible there.
 import { usePathname } from "next/navigation";
+import { CHALLENGE_DESK } from "@/lib/format";
 
 export default function SiteFooter() {
-  if (usePathname() === "/") return null;
+  if (usePathname() === CHALLENGE_DESK) return null;
   return (
     <footer className="border-t border-rule/[0.08]">
       <p className="px-4 py-3 text-meta text-ink-muted">

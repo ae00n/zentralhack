@@ -1,14 +1,17 @@
 "use client";
 
 // Shell (FRONTPAGE_POLISH 4, item 2): a 2px red strip and a 52px white header. Wordmark, readable
-// Prototyp tag, search field (⌘K / Ctrl+K focuses it), Nachweis, and the Excel button. Never the
-// Kanton Schwyz shield or wordmark (licence). Phone: the links sit behind a menu button.
-import { Download, Menu, Search, X } from "lucide-react";
+// Prototyp tag, Nachweis, and the Excel button. Never the Kanton Schwyz shield or wordmark (licence).
+// UPLOAD_PLAN step 2: the step strip Hochladen > Analyse > Prüfen > Export replaces the search field
+// (the search moved into the desk panel). Phone: the current step as text, the links behind a menu button.
+import { ChevronRight, Download, Menu, X } from "lucide-react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useRef, useState } from "react";
-import Kbd from "@/components/ui/Kbd";
+import { usePathname } from "next/navigation";
+import { useState } from "react";
 import { MODE, exportXlsxUrl } from "@/lib/api";
+import { batchCounts, batchExportUrl, isRunning, useBatches } from "@/lib/batches";
+import { cn } from "@/lib/cn";
+import { deskHref } from "@/lib/format";
 
 function Tag({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
@@ -20,54 +23,81 @@ function Tag({ children, className = "" }: { children: React.ReactNode; classNam
 
 const FOCUS = "outline-none focus-visible:ring-2 focus-visible:ring-focus/50 focus-visible:ring-offset-1 focus-visible:ring-offset-paper";
 
-/** Header search: filters the desk list via ?q= (the ⌘K palette replaces it in polish item 9). */
-function SearchField({ className = "" }: { className?: string }) {
-  const router = useRouter();
-  const current = useSearchParams().get("q") ?? "";
-  const [q, setQ] = useState(current);
-  const input = useRef<HTMLInputElement>(null);
+const STEPS = ["Hochladen", "Analyse", "Prüfen", "Export"] as const;
 
-  useEffect(() => setQ(current), [current]);
+interface Flow {
+  /** 1..4, null outside the flow (Nachweis). */
+  step: number | null;
+  /** Where Analyse / Prüfen lead: the batch of this page. */
+  batchHref: string | null;
+  excelUrl: string | null;
+}
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        input.current?.focus();
-        input.current?.select();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
+/** The flow step of the current page. Step 4 becomes the export dialog in UPLOAD_PLAN step 5. */
+function useFlow(): Flow {
+  const path = usePathname();
+  const { batches } = useBatches();
+  if (path === "/") return { step: 1, batchHref: null, excelUrl: null };
+  const m = path.match(/^\/stapel\/([^/]+)/);
+  if (m) {
+    const id = decodeURIComponent(m[1]);
+    if (id === "challenge") return { step: 3, batchHref: deskHref(), excelUrl: exportXlsxUrl() };
+    const b = batches.find((x) => x.id === id);
+    return { step: b && isRunning(b) ? 2 : 3, batchHref: path, excelUrl: b && batchCounts(b).done ? batchExportUrl(b) : null };
+  }
+  // The photo view does not know its batch yet (UPLOAD_PLAN step 4): it belongs to SG.CIV.17 for now.
+  if (path.startsWith("/analyse/")) return { step: 3, batchHref: deskHref(), excelUrl: exportXlsxUrl() };
+  return { step: null, batchHref: null, excelUrl: exportXlsxUrl() };
+}
 
+function StepStrip({ flow }: { flow: Flow }) {
+  const target = (n: number) => (n === 1 ? "/" : n === 4 ? flow.excelUrl : flow.batchHref);
   return (
-    <form
-      role="search"
-      onSubmit={(e) => {
-        e.preventDefault();
-        const v = q.trim();
-        router.push(v ? `/?q=${encodeURIComponent(v)}` : "/");
-      }}
-      className={`flex h-8 items-center gap-2 rounded border border-rule/[0.12] bg-paper px-2.5 text-ui text-ink-muted transition-colors duration-hover focus-within:border-rule/20 focus-within:ring-2 focus-within:ring-focus/50 hover:border-rule/20 ${className}`}
-    >
-      <Search size={14} strokeWidth={1.75} aria-hidden className="shrink-0" />
-      <input
-        ref={input}
-        type="search"
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        placeholder="Signatur, Ort oder Gebäude suchen"
-        aria-label="Signatur, Ort oder Gebäude suchen"
-        className="h-full min-w-0 flex-1 bg-transparent text-ink outline-none placeholder:text-ink-muted"
-      />
-      <Kbd>⌘K</Kbd>
-    </form>
+    <ol aria-label="Ablauf" className="hidden h-full items-stretch gap-1 md:flex">
+      {STEPS.map((label, i) => {
+        const n = i + 1;
+        const current = flow.step === n;
+        const passed = flow.step !== null && n < flow.step;
+        const href = target(n);
+        const body = (
+          <>
+            <span className="tnum text-meta">{n}</span>
+            {label}
+          </>
+        );
+        const cls = cn(
+          "inline-flex items-center gap-1.5 border-b-2 px-1.5 text-ui transition-colors duration-hover",
+          current ? "border-accent font-medium text-ink" : "border-transparent",
+          !current && (passed ? "text-ink" : "text-ink-muted"),
+          href && !current && "hover:text-ink",
+          FOCUS,
+        );
+        return (
+          <li key={label} className="flex items-stretch">
+            {i > 0 && <ChevronRight size={12} strokeWidth={1.75} aria-hidden className="mr-1 self-center text-ink-muted" />}
+            {!href || current ? (
+              <span className={cls} aria-current={current ? "step" : undefined}>
+                {body}
+              </span>
+            ) : n === 4 ? (
+              <a href={href} download className={cls}>
+                {body}
+              </a>
+            ) : (
+              <Link href={href} className={cls}>
+                {body}
+              </Link>
+            )}
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
 export default function SiteHeader() {
   const [open, setOpen] = useState(false);
+  const flow = useFlow();
   return (
     <div className="sticky top-0 z-30">
       <div className="h-[2px] bg-accent" aria-hidden />
@@ -75,15 +105,13 @@ export default function SiteHeader() {
         <Link href="/" className={`flex min-w-0 items-center gap-2 rounded-sm ${FOCUS}`}>
           <span className="truncate text-ui">
             <span className="font-semibold text-ink">Staatsarchiv Schwyz</span>
-            <span className="hidden text-ink-muted sm:inline"> · Erschliessung</span>
+            <span className="hidden text-ink-muted lg:inline"> · Erschliessung</span>
           </span>
           <Tag>Prototyp</Tag>
           {MODE === "mock" && <Tag className="hidden text-warn sm:inline-flex">Beispieldaten</Tag>}
         </Link>
 
-        <Suspense fallback={<div className="hidden h-8 w-[320px] md:block" />}>
-          <SearchField className="hidden w-[320px] md:flex" />
-        </Suspense>
+        <StepStrip flow={flow} />
 
         <nav className="ml-auto hidden items-center gap-1 sm:flex">
           <Link
@@ -92,23 +120,30 @@ export default function SiteHeader() {
           >
             Nachweis
           </Link>
-          <a
-            href={exportXlsxUrl()}
-            download
-            className={`inline-flex h-8 items-center gap-1.5 rounded bg-accent px-3 text-ui font-medium text-white transition-colors duration-hover hover:bg-accent-hover active:translate-y-px ${FOCUS}`}
-          >
-            <Download size={14} strokeWidth={1.75} aria-hidden />
-            Excel herunterladen
-          </a>
+          {flow.excelUrl && (
+            <a
+              href={flow.excelUrl}
+              download
+              className={`inline-flex h-8 items-center gap-1.5 rounded bg-accent px-3 text-ui font-medium text-white transition-colors duration-hover hover:bg-accent-hover active:translate-y-px ${FOCUS}`}
+            >
+              <Download size={14} strokeWidth={1.75} aria-hidden />
+              Excel herunterladen
+            </a>
+          )}
         </nav>
 
+        {flow.step !== null && (
+          <span className="ml-auto text-meta tnum text-ink-muted sm:ml-0 md:hidden">
+            {flow.step}/4 · {STEPS[flow.step - 1]}
+          </span>
+        )}
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
           aria-expanded={open}
           aria-controls="phone-menu"
           aria-label={open ? "Menü schliessen" : "Menü öffnen"}
-          className={`ml-auto rounded p-1.5 text-ink-muted hover:bg-paper-2 hover:text-ink sm:hidden ${FOCUS}`}
+          className={cn("rounded p-1.5 text-ink-muted hover:bg-paper-2 hover:text-ink sm:hidden", flow.step === null && "ml-auto", FOCUS)}
         >
           {open ? <X size={20} strokeWidth={1.5} /> : <Menu size={20} strokeWidth={1.5} />}
         </button>
@@ -117,9 +152,9 @@ export default function SiteHeader() {
       {open && (
         <nav id="phone-menu" className="fade-in border-b border-rule/[0.08] bg-paper sm:hidden">
           <div className="space-y-2 px-4 py-3">
-            <Suspense>
-              <SearchField className="w-full" />
-            </Suspense>
+            <Link href="/" onClick={() => setOpen(false)} className={`block rounded py-1.5 text-ui font-medium ${FOCUS}`}>
+              Hochladen und Stapel
+            </Link>
             <Link href="/nachweis" onClick={() => setOpen(false)} className={`block rounded py-1.5 text-ui font-medium ${FOCUS}`}>
               Nachweis
             </Link>
