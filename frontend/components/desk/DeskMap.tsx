@@ -14,6 +14,9 @@ export interface DeskMapProps {
   tiles: string;
   /** The tiles are pixelkarte-grau: soften them to grey instead of keeping colour. */
   grey: boolean;
+  /** Raster template for ch.swisstopo.swissimage (the "Luftbild" background). */
+  aerialTiles: string;
+  basemap: "karte" | "luftbild";
   offline: boolean;
   hoveredPlace: number | null;
   selectedPlace: number | null;
@@ -82,6 +85,8 @@ export default function DeskMap({
   places,
   tiles,
   grey,
+  aerialTiles,
+  basemap,
   offline,
   hoveredPlace,
   selectedPlace,
@@ -96,8 +101,8 @@ export default function DeskMap({
   const popup = useRef<maplibregl.Popup | null>(null);
   const pin = useRef<maplibregl.Marker | null>(null);
   // Latest props for the map event handlers, which are bound once.
-  const latest = useRef({ places, onHover, onPickPhoto, labelOf });
-  latest.current = { places, onHover, onPickPhoto, labelOf };
+  const latest = useRef({ places, basemap, onHover, onPickPhoto, labelOf });
+  latest.current = { places, basemap, onHover, onPickPhoto, labelOf };
   const state = useRef<{ hovered: number | null; selected: number | null }>({ hovered: null, selected: null });
 
   // Create once.
@@ -142,6 +147,7 @@ export default function DeskMap({
         version: 8,
         sources: {
           base: { type: "raster", tiles: [tiles], tileSize: 256, maxzoom: offline ? 16 : 18 },
+          aerial: { type: "raster", tiles: [aerialTiles], tileSize: 256, maxzoom: offline ? 17 : 19 },
           places: { type: "geojson", data: placesData(places) },
         },
         layers: [
@@ -150,6 +156,7 @@ export default function DeskMap({
             id: "base",
             type: "raster",
             source: "base",
+            layout: { visibility: basemap === "karte" ? "visible" : "none" },
             // Softened raster (polish 5): less contrast and a bit lighter, so the dots stay readable.
             // The grey offline map loses all colour; the colour map keeps most of it.
             paint: grey
@@ -168,6 +175,14 @@ export default function DeskMap({
                   "raster-opacity": 0.9,
                   "raster-fade-duration": 300,
                 },
+          },
+          // Aerial photo as is; only one of the two backgrounds is visible, so only its tiles load.
+          {
+            id: "aerial",
+            type: "raster",
+            source: "aerial",
+            layout: { visibility: basemap === "luftbild" ? "visible" : "none" },
+            paint: { "raster-fade-duration": 300 },
           },
         ],
       },
@@ -264,6 +279,7 @@ export default function DeskMap({
         },
       });
       ready.current = true;
+      applyBasemap(m);
       applyState(m);
       drawCounts(m);
     });
@@ -374,6 +390,21 @@ export default function DeskMap({
       '<circle cx="12" cy="11.5" r="4" fill="#fff"/></svg>';
     pin.current = new maplibregl.Marker({ element: el, anchor: "bottom" }).setLngLat([p.lon, p.lat]).addTo(m);
   }
+
+  /** Karte | Luftbild: show one background layer. Before the style has loaded, the load handler applies it. */
+  function applyBasemap(m: maplibregl.Map) {
+    try {
+      const b = latest.current.basemap;
+      m.setLayoutProperty("base", "visibility", b === "karte" ? "visible" : "none");
+      m.setLayoutProperty("aerial", "visibility", b === "luftbild" ? "visible" : "none");
+    } catch {
+      // Style still loading.
+    }
+  }
+
+  useEffect(() => {
+    if (map.current) applyBasemap(map.current);
+  }, [basemap]);
 
   // Data changes (results arrive, reviews change the classes).
   useEffect(() => {

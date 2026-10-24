@@ -45,6 +45,8 @@ const LEGEND: { cls: string; label: string }[] = [
 ];
 
 type Scope = "prio1" | "all";
+type Basemap = "karte" | "luftbild";
+const BASEMAP_KEY = "desk-basemap";
 
 export default function ArbeitsplatzPage() {
   // useSearchParams needs a Suspense boundary for the static build.
@@ -73,10 +75,26 @@ function Arbeitsplatz() {
   const [selected, setSelected] = useState<string | null>(null);
   // Phone: list and map are tabs, list first (plan 4). From lg both show side by side.
   const [view, setView] = useState<"list" | "map">("list");
+  // Map | aerial photo (Timo, 24.10.), remembered per browser.
+  const [basemap, setBasemap] = useState<Basemap>("karte");
 
   useEffect(() => {
     getTilesUrl().then(setTiles);
+    try {
+      if (localStorage.getItem(BASEMAP_KEY) === "luftbild") setBasemap("luftbild");
+    } catch {
+      // No storage (private window): start on the map.
+    }
   }, []);
+
+  const pickBasemap = (b: Basemap) => {
+    setBasemap(b);
+    try {
+      localStorage.setItem(BASEMAP_KEY, b);
+    } catch {
+      // Not remembered, still switched.
+    }
+  };
 
   // The desk never scrolls: drop the reserved scrollbar gutter (globals.css) so the map reaches the edge.
   useEffect(() => {
@@ -171,6 +189,9 @@ function Arbeitsplatz() {
                 // Colour map online; the offline tile bundle only has the grey one.
                 tiles={tileTemplate(tiles.tilesUrl, tiles.offline ? "ch.swisstopo.pixelkarte-grau" : "ch.swisstopo.pixelkarte-farbe", "current")}
                 grey={tiles.offline}
+                // Offline only the demo areas have SWISSIMAGE tiles.
+                aerialTiles={tileTemplate(tiles.tilesUrl, "ch.swisstopo.swissimage", "current")}
+                basemap={basemap}
                 offline={tiles.offline}
                 hoveredPlace={hoveredPlace ?? placeOfHoveredPhoto}
                 selectedPlace={selected ? (placeOf.get(selected) ?? null) : null}
@@ -180,6 +201,17 @@ function Arbeitsplatz() {
               />
             )}
           </div>
+          {/* Map | aerial photo, top right next to the zoom buttons (MapLibre control: 10 px margin, 29 px wide). */}
+          <Segmented
+            label="Hintergrund"
+            value={basemap}
+            onChange={pickBasemap}
+            options={[
+              { key: "karte", label: "Karte" },
+              { key: "luftbild", label: "Luftbild" },
+            ]}
+            className="absolute right-12 top-2.5 z-10 border border-rule/[0.08] bg-paper-2/90 shadow-panel backdrop-blur"
+          />
           {/* Legend: a small floating card, centred in the free map area right of the panel. */}
           <div className="absolute bottom-3 left-1/2 z-10 flex h-8 max-w-[calc(100%-24px)] -translate-x-1/2 items-center gap-3 overflow-x-auto whitespace-nowrap rounded border border-rule/[0.08] bg-paper/90 px-2.5 text-meta text-ink-muted backdrop-blur lg:left-[calc(50%+206px)]">
             {LEGEND.map((l) => (
