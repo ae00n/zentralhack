@@ -59,6 +59,9 @@ const MIN_ZOOM = 8;
 // fade in only from FADE_FROM to FADE_TO. Sentinel-2 cloudless 2020 by EOX (CC BY-NC-SA 4.0), online only.
 const WORLD_TILES = "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2020_3857/default/g/{z}/{y}/{x}.jpg";
 const FADE_FROM = 7.5;
+// The swisstopo WMTS extent (WGS84 west, south, east, north) and the lowest zoom we load from it.
+const SWISS_EXTENT: [number, number, number, number] = [5.14, 45.39, 11.48, 48.23];
+const SWISS_MINZOOM = 7;
 const FADE_TO = 9;
 const fadeIn = (opacity: number) =>
   ["interpolate", ["linear"], ["zoom"], FADE_FROM, 0, FADE_TO, opacity] as unknown as maplibregl.ExpressionSpecification;
@@ -169,9 +172,11 @@ export default function DeskMap({
       style: {
         version: 8,
         sources: {
-          base: { type: "raster", tiles: [tiles], tileSize: 256, maxzoom: offline ? 16 : 18 },
+          // swisstopo answers 400 outside its extent: bounds and minzoom keep MapLibre from asking (the
+          // Europe layer covers those zooms), so the flight causes no failed tile requests.
+          base: { type: "raster", tiles: [tiles], tileSize: 256, minzoom: SWISS_MINZOOM, maxzoom: offline ? 16 : 18, bounds: SWISS_EXTENT },
           world: { type: "raster", tiles: [WORLD_TILES], tileSize: 256, maxzoom: 12 },
-          aerial: { type: "raster", tiles: [aerialTiles], tileSize: 256, maxzoom: offline ? 17 : 19 },
+          aerial: { type: "raster", tiles: [aerialTiles], tileSize: 256, minzoom: SWISS_MINZOOM, maxzoom: offline ? 17 : 19, bounds: SWISS_EXTENT },
           places: { type: "geojson", data: placesData(places) },
         },
         layers: [
