@@ -1,7 +1,7 @@
 "use client";
 
 // The place today, at street level (Said, 24.10.): once the map flight has landed on a picked photo with
-// Street View nearby (lib/streetview.ts), a pane splits off on the right. It stands on the nearest covered
+// Street View on the spot (15 m, lib/streetview.ts), a pane splits off on the right. It stands on the covered
 // street and looks at the found spot; when the spot is on the street itself, towards the main landmark of
 // the reasoning. Keyless Google embed (the one maps.google.com hands out for "output=svembed"); only the
 // coordinates go to Google, never the photo.
@@ -39,7 +39,7 @@ const mapsUrl = (lat: number, lon: number, heading: number) =>
   `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat},${lon}&heading=${heading.toFixed(0)}`;
 
 /** Closer than this, the panorama is on the spot: look at the landmark instead. */
-const ON_SPOT_M = 12;
+const ON_SPOT_M = 5;
 
 const coord = (v: number, pos: string, neg: string) => `${Math.abs(v).toFixed(5)}° ${v >= 0 ? pos : neg}`;
 

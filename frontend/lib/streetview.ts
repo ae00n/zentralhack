@@ -1,10 +1,10 @@
 // Is there Google Street View near a spot (Said, 24.10.)? Reads Google's coverage layer (the blue lines,
-// keyless PNG tiles with open CORS) around the spot and returns the nearest covered point within 80 m, or
-// null. The desk opens its street view pane only on a hit, so a mountain or a field shows no empty pane.
-// Checked on 16 real results: 9 hits (7 to 47 m away), 7 without coverage.
+// keyless PNG tiles with open CORS) around the spot and returns the nearest covered point within 15 m, or
+// null. The desk opens its street view pane only on a hit: a panorama further away shows the wrong scene,
+// and a mountain or a field shows none. Checked on 40 real results: 6 hits (4 to 13 m away).
 
 const Z = 17; // about 0.8 m per pixel in Schwyz
-const RADIUS_M = 80;
+const RADIUS_M = 15; // on the spot only (Said, 24.10.)
 const TIMEOUT_MS = 2500;
 const TILE = 256;
 
@@ -68,7 +68,7 @@ async function search(lat: number, lon: number): Promise<StreetSpot | null> {
   return best ? { ...unworld(best.px, best.py), metres: Math.round(best.d * mpp) } : null;
 }
 
-/** The nearest point with Street View within 80 m of the spot; null when none, offline or slow. */
+/** The nearest point with Street View within 15 m of the spot; null when none, offline or slow. */
 export function nearestStreetView(lat: number, lon: number): Promise<StreetSpot | null> {
   const key = `${lat.toFixed(5)},${lon.toFixed(5)}`;
   const hit = cache.get(key);

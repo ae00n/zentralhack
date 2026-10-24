@@ -177,7 +177,7 @@ function Arbeitsplatz() {
   // Its reasoning for the map (landmark lookups start now, the flight picks them up on the way down).
   const reasoningPromise = useMemo(() => (selectedItem ? reasoningOf(selectedItem.result) : null), [selected, Boolean(selectedItem?.result)]); // eslint-disable-line react-hooks/exhaustive-deps
   // Street view split on the right (Said, 24.10.): opens once the flight to the picked photo has landed, and
-  // only when Google has Street View near the spot (checked during the flight); otherwise no pane at all.
+  // only when Google has Street View on the spot (15 m, checked during the flight); otherwise no pane at all.
   const [landed, setLanded] = useState<string | null>(null);
   const [streetClosed, setStreetClosed] = useState(false);
   const [paneW, setPaneW] = useState(0);
