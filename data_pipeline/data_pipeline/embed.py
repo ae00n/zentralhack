@@ -34,6 +34,9 @@ from .paths import DATA_DIR, INDEX, RECORDS, ensure
 MODELS = ("dinov2", "clip", "megaloc")
 RRF_K = 60  # reciprocal rank fusion constant (Cormack et al.)
 BATCH = int(os.environ.get("EMBED_BATCH", "16"))
+# Only modern references with a position to a few metres go into the index: the challenge photos are
+# 2003 to 2013 street views, and archive cards placed at their municipality (1 to 3 km) cannot give a street.
+INDEX_SOURCES = tuple(os.environ.get("INDEX_SOURCES", "commons,mapillary").split(","))
 SOURCE_PREFIX = {"staatsarchiv": "stasz:", "smapshot": "smapshot:", "epics": "epics:", "lubis": "lubis:", "nb": "nb:",
                  "upload": "upload:", "commons": "commons:", "mapillary": "mapillary:"}
 
@@ -117,6 +120,8 @@ def _records() -> list[dict]:
     recs += [r for r in read(RECORDS / "crops.jsonl") if "#" in r.get("id", "")]
     seen, out = set(), []
     for r in recs:
+        if r.get("source") not in INDEX_SOURCES:
+            continue
         if r.get("image") and r["id"] not in seen and (DATA_DIR / r["image"]["path"]).exists():
             seen.add(r["id"])
             out.append(r)
@@ -132,8 +137,16 @@ def build(model: str) -> None:
     p = _paths(model)
     ids: list[str] = json.loads(p["ids"].read_text()) if p["ids"].exists() else []
     vecs = np.load(p["npy"]) if p["npy"].exists() else None
+    recs = _records()
+    wanted = {r["id"] for r in recs}
+    keep = [i for i, pid in enumerate(ids) if pid in wanted]  # drop rows of other sources and dangling ids
+    if vecs is not None and len(keep) < len(ids):
+        print(f"{model}: dropping {len(ids) - len(keep)} rows not in {INDEX_SOURCES} or without a record", flush=True)
+        vecs, ids = vecs[keep], [ids[i] for i in keep]
+        np.save(p["npy"], vecs)
+        p["ids"].write_text(json.dumps(ids))
     have = set(ids)
-    todo = [r for r in _records() if r["id"] not in have]
+    todo = [r for r in recs if r["id"] not in have]
     print(f"{model}: {len(ids)} indexed, {len(todo)} new", flush=True)
     if todo:
         enc = _encoder(model)
@@ -307,9 +320,26 @@ def check() -> dict:
     return results
 
 
+def coverage(model: str = "megaloc") -> dict:
+    """data/coverage.json: indexed references per municipality and source, the empty ones listed."""
+    from . import geo
+
+    ids = set(json.loads(_paths(model)["ids"].read_text()))
+    per: dict[str, Counter] = {p["name"]: Counter() for p in geo.polygons()}
+    for r in _records():
+        if r["id"] in ids and r.get("municipality") in per:
+            per[r["municipality"]][r["source"]] += 1
+    out = {"model": model, "n": len(ids), "by_municipality": {m: dict(c) for m, c in sorted(per.items())},
+           "empty": sorted(m for m, c in per.items() if not c),
+           "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+    (DATA_DIR / "coverage.json").write_text(json.dumps(out, ensure_ascii=False, indent=1))
+    print(f"{model}: {len(ids)} vectors, municipalities without references: {out['empty'] or 'none'}")
+    return out
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["build", "check", "query"])
+    ap.add_argument("cmd", choices=["build", "check", "query", "coverage"])
     ap.add_argument("image", nargs="?")
     ap.add_argument("--model", default="all", help="dinov2|clip|megaloc|all (query: also fused|best)")
     ap.add_argument("--k", type=int, default=8)
@@ -320,6 +350,8 @@ def main() -> None:
             _encoder.cache_clear()
     elif a.cmd == "check":
         check()
+    elif a.cmd == "coverage":
+        coverage()
     else:
         for pid, s in search(a.image, a.k, "best" if a.model == "all" else a.model):
             print(f"{s:.3f}  {pid}")

@@ -200,13 +200,35 @@ def focus(items: list[dict], anchors: list[dict], radius_m: float) -> list[dict]
     return [m for _, m in sorted(out, key=lambda x: x[0])]
 
 
+def balance(items: list[dict], done: list[dict]) -> list[dict]:
+    """Round-robin over municipalities, the least covered first, so an interrupted run still leaves no
+    Gemeinde without references. Within a municipality, list order (spread over the whole area)."""
+    have: dict[str | None, int] = {}
+    for r in done:
+        have[r.get("municipality")] = have.get(r.get("municipality"), 0) + 1
+    groups: dict[str | None, list[dict]] = {}
+    for m in items:
+        muni = geo.municipality_at(m["lat"], m["lon"])
+        groups.setdefault(muni["name"] if muni else None, []).append(m)
+    order = sorted(groups, key=lambda g: have.get(g, 0))
+    out, i = [], 0
+    while len(out) < len(items):
+        for g in order:
+            if i < len(groups[g]):
+                out.append(groups[g][i])
+        i += 1
+    return out
+
+
 def fetch(limit: int | None = None, workers: int = 8, anchors: list[dict] | None = None,
-          radius_m: float = 1500) -> dict:
+          radius_m: float = 1500, balanced: bool = False) -> dict:
     ensure(IMG_DIR, RECORDS)
     items = list_images()
     if anchors:
         items = focus(items, anchors, radius_m)
         print(f"{len(items)} images within {radius_m:.0f} m of {len(anchors)} anchors", flush=True)
+    elif balanced:
+        items = balance(items, list(read_jsonl(RECORDS_FILE)))
     done = {r["source_id"] for r in read_jsonl(RECORDS_FILE)}
     todo = [m for m in items if m["id"] not in done][:limit]
     print(f"{len(items)} images, {len(done)} done, {len(todo)} to fetch", flush=True)
@@ -240,12 +262,13 @@ def main() -> None:
     ap.add_argument("--limit", type=int)
     ap.add_argument("--anchors", type=Path, help='JSON list of {"lat", "lon"}: fetch only near these, nearest first')
     ap.add_argument("--radius", type=float, default=1500, help="metres around each anchor (default 1500)")
+    ap.add_argument("--balanced", action="store_true", help="least covered municipalities first, round-robin")
     a = ap.parse_args()
     if a.cmd == "count":
         print(len(list_images()), "images to fetch")
     else:
         anchors = json.loads(a.anchors.read_text()) if a.anchors else None
-        print(fetch(a.limit, anchors=anchors, radius_m=a.radius))
+        print(fetch(a.limit, anchors=anchors, radius_m=a.radius, balanced=a.balanced))
 
 
 if __name__ == "__main__":

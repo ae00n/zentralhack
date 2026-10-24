@@ -14,7 +14,7 @@ import sys
 import time
 from pathlib import Path
 
-from . import config, consistency, results
+from . import config, results
 
 OUT = config.CACHE_DIR / "report.html"
 FIELDS = [("locality", "Ortschaft"), ("municipality", "Gemeinde"), ("buildings", "Gebäude"),
@@ -78,7 +78,7 @@ def _card(photo_id: str, images: bool = True) -> tuple[str, dict | None]:
     stable = "" if not cons else (
         f' <span class="chip stab" title="{_esc(cons.get("runs"))} Läufe, gleicher Ort">stabil</span>'
         if cons.get("agree") else
-        f' <span class="chip unstable" title="{_esc(" / ".join(consistency.place(v) for v in cons.get("values") or []))}">instabil</span>')
+        f' <span class="chip unstable" title="{_esc(" / ".join(str(v.get("municipality") or v.get("locality") or "?") for v in cons.get("values") or []))}">instabil</span>')
     rows = []
     for name, label in FIELDS:
         v, c = _val(cur, name), _conf(cur, name)
