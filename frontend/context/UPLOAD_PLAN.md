@@ -202,13 +202,47 @@ note when the tab must stay open (client runner). Done photos can be opened and 
 still runs.
 
 **Check:** mock batch of 10: the grid fills in, an error item can be retried, a reload during the run keeps
-the done items (live) and marks interrupted uploads.
+the done items (live) and marks interrupted uploads. Done (24.10.):
+- Headless Chrome, mock dev server, ZIP of 10 images + `.txt`: tiles start grey, three show a spinner, done
+  ones colour in with the desk's cert dot and "Ortschaft · Gebäude". At 2 of 10 a done photo opens in the
+  photo view (step strip "3 Prüfen") and back. At the end the chips read "Alle 11 · Prüfung nötig 3 · nicht
+  bestimmbar 3 · sicher 3 · Fehler 1 · übersprungen 1". "Erneut versuchen" on IMG_7 makes it "Prüfung nötig"
+  and the Fehler chip goes away. The Prüfung nötig filter shows 4 tiles. Phone 390 px: 2 columns, no
+  horizontal scroll. No console errors.
+- Reload in live mode: two Node processes against a fake `/analyze` (no backend on this machine). The tab
+  closes at "3 done, 3 running, 2 queued". After the reload, IMG_4 is followed again and done; IMG_5 has a
+  forgotten job but a cached result, so it is done; IMG_6 has a forgotten job and no result, so it is
+  marked "Analyse abgebrochen (Server neu gestartet)"; IMG_7 and IMG_8 are marked "Upload unterbrochen".
+  The cost adds up over both tabs.
+- `npm run typecheck` and `npm run build` pass.
 
 **Special**
--
+- `BatchTile.tsx`: the picked file shows at once (object URL from the store's memory, `localFile()`), so
+  the grid is complete before anything reached the backend. After that the backend image is used
+  (`imageUrl(photo_id, 400)`). Grey + 40 % while waiting, a spinner while uploading / running, grey 50 % on
+  error. A done tile without its result yet says "fertig" without a dot.
+- Done tiles use the desk's classes (`certClass`: geprüft / sicher / Prüfung nötig / nicht bestimmbar), so a
+  batch reads like the desk. Reviewed photos say "geprüft" (bestätigt or korrigiert). The legend on the desk
+  map says "bestätigt" for the same class.
+- Results of done photos come through `listResults` (cached, so a newly done photo costs one request);
+  reviews made in the photo view count at once (`withLocalReview`).
+- Chips count and filter: Alle, in Arbeit, Prüfung nötig, nicht bestimmbar, sicher, geprüft, Fehler,
+  übersprungen. Only chips with photos show. A filter that runs empty falls back to Alle. Tiles stay in
+  file order, so nothing jumps while they colour in.
+- "Alle N Fehler erneut versuchen" only from 2 errors; a single error has its button on the tile.
+- The page's Excel button is phone only; from `sm` the header carries it (same pattern as `DeskBand`).
+- A job the backend forgot (404 after a restart) gets its own message: "Analyse abgebrochen (Server neu
+  gestartet): Datei bitte erneut hochladen".
+- The photo view opens upload photos, but it still thinks it belongs to SG.CIV.17: breadcrumb
+  "Arbeitsplatz", Zurück goes to the challenge desk, no position in a queue. That is step 4
+  (`?stapel=`).
 
 **Not built**
--
+- Files that were interrupted by a reload cannot be retried: the file is no longer in memory. To fix
+  that, dropping the same ZIP again on the batch would fill in the missing files. Left out for time; the
+  message tells the user to upload the file again.
+- No measured remaining time. "noch ca. N Min." uses the median of 54 s per photo, also in mock mode,
+  where photos take 2 to 4 s.
 
 ---
 

@@ -6,6 +6,7 @@
 // jobs are followed again. Module state like reviewQueue; pages subscribe with useBatches().
 import { useEffect, useSyncExternalStore } from "react";
 import {
+  ApiError,
   MODE,
   addServerFiles,
   createServerBatch,
@@ -33,6 +34,7 @@ const USD_PER_PHOTO = 0.19;
 // These errors hit every later photo too (jobs.py _german_error): stop the rest of the batch at once.
 const FATAL = /Kostenlimit|API-Schlüssel/;
 const INTERRUPTED = "Upload unterbrochen: Datei bitte erneut hochladen";
+const LOST = "Analyse abgebrochen (Server neu gestartet): Datei bitte erneut hochladen";
 
 // ready: local batches restored and the server asked (or known to have no /batches).
 const state = { batches: [] as Batch[], version: 0, loaded: false, ready: false };
@@ -164,6 +166,8 @@ function follow(batchId: string, fileName: string, jobId: string, photoId: strin
       onError: async (e) => {
         const cached = photoId ? await getResult(photoId).catch(() => null) : null;
         if (cached) settle(batchId, fileName, cached);
+        // 404: the backend was restarted and forgot the job.
+        else if (e instanceof ApiError && e.status === 404) patchItem(batchId, fileName, { status: "error", error: LOST });
         else patchItem(batchId, fileName, { status: "error", error: `Analyse unterbrochen: ${errorText(e)}` });
         resolve();
       },
@@ -225,8 +229,11 @@ function poll(batchId: string) {
 
 // --- public ---
 
-/** Loads once per page: client batches from localStorage (running jobs are followed again), server batches. */
-function load() {
+/**
+ * Loads once per page: client batches from localStorage (running jobs are followed again), server batches.
+ * useBatches() calls it; exported for tests.
+ */
+export function loadBatches() {
   if (state.loaded || typeof window === "undefined") return;
   state.loaded = true;
   const local = restore().map((b) => ({
@@ -261,7 +268,7 @@ function subscribe(l: () => void) {
 /** All batches, newest first; re-renders on every change. ready: false while they are still loading. */
 export function useBatches(): { batches: Batch[]; ready: boolean } {
   useSyncExternalStore(subscribe, () => state.version, () => 0);
-  useEffect(load, []);
+  useEffect(loadBatches, []);
   return { batches: state.batches, ready: state.ready };
 }
 
@@ -295,6 +302,11 @@ export async function startBatch(name: string, images: PickedFile[], skipped: Sk
   });
   pump();
   return id;
+}
+
+/** The picked file while it is still in memory (preview tiles before the backend has the image). */
+export function localFile(batchId: string, fileName: string): Blob | null {
+  return files.get(fileKey(batchId, fileName)) ?? null;
 }
 
 /** Whether "Erneut versuchen" can work: the file is still in memory, or the backend already has the image. */

@@ -1,33 +1,80 @@
 "use client";
 
-// One uploaded batch (UPLOAD_PLAN step 2, first version): name, progress, and the files as a list with
-// status, error and Erneut versuchen. Step 3 turns the list into the thumbnail grid, step 4 adds the desk.
+// One uploaded batch (UPLOAD_PLAN step 3): progress, then a grid of tiles that colour in while the analysis
+// runs. Chips above the grid count and filter by state (in Arbeit, Prüfung nötig, nicht bestimmbar, sicher,
+// geprüft, Fehler, übersprungen). Done photos open in the photo view at once, while the rest still runs.
+// Step 4 adds the desk (map, review queue) for the batch.
 import { ArrowLeft, Download } from "lucide-react";
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import BatchTile, { TILE_LABELS, type TileKey } from "@/components/batch/BatchTile";
 import { buttonClass, FOCUS_RING } from "@/components/ui/button";
-import { MODE } from "@/lib/api";
-import { batchCounts, batchExportUrl, canRetry, estimate, getBatch, isRunning, retry, useBatches } from "@/lib/batches";
+import { MODE, listResults } from "@/lib/api";
+import {
+  batchCounts,
+  batchExportUrl,
+  batchPhotoIds,
+  canRetry,
+  estimate,
+  getBatch,
+  isRunning,
+  localFile,
+  retry,
+  useBatches,
+} from "@/lib/batches";
 import { cn } from "@/lib/cn";
-import { analyseHref } from "@/lib/format";
-import { BATCH_STATUS_LABELS } from "@/lib/labels";
-import type { BatchItemStatus } from "@/lib/types";
+import { certClass } from "@/lib/desk";
+import { useReviewStore, withLocalReview } from "@/lib/reviewQueue";
+import type { AnalysisResult, BatchItem } from "@/lib/types";
 
-const STATUS_TONE: Record<BatchItemStatus, string> = {
-  queued: "text-ink-muted",
-  uploading: "text-ink",
-  running: "text-ink",
-  done: "text-ink",
-  error: "text-bad",
-  skipped: "text-ink-muted",
-};
+type Group = "all" | "active" | "check" | "open" | "sure" | "confirmed" | "error" | "skipped";
+
+const GROUPS: { key: Group; label: string; dot?: string }[] = [
+  { key: "all", label: "Alle" },
+  { key: "active", label: "in Arbeit" },
+  { key: "check", label: TILE_LABELS.check, dot: "check" },
+  { key: "open", label: TILE_LABELS.open, dot: "open" },
+  { key: "sure", label: TILE_LABELS.sure, dot: "sure" },
+  { key: "confirmed", label: TILE_LABELS.confirmed, dot: "confirmed" },
+  { key: "error", label: TILE_LABELS.error },
+  { key: "skipped", label: TILE_LABELS.skipped },
+];
+
+function groupOf(tile: TileKey): Group {
+  return tile === "queued" || tile === "uploading" || tile === "running" || tile === "loading" ? "active" : tile;
+}
+
+function tileOf(item: BatchItem, result: AnalysisResult | null | undefined): TileKey {
+  if (item.status !== "done") return item.status;
+  return result ? certClass(result) : "loading";
+}
 
 export default function BatchView({ id }: { id: string }) {
   const { ready } = useBatches();
+  useReviewStore(); // a decision in the photo view recolours its tile at once
   const batch = getBatch(id);
+  const [results, setResults] = useState<Map<string, AnalysisResult | null>>(new Map());
+  const [group, setGroup] = useState<Group>("all");
+
+  // Results of the done photos; listResults caches, so each new done photo costs one request.
+  const doneIds = batch ? batchPhotoIds(batch) : [];
+  const doneKey = doneIds.join(",");
+  useEffect(() => {
+    if (!doneIds.length) return;
+    let stale = false;
+    listResults(doneIds)
+      .then((m) => !stale && setResults(m))
+      .catch(() => {
+        // The tile stays "fertig" without a class; the photo view still opens.
+      });
+    return () => {
+      stale = true;
+    };
+  }, [doneKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!batch) {
     return (
-      <main className="mx-auto w-full max-w-[960px] px-4 py-10">
+      <main className="mx-auto w-full max-w-[1200px] px-4 py-10">
         <p className="text-ui text-ink-muted">
           {!ready
             ? "Lade Stapel ..."
@@ -51,8 +98,18 @@ export default function BatchView({ id }: { id: string }) {
   const left = estimate(c.queued + c.uploading + c.running);
   const retryable = batch.items.filter((i) => canRetry(batch, i)).length;
 
+  const tiles = batch.items.map((item) => {
+    const result = item.photo_id ? withLocalReview(results.get(item.photo_id) ?? null) : null;
+    return { item, result, tile: tileOf(item, result) };
+  });
+  const counts = new Map<Group, number>([["all", tiles.length]]);
+  for (const t of tiles) counts.set(groupOf(t.tile), (counts.get(groupOf(t.tile)) ?? 0) + 1);
+  // A filter that ran empty (all errors retried, all checked) falls back to Alle.
+  const shownGroup = counts.get(group) ? group : "all";
+  const shown = shownGroup === "all" ? tiles : tiles.filter((t) => groupOf(t.tile) === shownGroup);
+
   return (
-    <main className="mx-auto w-full max-w-[960px] px-4 py-6 sm:py-8">
+    <main className="mx-auto w-full max-w-[1200px] px-4 py-6 sm:py-8">
       <Link href="/" className={cn("-ml-1 inline-flex items-center gap-1.5 rounded px-1 py-0.5 text-ui text-ink-muted hover:text-ink", FOCUS_RING)}>
         <ArrowLeft className="size-4" aria-hidden />
         Alle Stapel
@@ -61,21 +118,19 @@ export default function BatchView({ id }: { id: string }) {
         <div className="min-w-0">
           <h1 className="truncate text-h1 text-ink-strong">{batch.name}</h1>
           <p className="mt-1 text-ui tnum text-ink-muted" aria-live="polite">
-            {finished} von {work} analysiert
-            {running && ` · noch ca. ${left.minutes} Min.`}
-            {c.error > 0 && ` · ${c.error} Fehler`}
-            {c.skipped > 0 && ` · ${c.skipped} übersprungen`}
+            {running ? `${finished} von ${work} analysiert · noch ca. ${left.minutes} Min.` : `${work} analysiert`}
             {MODE !== "mock" && !!batch.cost_usd && ` · ${batch.cost_usd.toFixed(2)} USD`}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {retryable > 0 && (
+          {retryable > 1 && (
             <button type="button" onClick={() => retry(batch.id)} className={buttonClass("secondary")}>
-              {retryable === 1 ? "Fehler erneut versuchen" : `${retryable} Fehler erneut versuchen`}
+              Alle {retryable} Fehler erneut versuchen
             </button>
           )}
+          {/* From sm the header carries the Excel button (same pattern as DeskBand). */}
           {c.done > 0 && (
-            <a href={batchExportUrl(batch)} download className={buttonClass("primary")}>
+            <a href={batchExportUrl(batch)} download className={buttonClass("primary", "sm:hidden")}>
               <Download size={14} strokeWidth={1.75} aria-hidden />
               Excel herunterladen
             </a>
@@ -86,27 +141,42 @@ export default function BatchView({ id }: { id: string }) {
         <div className="h-full bg-ink/60 transition-[width] duration-fade" style={{ width: `${work ? (finished / work) * 100 : 0}%` }} />
       </div>
       {running && batch.runner === "client" && (
-        <p className="mt-2 text-meta text-ink-muted">Dieses Fenster bitte offen lassen, bis die Analyse fertig ist.</p>
+        <p className="mt-2 text-meta text-ink-muted">
+          Dieses Fenster bitte offen lassen, bis die Analyse fertig ist. Fertige Fotos lassen sich schon öffnen und prüfen.
+        </p>
       )}
 
-      <ul className="mt-5 divide-y divide-rule/[0.06] border-y border-rule/[0.06]">
-        {batch.items.map((i) => (
-          <li key={i.file_name} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
-            <span className={cn("w-24 shrink-0 text-meta font-medium", STATUS_TONE[i.status])}>{BATCH_STATUS_LABELS[i.status]}</span>
-            <span className="min-w-0 flex-1 truncate font-mono text-meta text-ink" title={i.file_name}>
-              {i.file_name}
-            </span>
-            {i.error && <span className="w-full pl-[108px] text-meta text-ink-muted sm:w-auto sm:pl-0">{i.error}</span>}
-            {i.status === "done" && i.photo_id && (
-              <Link href={analyseHref(i.photo_id)} className={buttonClass("ghost", "h-7")}>
-                Öffnen
-              </Link>
+      <div role="group" aria-label="Filter" className="mt-5 flex flex-wrap gap-1">
+        {GROUPS.filter((g) => g.key === "all" || counts.get(g.key)).map((g) => (
+          <button
+            key={g.key}
+            type="button"
+            onClick={() => setGroup(g.key)}
+            aria-pressed={shownGroup === g.key}
+            className={cn(
+              "inline-flex h-7 items-center gap-1.5 rounded px-2 text-ui transition-colors duration-hover",
+              FOCUS_RING,
+              shownGroup === g.key ? "bg-paper-2 font-medium text-ink" : "text-ink-muted hover:bg-paper-2/60 hover:text-ink",
             )}
-            {canRetry(batch, i) && (
-              <button type="button" onClick={() => retry(batch.id, i.file_name)} className={buttonClass("ghost", "h-7")}>
-                Erneut versuchen
-              </button>
-            )}
+          >
+            {g.dot && <span className={`cert-dot cert-dot-${g.dot}`} aria-hidden />}
+            {g.label}
+            <span className="tnum text-ink-muted">{counts.get(g.key)}</span>
+          </button>
+        ))}
+      </div>
+
+      <ul className="mt-3 grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+        {shown.map(({ item, result, tile }) => (
+          <li key={item.file_name}>
+            <BatchTile
+              item={item}
+              tile={tile}
+              result={result}
+              local={localFile(batch.id, item.file_name)}
+              canRetry={canRetry(batch, item)}
+              onRetry={() => retry(batch.id, item.file_name)}
+            />
           </li>
         ))}
       </ul>
