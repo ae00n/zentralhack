@@ -397,6 +397,41 @@ body {
 .desk-stop.found span {
   background: rgb(var(--accent));
 }
+/* Candidates (Said, 24.10.): a round letter badge (A chosen in red, B, C ... white when they are real options,
+   grey when dropped) and a second line with the attempts and the image check score. */
+.desk-stop.candidate i {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  font: 700 11px/1 var(--font-inter), system-ui, sans-serif;
+  color: rgb(var(--ink));
+  background: #fff;
+  box-shadow: 0 0 0 2px rgb(var(--ink) / 0.85), 0 2px 10px rgb(0 0 0 / 0.35);
+}
+.desk-stop.candidate.found i {
+  color: #fff;
+  background: rgb(var(--accent));
+  box-shadow: 0 0 0 3px #fff, 0 0 18px 6px rgb(var(--accent) / 0.6);
+}
+.desk-stop.candidate.dropped i {
+  color: #fff;
+  background: rgb(var(--ink-muted));
+  box-shadow: 0 0 0 2px #fff;
+}
+.desk-stop.candidate.dropped span {
+  background: rgb(var(--ink-muted) / 0.88);
+}
+.desk-stop.candidate span {
+  line-height: 1.25;
+}
+.desk-stop span small {
+  display: block;
+  margin-top: 2px;
+  font-size: 10.5px;
+  font-weight: 400;
+  opacity: 0.8;
+}
 @keyframes stop-in {
   from {
     opacity: 0;

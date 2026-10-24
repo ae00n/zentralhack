@@ -9,7 +9,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef } from "react";
 import { circleBox, circleData } from "@/lib/circle";
 import type { CertClass, Place } from "@/lib/desk";
-import type { Landmark, Reasoning } from "@/lib/reasoning";
+import { candidateNote, type Landmark, type Reasoning } from "@/lib/reasoning";
 
 export interface DeskMapProps {
   places: Place[];
@@ -68,6 +68,10 @@ const SIGN_STAGGER_MS = 260;
 const REASON_HOLD_MS = 1000;
 const CLOSE_IN_MS = 1100;
 const SIGNS_FOLD_MS = 4500;
+// Candidates on the map (Said, 24.10.): an unsure result shows every option within 30 km; a sure one only
+// the nearby ones it dropped, so a far guess does not pull the camera out.
+const OPTION_KM = 30;
+const DROPPED_KM = 3;
 const KIND_LABEL: Record<Landmark["kind"], string> = { mountain: "Berg", water: "Gewässer", place: "Ort" };
 const RISE_OFFSET_DEG = 1.1; // how far the high point lies from the target, in degrees of latitude
 const DIVE_PITCH: [number, number] = [38, 52];
@@ -566,12 +570,18 @@ export default function DeskMap({
     requestAnimationFrame(step);
   }
 
-  function addSign(m: maplibregl.Map, at: [number, number], text: string, cls: string) {
+  function addSign(m: maplibregl.Map, at: [number, number], text: string, cls: string, letter?: string, note?: string) {
     const el = document.createElement("div");
     el.className = `desk-stop ${cls}`;
     const dot = document.createElement("i");
+    if (letter) dot.textContent = letter;
     const label = document.createElement("span");
     label.textContent = text;
+    if (note) {
+      const small = document.createElement("small");
+      small.textContent = note;
+      label.append(small);
+    }
     el.append(dot, label);
     stops.current.push(new maplibregl.Marker({ element: el, anchor: "left", offset: [-6, 0] }).setLngLat(at).addTo(m));
   }
@@ -636,10 +646,16 @@ export default function DeskMap({
     if (flight.current !== id) return;
     const spot: [number, number] = target.center;
     const marks = why?.landmarks ?? [];
-    if (why && (marks.length || why.alternatives.length)) {
-      // Frame the spot with its landmarks, dive into that view with a tilt.
-      const pts: [number, number][] = [spot, ...marks.map((l) => [l.lon, l.lat] as [number, number]),
-        ...why.alternatives.map((a) => [a.lon, a.lat] as [number, number])];
+    const unsure = Boolean(why?.unsure);
+    const options = (why?.candidates ?? []).filter((c) => !c.chosen && c.km <= (unsure ? OPTION_KM : DROPPED_KM));
+    if (why && (marks.length || why.alternatives.length || options.length)) {
+      // Frame the spot with its landmarks, dive into that view with a tilt. Unsure between places: frame the
+      // options instead, so the eye sees where else it could be (far landmarks would pull the camera out).
+      const toPt = (q: { lon: number; lat: number }) => [q.lon, q.lat] as [number, number];
+      const pts: [number, number][] =
+        unsure && options.length
+          ? [spot, ...options.map(toPt)]
+          : [spot, ...marks.map(toPt), ...why.alternatives.map(toPt)];
       const lons = pts.map((q) => q[0]);
       const lats = pts.map((q) => q[1]);
       const pad = target.padding as Required<maplibregl.PaddingOptions>;
@@ -664,16 +680,40 @@ export default function DeskMap({
         await wait(SIGN_STAGGER_MS);
         if (flight.current !== id) return;
       }
+      // The other places it weighed, lettered B, C, ...: the options when unsure (now, in this view); the
+      // dropped ones when sure come after the close-in, where a few hundred metres are readable.
+      const showOptions = async () => {
+        for (const c of options) {
+          addSign(m, [c.lon, c.lat], `${unsure ? "" : "verworfen: "}${c.name}`, `candidate ${unsure ? "option" : "dropped"}`,
+            c.letter, candidateNote(c));
+          await wait(SIGN_STAGGER_MS);
+          if (flight.current !== id) return false;
+        }
+        return true;
+      };
+      if (unsure && !(await showOptions())) return;
       const label = [why.building, why.street].filter(Boolean).join(" · ");
-      if (label) addSign(m, spot, label, "found");
+      const a = options.length ? why.candidates[0] : null;
+      if (a) addSign(m, spot, label || a.name, "found candidate", "A", `${unsure ? "wahrscheinlichster Ort" : "gewählt"} · ${candidateNote(a)}`);
+      else if (label) addSign(m, spot, label, "found");
       await wait(REASON_HOLD_MS);
       if (flight.current !== id) return;
+      // Unsure between places: stay on the view of all options instead of closing in on one.
+      if (unsure && options.length) {
+        const flat = await leg(m, id, () => m.easeTo({ pitch: 0, bearing: 0, duration: SETTLE_MS, easing: easeOut, essential: true }));
+        if (!flat) return;
+        endFlight(m);
+        placePin(m, state.current.selected, true);
+        latest.current.onLanded?.();
+        return;
+      }
       // Then in to the spot itself, levelling out on the way.
       const close = await leg(m, id, () =>
         m.easeTo({ ...target, pitch: 0, bearing: 0, duration: CLOSE_IN_MS, easing: easeInOut, essential: true }));
       if (!close) return;
       endFlight(m);
       placePin(m, state.current.selected, true);
+      if (!unsure && options.length && !(await showOptions())) return;
       foldSigns();
       latest.current.onLanded?.();
       return;

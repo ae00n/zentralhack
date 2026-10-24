@@ -5,7 +5,8 @@ import { FOCUS_RING } from "@/components/ui/button";
 import { imageUrl } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { certClass, type DeskItem } from "@/lib/desk";
-import { photoMarksOf } from "@/lib/reasoning";
+import { candidateNote, candidatesOf, photoMarksOf, type Candidate } from "@/lib/reasoning";
+import { SURE } from "@/lib/review";
 import { analyseHref, formatPct } from "@/lib/format";
 
 // The picked photo in the desk's side panel (Said, 24.10.): picking a photo on the map or in the list
@@ -19,6 +20,43 @@ const STATUS: Record<ReturnType<typeof certClass>, { label: string; cls: string 
   open: { label: "nicht bestimmbar", cls: "bg-paper-2 text-ink-muted" },
 };
 
+/** The places the agent weighed, A first; the same letters as on the map. */
+function Candidates({ list, unsure }: { list: Candidate[]; unsure: boolean }) {
+  return (
+    <section className="px-3 pt-3">
+      <h2 className="text-micro font-medium uppercase tracking-[0.08em] text-ink-muted">
+        {unsure ? "Mögliche Orte" : "Geprüft und verworfen"}
+      </h2>
+      <ol className="mt-1.5 space-y-1">
+        {list.map((c) => (
+          <li key={c.letter} className="flex items-start gap-2.5 rounded bg-paper-2/60 px-2 py-1.5">
+            <span
+              aria-hidden
+              className={cn(
+                "mt-0.5 grid size-5 shrink-0 place-items-center rounded-dot text-micro font-bold",
+                c.chosen ? "bg-accent text-white" : unsure ? "bg-paper text-ink ring-1 ring-ink/70" : "bg-ink-muted text-white",
+              )}
+            >
+              {c.letter}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="flex items-baseline gap-2">
+                <span className={cn("truncate text-ui", c.chosen ? "font-medium text-ink" : "text-ink")}>{c.name}</span>
+                <span className="ml-auto shrink-0 text-micro tnum text-ink-muted">
+                  {c.chosen ? (unsure ? "wahrscheinlichster" : "gewählt") : `${c.km < 1 ? `${Math.round(c.km * 1000)} m` : `${c.km.toFixed(1)} km`}`}
+                </span>
+              </span>
+              <span className="block truncate text-micro text-ink-muted">
+                {[c.where, candidateNote(c)].filter(Boolean).join(" · ")}
+              </span>
+            </span>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
 interface Props {
   item: DeskItem;
   onBack: () => void;
@@ -28,6 +66,7 @@ export default function PhotoDetail({ item, onBack }: Props) {
   const { record, result } = item;
   const status = STATUS[certClass(result)];
   const series = record.raw?.session?.length ?? 0;
+  const candidates = candidatesOf(result);
   return (
     <div className="detail-enter flex min-h-0 flex-1 flex-col">
       <div className="flex items-center gap-2 border-b border-rule/[0.08] px-2 py-2">
@@ -72,6 +111,8 @@ export default function PhotoDetail({ item, onBack }: Props) {
           {record.date?.raw && <span className="text-meta tnum text-ink-muted">Aufnahme {record.date.raw}</span>}
           {series > 0 && <span className="text-meta text-ink-muted">Serie ({series + 1})</span>}
         </div>
+
+        {candidates.length > 0 && <Candidates list={candidates} unsure={(result?.overall_confidence ?? 0) < SURE} />}
 
         <div className="px-3 pb-3 pt-2">
           {result ? (

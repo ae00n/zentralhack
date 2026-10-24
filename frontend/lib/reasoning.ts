@@ -2,6 +2,7 @@
 // nearby buildings it compared from above and dropped. Only what lies plausibly around the found spot is
 // shown; far matches of a name are left out. Coordinates come from the swisstopo SearchServer (open, CORS),
 // so the backend needs no change. Offline or on failure the list is just shorter.
+import { SURE } from "@/lib/review";
 import type { AnalysisResult, PhotoMark } from "@/lib/types";
 
 export type LandmarkKind = "mountain" | "water" | "place";
@@ -11,6 +12,27 @@ export interface Landmark {
   kind: LandmarkKind;
   lat: number;
   lon: number;
+}
+
+/**
+ * A place the agent considered (v7 `settings.candidates`): one of its three attempts (all, web, blind) or a
+ * similar building from the register, with the image check score at the spot. "A" is the chosen one.
+ */
+export interface Candidate {
+  letter: string;
+  name: string;
+  /** Municipality or locality under the name, when it adds something. */
+  where: string | null;
+  lat: number;
+  lon: number;
+  chosen: boolean;
+  /** How many of the 3 independent attempts named it (0 for a register match). */
+  attempts: number;
+  register: boolean;
+  /** Image check at the spot: matching points between the photo and pictures taken there. */
+  points: number | null;
+  /** Distance from the chosen spot, km. */
+  km: number;
 }
 
 export interface Reasoning {
@@ -23,6 +45,10 @@ export interface Reasoning {
   /** For the pin's sign: the building and street of the result. */
   building: string | null;
   street: string | null;
+  /** Other places it considered (B, C, ...), the chosen one first as A; empty when it had only one. */
+  candidates: Candidate[];
+  /** Below the sure threshold: the candidates are real options, not just dropped. */
+  unsure: boolean;
 }
 
 const SEARCH = "https://api3.geo.admin.ch/rest/services/api/SearchServer";
@@ -30,6 +56,10 @@ const LIMIT_KM: Record<LandmarkKind, number> = { mountain: 40, water: 30, place:
 const FAR_WATER_KM = 6; // a lake's centre farther than this: put its sign on the water next to the spot
 const NEAR_WATER_KM = 1.2;
 const ALTERNATIVE_KM = 2;
+const SAME_SPOT_KM = 0.03; // a candidate this close to the result is the chosen one
+const SAME_NAME_KM = 5; // two attempts on "Stoos SZ" a few km apart are one option
+const MAX_CANDIDATES = 5; // A to E
+const ATTEMPTS = new Set(["all", "web", "blind"]);
 const MAX_LANDMARKS = 5;
 const TIMEOUT_MS = 1500;
 
@@ -129,6 +159,55 @@ export function photoMarksOf(result: AnalysisResult | null): PhotoMark[] {
   return out;
 }
 
+interface RawCandidate {
+  attempts?: string[];
+  building?: string | null;
+  locality?: string | null;
+  municipality?: string | null;
+  lat?: number | null;
+  lon?: number | null;
+  inliers?: number | null;
+}
+
+/** The places the agent weighed for this photo, A (chosen) first; empty when there was no real choice. */
+export function candidatesOf(result: AnalysisResult | null): Candidate[] {
+  const c = result?.fields.coordinates?.value;
+  const raw = ((result as { settings?: { candidates?: RawCandidate[] } } | null)?.settings?.candidates ?? []).filter(
+    (x): x is RawCandidate & { lat: number; lon: number } => typeof x.lat === "number" && typeof x.lon === "number",
+  );
+  if (!result || !c || raw.length < 2) return [];
+  const spot = { lat: c.lat, lon: c.lon };
+  const all = raw.map((x) => {
+    const attempts = (x.attempts ?? []).filter((a) => ATTEMPTS.has(a)).length;
+    const name = x.building || x.locality || x.municipality || "Ort ohne Namen";
+    const where = [x.locality, x.municipality].find((w) => w && w !== name && !name.includes(w)) ?? null;
+    return { name, where, lat: x.lat, lon: x.lon, attempts, register: attempts === 0, points: x.inliers ?? null, km: km(spot, x) };
+  });
+  // Several attempts may name the same place: merge by name, keep the nearest point and the best score.
+  const merged: typeof all = [];
+  for (const x of all.sort((a, b) => a.km - b.km)) {
+    const same = merged.find((m) => m.name === x.name && km(m, x) < SAME_NAME_KM);
+    if (same) {
+      same.attempts += x.attempts;
+      same.points = Math.max(same.points ?? 0, x.points ?? 0);
+    } else merged.push({ ...x });
+  }
+  const chosen = merged.find((x) => x.km < SAME_SPOT_KM);
+  const others = merged
+    .filter((x) => x !== chosen)
+    .sort((a, b) => b.attempts - a.attempts || (b.points ?? 0) - (a.points ?? 0) || a.km - b.km);
+  if (others.length === 0) return [];
+  const head = chosen ?? { name: list(result.fields.buildings?.value)[0] ?? "Ergebnis", where: null, lat: c.lat, lon: c.lon,
+    attempts: 0, register: false, points: null, km: 0 };
+  return [head, ...others].slice(0, MAX_CANDIDATES).map((x, i) => ({ ...x, letter: "ABCDE"[i], chosen: i === 0 }));
+}
+
+/** "2 von 3 Versuchen · Bildvergleich 18 Punkte" */
+export function candidateNote(c: Candidate): string {
+  const source = c.register ? "ähnliches Gebäude im Register" : `${c.attempts} von 3 Versuchen`;
+  return c.points === null ? source : `${source} · Bildvergleich ${c.points} Punkte`;
+}
+
 const list = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
 
 export async function reasoningOf(result: AnalysisResult | null): Promise<Reasoning | null> {
@@ -141,8 +220,10 @@ export async function reasoningOf(result: AnalysisResult | null): Promise<Reason
 
   const buildings = list(f.buildings?.value);
 
+  const candidates = candidatesOf(result);
   const alternatives: Reasoning["alternatives"] = [];
-  for (const t of result.trace ?? []) {
+  // The aerial view candidates of older runs; v7 lists its candidates itself.
+  for (const t of candidates.length ? [] : (result.trace ?? [])) {
     if (t.type !== "tool_call" || t.tool !== "aerial_view") continue;
     for (const cand of ((t.input?.candidates as { name?: string; lat?: number; lon?: number }[] | undefined) ?? [])) {
       if (typeof cand.lat !== "number" || typeof cand.lon !== "number" || !cand.name) continue;
@@ -153,5 +234,14 @@ export async function reasoningOf(result: AnalysisResult | null): Promise<Reason
     }
   }
   const street = typeof f.street?.value === "string" ? f.street.value : null;
-  return { spot, landmarks, alternatives: alternatives.slice(0, 3), chose: buildings.length > 0, building: buildings[0] ?? null, street };
+  return {
+    spot,
+    landmarks,
+    alternatives: alternatives.slice(0, 3),
+    chose: buildings.length > 0,
+    building: buildings[0] ?? null,
+    street,
+    candidates,
+    unsure: result.overall_confidence < SURE,
+  };
 }
