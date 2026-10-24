@@ -8,8 +8,7 @@ import math
 
 import data_pipeline as dp
 
-from ..config import DATA_DIR
-from .common import dist_m
+from .common import dist_m, ref_image
 
 PASS_INLIERS = 100
 WEAK_INLIERS = 60
@@ -44,10 +43,10 @@ def check(photo_path: str, c: dict, strong: list[dict]) -> dict:
     if c.get("lat") is None:
         return {"best_inliers": 0, "pass": False, "weak": False, "photos": [], "by_match": None}
     from data_pipeline.verify import verify
-    photos = nearby(c)
-    res = verify(photo_path, [DATA_DIR / p["image_path"] for p in photos]) if photos else []
+    photos = [(p, f) for p in nearby(c) if (f := ref_image(p["id"]))]
+    res = verify(photo_path, [f for _, f in photos]) if photos else []
     rows = [{"id": p["id"], "title": p.get("title"), "distance_m": p["distance_m"], "inliers": r["inliers"],
-             "image_path": p["image_path"]} for p, r in zip(photos, res)]
+             "image_path": p["image_path"]} for (p, _), r in zip(photos, res)]
     rows.sort(key=lambda r: -r["inliers"])
     by_match = next((h for h in strong if dist_m(h, c) <= 300), None)
     best = max([r["inliers"] for r in rows] + [(by_match or {}).get("inliers") or 0])

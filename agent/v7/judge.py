@@ -3,8 +3,8 @@
 import data_pipeline as dp
 
 from .. import llm
-from ..config import DATA_DIR, MODEL
-from .common import CACHE_ONLY, IMAGE_PX, SURE, cached, image, key, original, store
+from ..config import MODEL
+from .common import CACHE_ONLY, IMAGE_PX, SURE, cached, image, key, original, ref_image, store
 
 VERSION = "v7.2"
 TOOL = {
@@ -46,7 +46,8 @@ def judge(rec: dict, cands: list[dict], meta: dict) -> tuple[dict | None, float]
     for i, cand in enumerate(cands, 1):
         c.append({"type": "text", "text": _label(i, cand)})
         for p in (cand.get("check") or {}).get("photos", [])[:2]:
-            c.append(image(DATA_DIR / p["image_path"], 512))
+            if f := ref_image(p["id"]):  # a machine without the reference photos leaves them out
+                c.append(image(f, 512))
     k = key(VERSION, MODEL, "judge", rec["id"], [_label(i, x) for i, x in enumerate(cands, 1)])
     if hit := cached(k):
         return hit["pick"], 0.0

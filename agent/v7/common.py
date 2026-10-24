@@ -38,6 +38,16 @@ def small(rec: dict) -> Path:
     return Path(rec["upload_path"]) if rec.get("upload_path") else Path(dp.image_file(rec))
 
 
+def ref_image(ref_id: str) -> Path | None:
+    """A reference photo on disk: local, or fetched once from the data server (DATA_PIPELINE_URL), else None."""
+    try:
+        rec = dp.get_record(ref_id)
+        p = dp.image_file(rec) if rec else None
+    except Exception:  # data server unreachable or file gone: the photo is left out, never fatal
+        return None
+    return Path(p) if p and Path(p).exists() else None
+
+
 def upload_record(path: str) -> dict:
     """A record for an uploaded photo: its EXIF date when it has one, and its own reference matches
     (MegaLoc + LightGlue over the index, as data_pipeline.matches does for the challenge photos)."""
