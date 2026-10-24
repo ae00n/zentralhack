@@ -32,6 +32,10 @@ export interface DeskMapProps {
   panelWide?: boolean;
   /** The selected photo's reasoning (landmarks, dropped alternatives), shown around the spot on landing. */
   reasoning?: Promise<Reasoning | null> | null;
+  /** The flight to the selected place has landed (or the user took over): the street view may open. */
+  onLanded?: () => void;
+  /** Width of the street view pane on the right (0 = closed): the map keeps the place clear of it. */
+  paneWidth?: number;
 }
 
 const BOUNDS: [[number, number], [number, number]] = [
@@ -112,9 +116,11 @@ const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)"
 /** Room for the floating list panel (400 px + 12 px inset) on wide screens; plain padding on the phone. */
 // Left padding for the floating panel: 400 px, or 480 px while a photo is open, plus its 12 px inset.
 let panelLeft = 424;
+// Right padding: the street view pane (Said, 24.10.) plus its 12 px inset, when open.
+let paneRight = 0;
 function framePadding(): Required<maplibregl.PaddingOptions> {
   return window.matchMedia("(min-width: 1024px)").matches
-    ? { left: panelLeft, top: 24, right: 24, bottom: 24 }
+    ? { left: panelLeft, top: 24, right: paneRight ? paneRight + 36 : 24, bottom: 24 }
     : { left: 24, top: 24, right: 24, bottom: 24 };
 }
 
@@ -132,8 +138,11 @@ export default function DeskMap({
   labelOf,
   panelWide = false,
   reasoning = null,
+  onLanded,
+  paneWidth = 0,
 }: DeskMapProps) {
   panelLeft = panelWide ? 504 : 424;
+  paneRight = paneWidth;
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const ready = useRef(false);
@@ -146,8 +155,8 @@ export default function DeskMap({
   // Compass direction of the last flight's high point, so the next one comes from another side.
   const lastSide = useRef<number | null>(null);
   // Latest props for the map event handlers, which are bound once.
-  const latest = useRef({ places, basemap, onHover, onPickPhoto, labelOf, reasoning });
-  latest.current = { places, basemap, onHover, onPickPhoto, labelOf, reasoning };
+  const latest = useRef({ places, basemap, onHover, onPickPhoto, labelOf, reasoning, onLanded });
+  latest.current = { places, basemap, onHover, onPickPhoto, labelOf, reasoning, onLanded };
   // The replay's stops (HTML signs) and the dashed track between them.
   const stops = useRef<maplibregl.Marker[]>([]);
   // Sight lines being drawn: from the spot to each landmark, with how far each has grown (0..1).
@@ -430,6 +439,7 @@ export default function DeskMap({
       stops.current.forEach((st) => st.getElement().classList.add("settled"));
       growing.current = false;
       placePin(m, state.current.selected, true);
+      latest.current.onLanded?.();
       // Hand rotation is off on the desk, so level the drone tilt once the hand lets go.
       m.once("moveend", () => m.easeTo({ pitch: 0, bearing: 0, duration: 300 }));
     };
@@ -665,6 +675,7 @@ export default function DeskMap({
       endFlight(m);
       placePin(m, state.current.selected, true);
       foldSigns();
+      latest.current.onLanded?.();
       return;
     }
     const down = await leg(m, id, () =>
@@ -677,6 +688,7 @@ export default function DeskMap({
     if (!flat) return;
     endFlight(m);
     placePin(m, state.current.selected, true);
+    latest.current.onLanded?.();
   }
 
   /**
@@ -765,11 +777,22 @@ export default function DeskMap({
         // Close in on the place; a wide uncertainty circle may pull it back out, but never below PICK_FLOOR.
         const zoom = Math.max(Math.min(PICK_ZOOM, fit ?? Infinity), PICK_FLOOR);
         const target = { center: [p.lon, p.lat] as [number, number], zoom, padding: pad };
-        if (reducedMotion()) m.jumpTo(target);
-        else void fly(m, p, target);
+        if (reducedMotion()) {
+          m.jumpTo(target);
+          latest.current.onLanded?.();
+        } else void fly(m, p, target);
       }
     }
   }, [hoveredPlace, selectedPlace]);
+
+  // The street view pane opens or closes: slide the landed place into the free map area between the panels.
+  useEffect(() => {
+    const m = map.current;
+    if (!m || beacon.current) return; // a flight is running: it frames with the new padding itself
+    const p = latest.current.places.find((x) => x.id === state.current.selected);
+    m.easeTo({ ...(p ? { center: [p.lon, p.lat] as [number, number] } : {}), padding: framePadding(),
+               duration: reducedMotion() ? 0 : 700, easing: easeInOut });
+  }, [paneWidth]);
 
   return (
     <div role="region" aria-label="Karte der Fotostandorte" className="relative h-full w-full">

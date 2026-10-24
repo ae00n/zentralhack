@@ -7,7 +7,7 @@
 // UPLOAD_PLAN step 2b: the main page again (/), also shown at /stapel/challenge.
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState, type CSSProperties } from "react";
 import DeskBand from "@/components/desk/DeskBand";
 import DeskSearch from "@/components/desk/DeskSearch";
 import { FOCUS_RING } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import Segmented from "@/components/ui/Segmented";
 import Select from "@/components/ui/Select";
 import PhotoDetail from "@/components/desk/PhotoDetail";
 import PhotoRow, { rowId } from "@/components/desk/PhotoRow";
+import StreetPane from "@/components/desk/StreetPane";
 import { errorText, exportXlsxUrl, getTilesUrl, listChallenge, listResults, tileTemplate } from "@/lib/api";
 import {
   FILTERS,
@@ -174,6 +175,18 @@ function Arbeitsplatz() {
   const selectedItem = selected ? (items.find((i) => i.record.id === selected) ?? null) : null;
   // Its reasoning for the map (landmark lookups start now, the flight picks them up on the way down).
   const reasoningPromise = useMemo(() => (selectedItem ? reasoningOf(selectedItem.result) : null), [selected, Boolean(selectedItem?.result)]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Street view split on the right (Said, 24.10.): opens once the flight to the picked photo has landed.
+  const [landed, setLanded] = useState<string | null>(null);
+  const [streetClosed, setStreetClosed] = useState(false);
+  const [paneW, setPaneW] = useState(0);
+  useEffect(() => setStreetClosed(false), [selected]);
+  const spot = selectedItem?.result?.fields.coordinates?.value ?? null;
+  const streetOpen = Boolean(selectedItem && spot && landed === selected && !streetClosed && paneW > 0 && !tiles?.offline);
+  const onLanded = () => {
+    setLanded(selected);
+    // Wide screens only: about 42 % of the window, at most 760 px.
+    setPaneW(window.matchMedia("(min-width: 1024px)").matches ? Math.round(Math.min(window.innerWidth * 0.42, 760)) : 0);
+  };
   const backToList = () => {
     const id = selected;
     setSelected(null);
@@ -210,7 +223,10 @@ function Arbeitsplatz() {
         />
       </div>
 
-      <main className="relative lg:h-[calc(100vh-54px)] lg:overflow-hidden">
+      <main
+        className={cn("relative lg:h-[calc(100vh-54px)] lg:overflow-hidden", streetOpen && "street-open")}
+        style={{ "--pane-w": `${streetOpen ? paneW : 0}px` } as CSSProperties}
+      >
         <div className={cn("relative h-[70vh] lg:absolute lg:inset-0 lg:block lg:h-auto", view === "map" ? "block" : "hidden")}>
           <div className="absolute inset-0 bg-canvas">
             {tiles && (
@@ -230,22 +246,37 @@ function Arbeitsplatz() {
                 labelOf={signatureOf}
                 panelWide={Boolean(selectedItem)}
                 reasoning={reasoningPromise}
+                onLanded={onLanded}
+                paneWidth={streetOpen ? paneW : 0}
               />
             )}
           </div>
+          {streetOpen && selectedItem && spot && (
+            <StreetPane
+              key={selectedItem.record.id}
+              lat={spot.lat}
+              lon={spot.lon}
+              signature={selectedItem.record.signature ?? selectedItem.record.id}
+              reasoning={reasoningPromise}
+              width={paneW}
+              onClose={() => setStreetClosed(true)}
+            />
+          )}
           {/* Aerial photo | map, top right next to the zoom buttons (MapLibre control: 10 px margin, 29 px wide). */}
-          <Segmented
-            label="Hintergrund"
-            value={basemap}
-            onChange={pickBasemap}
-            options={[
-              { key: "luftbild", label: "Luftbild" },
-              { key: "karte", label: "Karte" },
-            ]}
-            className="absolute right-12 top-2.5 z-10 border border-rule/[0.08] bg-paper-2/90 shadow-panel backdrop-blur"
-          />
+          <div className="absolute top-2.5 z-10 transition-[right] duration-500" style={{ right: "calc(var(--pane-w) + 48px)" }}>
+            <Segmented
+              label="Hintergrund"
+              value={basemap}
+              onChange={pickBasemap}
+              options={[
+                { key: "luftbild", label: "Luftbild" },
+                { key: "karte", label: "Karte" },
+              ]}
+              className="border border-rule/[0.08] bg-paper-2/90 shadow-panel backdrop-blur"
+            />
+          </div>
           {/* Legend: a small floating card, centred in the free map area right of the panel. */}
-          <div className="absolute bottom-3 left-1/2 z-10 flex h-8 max-w-[calc(100%-24px)] -translate-x-1/2 items-center gap-3 overflow-x-auto whitespace-nowrap rounded border border-rule/[0.08] bg-paper/90 px-2.5 text-meta text-ink-muted backdrop-blur lg:left-[calc(50%+206px)]">
+          <div className="absolute bottom-3 left-1/2 z-10 flex h-8 max-w-[calc(100%-24px)] -translate-x-1/2 items-center gap-3 overflow-x-auto whitespace-nowrap rounded border border-rule/[0.08] bg-paper/90 px-2.5 text-meta text-ink-muted backdrop-blur lg:left-[calc((100%_+_412px_-_var(--pane-w))_/_2)] lg:transition-[left] lg:duration-500">
             {LEGEND.map((l) => (
               <span key={l.cls} className="inline-flex items-center gap-1.5">
                 <span className={`cert-dot cert-dot-${l.cls}`} aria-hidden />
