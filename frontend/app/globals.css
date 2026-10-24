@@ -380,6 +380,23 @@ body {
   opacity: 0;
   transform: translateX(-6px);
 }
+/* Reasoning signs (Said, 24.10.): a white triangle for a mountain, a blue dot for water. */
+.desk-stop.reason.mountain i {
+  width: 14px;
+  height: 12px;
+  border-radius: 0;
+  background: #fff;
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  box-shadow: none;
+  filter: drop-shadow(0 0 2px rgb(var(--ink) / 0.9));
+}
+.desk-stop.reason.water i {
+  background: #3f9fe0;
+  box-shadow: 0 0 0 2px #fff, 0 0 12px 4px rgb(63 159 224 / 0.55);
+}
+.desk-stop.found span {
+  background: rgb(var(--accent));
+}
 @keyframes stop-in {
   from {
     opacity: 0;

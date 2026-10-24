@@ -28,7 +28,7 @@ import {
   type FilterKey,
   type SortKey,
 } from "@/lib/desk";
-import { journeyOf } from "@/lib/journey";
+import { reasoningOf } from "@/lib/reasoning";
 import { useReviewStore, withLocalReview } from "@/lib/reviewQueue";
 import { cn } from "@/lib/cn";
 import { analyseHref } from "@/lib/format";
@@ -170,6 +170,8 @@ function Arbeitsplatz() {
 
   // The side panel shows the picked photo instead of the list (Said, 24.10.); Escape goes back.
   const selectedItem = selected ? (items.find((i) => i.record.id === selected) ?? null) : null;
+  // Its reasoning for the map (landmark lookups start now, the flight picks them up on the way down).
+  const reasoningPromise = useMemo(() => (selectedItem ? reasoningOf(selectedItem.result) : null), [selected, Boolean(selectedItem?.result)]); // eslint-disable-line react-hooks/exhaustive-deps
   const backToList = () => {
     const id = selected;
     setSelected(null);
@@ -225,7 +227,7 @@ function Arbeitsplatz() {
                 onPickPhoto={pickFromMap}
                 labelOf={signatureOf}
                 panelWide={Boolean(selectedItem)}
-                journey={journeyOf(selectedItem?.result ?? null)}
+                reasoning={reasoningPromise}
               />
             )}
           </div>

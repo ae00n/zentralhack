@@ -9,7 +9,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef } from "react";
 import { circleBox, circleData } from "@/lib/circle";
 import type { CertClass, Place } from "@/lib/desk";
-import type { Waypoint } from "@/lib/journey";
+import type { Landmark, Reasoning } from "@/lib/reasoning";
 
 export interface DeskMapProps {
   places: Place[];
@@ -30,8 +30,8 @@ export interface DeskMapProps {
   labelOf: (photoId: string) => string;
   /** The side panel is wide (a photo is open): the map keeps the place clear of it. */
   panelWide?: boolean;
-  /** Places the selected photo's analysis visited, replayed on the way down (Said, 24.10.). */
-  journey?: Waypoint[];
+  /** The selected photo's reasoning (landmarks, dropped alternatives), shown around the spot on landing. */
+  reasoning?: Promise<Reasoning | null> | null;
 }
 
 const BOUNDS: [[number, number], [number, number]] = [
@@ -56,11 +56,15 @@ const DIVE_MS = 1450;
 const SETTLE_MS = 420;
 // Every flight takes its own route (Said, 24.10.): the camera rises off to a new side of the target (never
 // the side of the last flight) and dives back in with a tilt and turn that vary.
-// Replay of the analysis: a short hop to each place the agent checked, a sign with the step, then the dive.
-const STOP_ZOOM = 13.2;
-const STOP_MS = 850;
-const STOP_HOLD_MS = 420;
-const FOUND_M = 300; // a stop this close to the result counts as the place found
+// The reasoning on landing (Said, 24.10.): a view that frames the spot and the landmarks the result names,
+// sight lines grow out to them one by one, then the camera closes in on the spot.
+const FRAME_MAX_ZOOM = 14.5;
+const LINE_GROW_MS = 450;
+const SIGN_STAGGER_MS = 260;
+const REASON_HOLD_MS = 1000;
+const CLOSE_IN_MS = 1100;
+const SIGNS_FOLD_MS = 4500;
+const KIND_LABEL: Record<Landmark["kind"], string> = { mountain: "Berg", water: "Gewässer", place: "Ort" };
 const RISE_OFFSET_DEG = 1.1; // how far the high point lies from the target, in degrees of latitude
 const DIVE_PITCH: [number, number] = [38, 52];
 const DIVE_BEARING: [number, number] = [8, 20];
@@ -127,7 +131,7 @@ export default function DeskMap({
   onPickPhoto,
   labelOf,
   panelWide = false,
-  journey = [],
+  reasoning = null,
 }: DeskMapProps) {
   panelLeft = panelWide ? 504 : 424;
   const container = useRef<HTMLDivElement>(null);
@@ -142,10 +146,14 @@ export default function DeskMap({
   // Compass direction of the last flight's high point, so the next one comes from another side.
   const lastSide = useRef<number | null>(null);
   // Latest props for the map event handlers, which are bound once.
-  const latest = useRef({ places, basemap, onHover, onPickPhoto, labelOf, journey });
-  latest.current = { places, basemap, onHover, onPickPhoto, labelOf, journey };
+  const latest = useRef({ places, basemap, onHover, onPickPhoto, labelOf, reasoning });
+  latest.current = { places, basemap, onHover, onPickPhoto, labelOf, reasoning };
   // The replay's stops (HTML signs) and the dashed track between them.
   const stops = useRef<maplibregl.Marker[]>([]);
+  // Sight lines being drawn: from the spot to each landmark, with how far each has grown (0..1).
+  const lines = useRef<{ to: [number, number]; t: number }[]>([]);
+  const growing = useRef(false);
+  const foldTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const state = useRef<{ hovered: number | null; selected: number | null }>({ hovered: null, selected: null });
 
   // Create once.
@@ -279,14 +287,21 @@ export default function DeskMap({
       }
       // Uncertainty circle (radius_m) of the selected place, under the dots; ink like the detail map,
       // with a white casing so it also reads on the aerial photo.
-      // The replay's track, dashed white, under the dots.
-      m.addSource("journey", { type: "geojson", data: NO_CIRCLE });
+      // Sight lines from the found spot to the landmarks of its reasoning, under the dots.
+      m.addSource("reasoning", { type: "geojson", data: NO_CIRCLE });
       m.addLayer({
-        id: "journey-line",
+        id: "reasoning-glow",
         type: "line",
-        source: "journey",
-        layout: { "line-cap": "round", "line-join": "round" },
-        paint: { "line-color": "#ffffff", "line-width": 2.5, "line-opacity": 0.9, "line-dasharray": [1.5, 1.5] },
+        source: "reasoning",
+        layout: { "line-cap": "round" },
+        paint: { "line-color": "#ffffff", "line-width": 6, "line-blur": 4, "line-opacity": 0.35 },
+      });
+      m.addLayer({
+        id: "reasoning-line",
+        type: "line",
+        source: "reasoning",
+        layout: { "line-cap": "round" },
+        paint: { "line-color": "#ffffff", "line-width": 1.8, "line-opacity": 0.95, "line-dasharray": [3, 2] },
       });
       m.addSource("uncertainty", { type: "geojson", data: NO_CIRCLE });
       m.addLayer({ id: "uncertainty-fill", type: "fill", source: "uncertainty", paint: { "fill-color": ink, "fill-opacity": 0.12 } });
@@ -413,6 +428,7 @@ export default function DeskMap({
       flight.current++;
       endFlight(m);
       stops.current.forEach((st) => st.getElement().classList.add("settled"));
+      growing.current = false;
       placePin(m, state.current.selected, true);
       // Hand rotation is off on the desk, so level the drone tilt once the hand lets go.
       m.once("moveend", () => m.easeTo({ pitch: 0, bearing: 0, duration: 300 }));
@@ -502,38 +518,58 @@ export default function DeskMap({
     }
   }
 
-  function clearJourney(m: maplibregl.Map) {
-    stops.current.forEach((s) => s.remove());
+  function clearReasoning(m: maplibregl.Map) {
+    stops.current.forEach((st) => st.remove());
     stops.current = [];
-    (m.getSource("journey") as maplibregl.GeoJSONSource | undefined)?.setData(NO_CIRCLE);
+    lines.current = [];
+    growing.current = false;
+    if (foldTimer.current) clearTimeout(foldTimer.current);
+    (m.getSource("reasoning") as maplibregl.GeoJSONSource | undefined)?.setData(NO_CIRCLE);
   }
 
-  function drawTrack(m: maplibregl.Map, coords: [number, number][]) {
-    (m.getSource("journey") as maplibregl.GeoJSONSource | undefined)?.setData({
+  function drawLines(m: maplibregl.Map, from: [number, number]) {
+    (m.getSource("reasoning") as maplibregl.GeoJSONSource | undefined)?.setData({
       type: "FeatureCollection",
-      features: coords.length > 1 ? [{ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: coords } }] : [],
+      features: lines.current.map((l) => ({
+        type: "Feature" as const,
+        properties: {},
+        geometry: {
+          type: "LineString" as const,
+          coordinates: [from, [from[0] + (l.to[0] - from[0]) * l.t, from[1] + (l.to[1] - from[1]) * l.t]],
+        },
+      })),
     });
   }
 
-  function addStop(m: maplibregl.Map, w: Waypoint, n: number) {
+  /** Grow the newest sight line from the spot to its landmark. */
+  function growLine(m: maplibregl.Map, from: [number, number], to: [number, number]) {
+    const line = { to, t: 0 };
+    lines.current.push(line);
+    const t0 = performance.now();
+    growing.current = true;
+    const step = (now: number) => {
+      if (!lines.current.includes(line)) return; // cleared meanwhile
+      line.t = growing.current ? Math.min(1, easeOut((now - t0) / LINE_GROW_MS)) : 1;
+      drawLines(m, from);
+      if (line.t < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+
+  function addSign(m: maplibregl.Map, at: [number, number], text: string, cls: string) {
     const el = document.createElement("div");
-    el.className = "desk-stop";
+    el.className = `desk-stop ${cls}`;
     const dot = document.createElement("i");
     const label = document.createElement("span");
-    label.textContent = `${n}. ${w.label}`;
+    label.textContent = text;
     el.append(dot, label);
-    stops.current.push(new maplibregl.Marker({ element: el, anchor: "left", offset: [-6, 0] }).setLngLat([w.lon, w.lat]).addTo(m));
+    stops.current.push(new maplibregl.Marker({ element: el, anchor: "left", offset: [-6, 0] }).setLngLat(at).addTo(m));
   }
 
-  /** After the replay: the stops near the result are the find, the others were checked and dropped. */
-  function settleStops(target: [number, number]) {
-    const k = Math.PI / 180;
-    stops.current.forEach((s) => {
-      const { lng, lat } = s.getLngLat();
-      const x = (lng - target[0]) * k * Math.cos(((lat + target[1]) / 2) * k);
-      const d = 6371000 * Math.hypot(x, (lat - target[1]) * k);
-      s.getElement().classList.add(d < FOUND_M ? "found" : "rejected", "settled");
-    });
+  /** Signs fold to their dots after a while; the lines stay until the next pick. */
+  function foldSigns() {
+    if (foldTimer.current) clearTimeout(foldTimer.current);
+    foldTimer.current = setTimeout(() => stops.current.forEach((st) => st.getElement().classList.add("settled")), SIGNS_FOLD_MS);
   }
 
   /** One leg of the flight; resolves when it ends, false when a newer flight or the user took over. */
@@ -564,7 +600,7 @@ export default function DeskMap({
   async function fly(m: maplibregl.Map, p: Place, target: { center: [number, number]; zoom: number; padding: maplibregl.PaddingOptions }) {
     const id = ++flight.current;
     m.stop();
-    clearJourney(m);
+    clearReasoning(m);
     m.setMaxBounds(null);
     m.setMinZoom(4);
     const high = m.cameraForBounds(offline ? BOUNDS : SWISS_BOUNDS, { padding: target.padding });
@@ -585,24 +621,51 @@ export default function DeskMap({
     if (!up) return;
     await wait(HOLD_MS);
     if (flight.current !== id) return;
-    // The replay: hop to every place the analysis checked, with a sign for the step, drawing the track.
-    const track: [number, number][] = [];
-    const route = latest.current.journey;
-    for (let n = 0; n < route.length; n++) {
-      const w = route[n];
-      const hop = await leg(m, id, () =>
-        m.flyTo({ center: [w.lon, w.lat], zoom: STOP_ZOOM, pitch: 28, bearing: turn / 2, padding: target.padding,
-                  duration: n === 0 ? STOP_MS + 300 : STOP_MS, curve: 1.15, easing: easeInOut, essential: true }));
-      if (!hop) return;
-      track.push([w.lon, w.lat]);
-      drawTrack(m, track);
-      addStop(m, w, n + 1);
-      await wait(STOP_HOLD_MS);
+    // The reasoning: wait for the lookups (they ran during the rise), keep what lies around the spot.
+    const why = await (latest.current.reasoning ?? Promise.resolve(null)).catch(() => null);
+    if (flight.current !== id) return;
+    const spot: [number, number] = target.center;
+    const marks = why?.landmarks ?? [];
+    if (why && (marks.length || why.alternatives.length)) {
+      // Frame the spot with its landmarks, dive into that view with a tilt.
+      const pts: [number, number][] = [spot, ...marks.map((l) => [l.lon, l.lat] as [number, number]),
+        ...why.alternatives.map((a) => [a.lon, a.lat] as [number, number])];
+      const lons = pts.map((q) => q[0]);
+      const lats = pts.map((q) => q[1]);
+      const pad = target.padding as Required<maplibregl.PaddingOptions>;
+      const frame = m.cameraForBounds([[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]], {
+        padding: { top: 90, bottom: 90, left: pad.left + 90, right: 190 },
+      });
+      const into = await leg(m, id, () =>
+        m.flyTo({ center: frame?.center ?? spot, zoom: Math.min(frame?.zoom ?? target.zoom, FRAME_MAX_ZOOM, target.zoom),
+                  pitch: between(DIVE_PITCH), bearing: turn, duration: DIVE_MS, curve: 1.3, easing: easeInOut, essential: true }));
+      if (!into) return;
+      beacon.current?.remove();
+      beacon.current = null;
+      // One by one: a growing sight line and a sign per landmark, then the dropped alternatives in grey.
+      for (const l of marks) {
+        growLine(m, spot, [l.lon, l.lat]);
+        addSign(m, [l.lon, l.lat], `Begründung: ${l.name} (${KIND_LABEL[l.kind]})`, `reason ${l.kind}`);
+        await wait(SIGN_STAGGER_MS);
+        if (flight.current !== id) return;
+      }
+      for (const a of why.alternatives) {
+        addSign(m, [a.lon, a.lat], `${why.chose ? "verworfen" : "geprüft"}: ${a.name}`, "rejected");
+        await wait(SIGN_STAGGER_MS);
+        if (flight.current !== id) return;
+      }
+      const label = [why.building, why.street].filter(Boolean).join(" · ");
+      if (label) addSign(m, spot, label, "found");
+      await wait(REASON_HOLD_MS);
       if (flight.current !== id) return;
-    }
-    if (route.length) {
-      settleStops(target.center);
-      drawTrack(m, [...track, target.center]);
+      // Then in to the spot itself, levelling out on the way.
+      const close = await leg(m, id, () =>
+        m.easeTo({ ...target, pitch: 0, bearing: 0, duration: CLOSE_IN_MS, easing: easeInOut, essential: true }));
+      if (!close) return;
+      endFlight(m);
+      placePin(m, state.current.selected, true);
+      foldSigns();
+      return;
     }
     const down = await leg(m, id, () =>
       m.flyTo({ ...target, pitch: between(DIVE_PITCH), bearing: turn, duration: DIVE_MS, curve: 1.3, easing: easeInOut,
@@ -682,7 +745,7 @@ export default function DeskMap({
     if (!m) return;
     applyState(m);
     if (selectedPlace !== prevSelected) {
-      if (selectedPlace === null) clearJourney(m);
+      if (selectedPlace === null) clearReasoning(m);
       if (reducedMotion() || selectedPlace === null) placePin(m, selectedPlace, true);
       else placePin(m, null, false); // the pin drops in when the flight lands
       drawCircle(m);
