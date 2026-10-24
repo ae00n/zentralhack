@@ -151,8 +151,8 @@ def address_at(lat: float, lon: float, radius_m: int = 100, limit: int = 10, yea
     """What is at a point, offline: {lat, lon, ortschaft, plz, municipality, bfs_nr, canton, in_canton,
     addresses, source}. Same shape as places.address_lookup, so callers can swap them.
 
-    ortschaft and plz: from the nearest official entrance within 500 m. municipality: the Gemeinde
-    polygon containing the point. addresses: official entrances within radius_m, nearest first, each with
+    ortschaft and plz: from the nearest entrance of the same Gemeinde within 500 m, else None. municipality:
+    the Gemeinde polygon containing the point. addresses: official entrances within radius_m, nearest first, each with
     the building name (null when the register only has a type like "Einfamilienhaus"). year: the photo's
     capture year; buildings built after it are left out (they were not there yet).
     """
@@ -163,12 +163,13 @@ def address_at(lat: float, lon: float, radius_m: int = 100, limit: int = 10, yea
     near = [(d, r) for d, r in _near(lat, lon, max(radius_m, 500))
             if year is None or not r["year_built"] or r["year_built"] <= year]
     # the Ortschaft from an entrance in the same Gemeinde: near a border the nearest house can be across it
-    first = next((r for _, r in near if _gem(r["municipality"]) == _gem(mun["name"])), near[0][1] if near else {})
+    # no fallback across the border: an Ortschaft of another Gemeinde gives pairs GWR never has
+    first = next((r for _, r in near if _gem(r["municipality"]) == _gem(mun["name"])), {})
     addrs = [{"street": r["street"], "number": r["number"], "address": r["address"], "zip": r["zip"],
               "ortschaft": r["ortschaft"], "municipality": r["municipality"], "distance_m": round(d),
               "lat": r["lat"], "lon": r["lon"], "egid": r["egid"], "building": r["name"], "kind": r["kind"],
               "year_built": r["year_built"]}
-             for d, r in near if d <= radius_m]
+             for d, r in near if d <= radius_m and r.get("official", True)]  # "Hauptplatz 5.1" is no postal address
     return {"lat": lat, "lon": lon, "ortschaft": first.get("ortschaft"), "plz": first.get("zip"),
             "municipality": mun["name"], "bfs_nr": mun["bfs_nr"], "canton": "SZ", "in_canton": True,
             "addresses": addrs[:limit], "source": "GWR (Gebäude- und Wohnungsregister), swissBOUNDARIES3D"}

@@ -33,6 +33,10 @@ GEM_LAYER = "ch.swisstopo.swissboundaries3d-gemeinde-flaeche.fill"
 BUILDINGS_FILE = GAZETTEER / "buildings.json"
 OSM_FILE = RAW / "osm" / "schwyz_named.json"
 GWR_FILE = RAW / "gwr" / "data.sqlite"
+KGS_FILE = RAW / "kgs" / "schwyz.json"
+KGS_URL = ("https://api3.geo.admin.ch/rest/services/ech/MapServer/identify?geometryType=esriGeometryEnvelope"
+           "&geometry=2680000,1185000,2730000,1240000&sr=2056&layers=all:ch.babs.kulturgueter&tolerance=0"
+           "&returnGeometry=true&geometryFormat=geojson&limit=50&offset={}")
 GWR_URL = "https://api3.geo.admin.ch/rest/services/ech/MapServer/ch.bfs.gebaeude_wohnungs_register/{}_0"
 # GWR building class (GKLAS) -> the kind labels of the OSM side
 GWR_KINDS = {1130: "Soziale Einrichtung", 1211: "Hotel", 1212: "Hotel", 1220: "Büro/Verwaltung", 1230: "Geschäft",
@@ -195,7 +199,7 @@ def build_buildings() -> int:
         mun = geo.municipality_at(lat, lon)
         out.append({
             "name": name, "kind": _kind(t), "lat": round(lat, 6), "lon": round(lon, 6),
-            "address": f"{street} {num}".strip() if street else None,
+            "address": f"{street} {num or ''}".strip() if street else None,
             "municipality": mun["name"] if mun else None,
             "osm": f"https://www.openstreetmap.org/{e['type']}/{e['id']}",
             "wikidata": t.get("wikidata"), "alt_names": [t[k] for k in ("alt_name", "old_name", "official_name") if t.get(k)],
@@ -203,6 +207,7 @@ def build_buildings() -> int:
         })
     for b in out:
         b["source"] = "osm"
+    out += kgs_buildings()
     out += gwr_buildings(out)
     ensure(GAZETTEER)
     tmp = BUILDINGS_FILE.with_suffix(".json.tmp")  # rename, so a running agent never reads half a file
@@ -218,6 +223,50 @@ def _lv95_to_wgs84(e: float, n: float) -> tuple[float, float]:
     lon = 2.6779094 + 4.728982 * y + 0.791484 * y * x + 0.1306 * y * x * x - 0.0436 * y ** 3
     lat = 16.9023892 + 3.238272 * x - 0.270978 * y * y - 0.002528 * x * x - 0.0447 * y * y * x - 0.0140 * x ** 3
     return lat * 100 / 36, lon * 100 / 36
+
+
+def fetch_kgs() -> int:
+    """KGS-Inventar (Kulturgüterschutz, BABS) of Kanton Schwyz -> data/raw/kgs/schwyz.json. Protected churches,
+    chapels, hotels and houses with official description, address and point."""
+    rows, offset = [], 0
+    while True:
+        page = json.loads(_http().get(KGS_URL.format(offset), suffix=".json")).get("results", [])
+        rows += [r["properties"] for r in page if (r.get("properties") or {}).get("kanton") == "SZ"]
+        if len(page) < 50:
+            break
+        offset += 50
+    ensure(KGS_FILE.parent)
+    KGS_FILE.write_text(json.dumps(rows, ensure_ascii=False))
+    return len(rows)
+
+
+def kgs_buildings() -> list[dict]:
+    """KGS objects of Kanton Schwyz in the buildings.json shape (source "kgs"); empty until fetch_kgs ran."""
+    if not KGS_FILE.exists():
+        return []
+    out = []
+    for p in json.loads(KGS_FILE.read_text()):
+        name = (p.get("beschreibung") or "").strip()
+        if not name or p.get("x") is None:
+            continue
+        lat, lon = _lv95_to_wgs84(p["x"], p["y"])
+        out.append({
+            "name": name, "kind": _kgs_kind(p.get("objektart_de_list") or "", name), "lat": round(lat, 6),
+            "lon": round(lon, 6), "address": (p.get("adresse_list") or "").split(",")[0].strip() or None,
+            "municipality": p.get("gemeinde"), "osm": None, "wikidata": None, "alt_names": [], "tags": {},
+            "source": "kgs", "kgs": p.get("kgs_nr"), "kgs_category": p.get("kgs_kategorie"),
+        })
+    return out
+
+
+def _kgs_kind(art: str, name: str) -> str:
+    a = (art + " " + name).casefold()
+    for words, kind in ((("kirche", "kapelle", "sakral"), "Kirche/Kapelle"), (("kloster",), "Kloster"),
+                        (("hotel", "gasthaus", "gasthof"), "Hotel"), (("burg", "ruine", "turm"), "Burg/Ruine"),
+                        (("brücke",), "Brücke"), (("schul",), "Schule")):
+        if any(w in a for w in words):
+            return kind
+    return "Kulturgut"
 
 
 def gwr_buildings(osm: list[dict]) -> list[dict]:

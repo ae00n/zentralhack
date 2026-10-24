@@ -240,7 +240,7 @@ def test_export_xlsx_has_both_sheets_and_links(client):
     gemeinde = ws.cell(row=2, column=export.COLUMNS.index("Gemeinde") + 1).value
     assert gemeinde == "Ingenbohl"
     method = {row[0].value: row[1].value for row in wb["Methode"].iter_rows(min_row=2)}
-    assert "Ablauf" in method and "Weg: building" in method
+    assert "Ablauf" in method and "Stufe A" in method
 
 
 def test_review_confirms_and_corrects(client):
