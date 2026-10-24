@@ -1,6 +1,6 @@
-"""CLI: analyse photos with the agent loop.
+"""CLI: analyse photos with the agent (agent.v6).
 
-    python -m agent.run <photo_id> [<photo_id> ...] [--model M] [--eval] [--save] [--quiet]
+    python -m agent.run <photo_id> [<photo_id> ...] [--model M] [--save] [--quiet]
     python -m agent.run --image path/to/upload.jpg
 
 Prints each AnalysisResult as JSON on stdout (trace lines and the cost line go to stderr), validates it
@@ -29,8 +29,6 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("photo_ids", nargs="*", help="archive ids, e.g. stasz:514189")
     ap.add_argument("--image", help="analyse an uploaded image file instead of an archive id")
     ap.add_argument("--model", default=config.MODEL, help=f"default {config.MODEL}")
-    ap.add_argument("--eval", action="store_true",
-                    help="eval hygiene: also hide eval_exclusions(photo_id) from the tools")
     ap.add_argument("--save", action="store_true", help="write results to the results cache")
     ap.add_argument("--quiet", action="store_true", help="no trace lines on stderr")
     args = ap.parse_args(argv)
@@ -50,13 +48,8 @@ def main(argv: list[str] | None = None) -> int:
     exit_code, total = 0, 0.0
     for pid, img in jobs:
         print(f"== {pid or img} ({args.model})", file=sys.stderr, flush=True)
-        exclude = []
-        if args.eval and pid:
-            from data_pipeline.dating import eval_exclusions
-
-            exclude = eval_exclusions(pid)
         try:
-            r = analyze(pid, img, model=args.model, exclude_ids=exclude,
+            r = analyze(pid, img, model=args.model,
                         on_event=None if args.quiet else _print_event)
         except llm.SessionBudgetExceeded as e:
             print(f"error: {e}", file=sys.stderr)

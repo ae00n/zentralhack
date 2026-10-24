@@ -24,6 +24,8 @@ else:
     from .api import (archive_lookup, eval_ids, gazetteer, get_record, image_file, photos_near, reload,
                       similar_images, split_composite, timeline)
     from .places import address_lookup, named_buildings
+    from .registers import address_at, find_address, find_building, landmarks_near
+    from .matches import matches
     from .aerial import aerial_image
     from .horizon import horizon
 
@@ -47,4 +49,5 @@ gazetteer = _gaz_module
 __all__ = [
     "address_lookup", "aerial_image", "horizon", "named_buildings", "photos_near", "archive_lookup", "eval_ids", "gazetteer", "get_record", "image_file", "reload",
     "similar_images", "split_composite", "timeline",
+    "address_at", "find_address", "find_building", "landmarks_near", "matches",
 ]

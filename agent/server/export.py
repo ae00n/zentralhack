@@ -140,40 +140,40 @@ def to_csv(rows: list[dict]) -> bytes:
     return ("﻿" + buf.getvalue()).encode("utf-8")
 
 
-METHOD = [
-    ("Konfidenz pro Feld", "Gezählt werden unabhängige Quellen, die den Wert stützen (verschiedene Art oder "
-                           "verschiedene Referenz). Der Wert stammt nicht aus einer Selbsteinschätzung des Modells."),
-    ("1 Quelle", "0.50"),
-    ("2 Quellen", "0.70"),
-    ("3 Quellen", "0.85"),
-    ("4 oder mehr Quellen", "0.95"),
-    ("Gegenquelle", "Sagt eine echte Gegenquelle, dass der Wert falsch ist (verifiziertes Referenzfoto eines "
-                    "anderen Orts, Adressverzeichnis mit anderer Ortschaft oder Gemeinde, Text im Bild mit anderem "
-                    "Ort, verdeckte Sichtlinie), ist das Feld auf höchstens 0.60 begrenzt. Ein bloss möglicher "
-                    "anderer Kandidat ist keine Gegenquelle; er steht bei den verworfenen Hypothesen."),
-    ("Nicht bestimmbar", "Ohne stützende Quelle bleibt das Feld leer und hat Konfidenz 0. Es wird nie ein "
-                         "Name geraten; leere Felder stehen in der Spalte Nicht_bestimmbar."),
-    ("Konfidenz gesamt", "Der tiefere Wert von Ortschaft und Gemeinde, plus 0.05, wenn auch Gebäude und "
-                         "Strasse bestimmt sind."),
-    ("Konsistenzprüfung", "Jedes Foto kann mehrmals unabhängig analysiert werden. Nennen die Analysen "
-                          "verschiedene Ortschaften oder Gemeinden, ist die Gesamtkonfidenz auf höchstens 0.60 "
-                          "begrenzt und eine Prüfung nötig; die Begründung nennt beide Orte."),
-    ("Prüfung nötig", "ja, wenn die Gesamtkonfidenz unter 0.90 liegt, Ortschaft oder Gemeinde fehlt oder "
-                      "unabhängige Analysen verschiedene Orte nennen. "
-                      "Nach einem Review (bestätigt oder korrigiert) nein; korrigierte Werte ersetzen die "
-                      "Vorschläge der KI."),
-    ("Zählende Quellen", "Gebäudeadressverzeichnis (swisstopo), benanntes Gebäude aus OSM oder dem "
-                         "Gebäuderegister GWR, geometrisch verifiziertes "
-                         "Referenzfoto (LightGlue) aus Staatsarchiv / E-Pics / Smapshot / LUBIS / Wikimedia Commons, "
-                         "oder ein Referenzfoto mit bekanntem Aufnahmeort am vermuteten Ort, das dieselben Gebäude "
-                         "zeigt (ein nur ähnliches Foto zählt nicht), Archivdatensatz, "
-                         "swisstopo-Ortsname, Geländeprüfung (Sichtlinie oder Blickpunkt aus den sichtbaren Bergen), Text im Bild, Bildinhalt, "
-                         "Session-Foto (gleiche Kamera, unter 30 Minuten), EXIF-GPS. Werkzeug-Quellen zählen "
-                         "nur, wenn das Werkzeug in dieser Analyse wirklich aufgerufen wurde."),
-    ("Einordnung", "Die Skala ist eine begründete Selbsteinschätzung, keine gemessene Trefferquote. Die "
-                   "gemessene Trefferquote pro Konfidenzstufe kommt aus einer von Hand geprüften Stichprobe."),
-]
+PATHS = {"pick": "Claude erkennt denselben Ort auf einem geometrisch bestätigten Referenzfoto",
+         "building": "Gebäudename gelesen oder erkannt und im Gebäuderegister gefunden",
+         "street": "Strasse gelesen oder erkannt und im Adressregister gefunden",
+         "match": "Stark geometrisch bestätigtes Referenzfoto, von Claude nicht widersprochen",
+         "claude": "Nur Claudes Bildeinschätzung (sicher / wahrscheinlich / vermutet)"}
 
+
+def method() -> list[tuple[str, str]]:
+    """Sheet Methode: how a value and its confidence come about (agent.v6), with the measured table."""
+    from .. import v6
+
+    rows = [
+        ("Ablauf", "1. Claude (Opus 5.5) sieht das Foto, das EXIF-Datum, Fotos derselben Aufnahmeserie und bis zu "
+                   "4 geometrisch bestätigte Referenzfotos (MegaLoc-Suche, LightGlue-Prüfung) und nennt, was es liest "
+                   "und erkennt. 2. Unser Code sucht Gebäude, Strasse oder Referenzpunkt in den amtlichen Registern. "
+                   "3. Ortschaft, Gemeinde, Strasse und Gebäude kommen aus dem Register am gefundenen Punkt (GWR, "
+                   "swissBOUNDARIES3D), Berge und Seen aus swissNAMES3D. Claude tippt nie Koordinaten."),
+        ("Nicht bestimmbar", "Ohne Hinweis bleibt das Feld leer mit Konfidenz 0. Ein Name, der in keinem Register "
+                             "steht, wird nicht übernommen; leere Felder stehen in der Spalte Nicht_bestimmbar."),
+        ("Konfidenz", "Gemessene Trefferquote des Wegs, auf dem der Wert entstand, auf den von Hand geprüften "
+                      "Prio-1-Fotos: (Treffer + 1) / (geprüfte + 2). Ein Weg mit weniger als 3 geprüften Fotos "
+                      "trägt einen Schätzwert, das steht dann in Konfidenz_Begruendung."),
+        ("Prüfung nötig", "ja, wenn die Gesamtkonfidenz unter 0.90 liegt oder die Gemeinde fehlt. Nach einem "
+                          "Review (bestätigt oder korrigiert) nein; korrigierte Werte ersetzen die Vorschläge."),
+    ]
+    rows += [(f"Weg: {k}", v) for k, v in PATHS.items()]
+    table = v6._table()
+    for b, cells in sorted(table.items()):
+        c = cells.get("municipality") or {}
+        if c:
+            rows.append((f"Gemessen {b}", f"Gemeinde {c['hits']} von {c['n']} richtig, Konfidenz {c['rate']:.2f}"))
+    if not table:
+        rows.append(("Gemessen", "Noch keine Handprüfung: alle Konfidenzen sind Schätzwerte."))
+    return rows
 
 def to_xlsx(rows: list[dict], image_url=lambda row: None) -> bytes:
     """The Excel deliverable: sheet Metadaten (one row per photo, file name linked to the image) and
@@ -214,7 +214,7 @@ def to_xlsx(rows: list[dict], image_url=lambda row: None) -> bytes:
     m.append(["Thema", "Regel"])
     for c in m[1]:
         c.font, c.fill = head, fill
-    for k, v in METHOD:
+    for k, v in method():
         m.append([k, v])
     m.column_dimensions["A"].width = 24
     m.column_dimensions["B"].width = 110
