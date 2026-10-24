@@ -162,7 +162,8 @@ def address_at(lat: float, lon: float, radius_m: int = 100, limit: int = 10, yea
         return address_lookup(lat, lon, radius_m, limit)
     near = [(d, r) for d, r in _near(lat, lon, max(radius_m, 500))
             if year is None or not r["year_built"] or r["year_built"] <= year]
-    first = near[0][1] if near else {}
+    # the Ortschaft from an entrance in the same Gemeinde: near a border the nearest house can be across it
+    first = next((r for _, r in near if _gem(r["municipality"]) == _gem(mun["name"])), near[0][1] if near else {})
     addrs = [{"street": r["street"], "number": r["number"], "address": r["address"], "zip": r["zip"],
               "ortschaft": r["ortschaft"], "municipality": r["municipality"], "distance_m": round(d),
               "lat": r["lat"], "lon": r["lon"], "egid": r["egid"], "building": r["name"], "kind": r["kind"],

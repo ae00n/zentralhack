@@ -517,8 +517,7 @@ def _result(photo_id, model, rec, year, answer, refs, res, usd, trace, emit) -> 
         put("locality", at.get("ortschaft"), ref_ev + reg_ev + claude_ev)
         addr = (res.get("building") or {}).get("address") or next((a["address"] for a in at.get("addresses") or []), None)
         put("street", addr, reg_ev)
-        named = [res["building"]["name"]] if res.get("building") else \
-            [a["building"] for a in at.get("addresses") or [] if a.get("building") and a["distance_m"] <= 30][:1]
+        named = [res["building"]["name"]] if res.get("building") else _named_at(answer, point, at)
         put("buildings", named, bld_ev or reg_ev)
         f["coordinates"] = {"value": point, "confidence": confidence(b, "coordinates")[0], "evidence": ref_ev + reg_ev}
     elif path == "claude":
@@ -553,6 +552,17 @@ def _result(photo_id, model, rec, year, answer, refs, res, usd, trace, emit) -> 
         "settings": {"pipeline": 6, "path": path, "bucket": b, "answer": answer,
                      "references": [{k: r[k] for k in ("id", "inliers", "place")} for r in refs]},
     }
+
+
+def _named_at(answer: dict, point: dict, at: dict) -> list[str]:
+    """The building at a point placed by a reference: the name Claude read or recognised when the register has
+    it within 150 m, else a proper GWR name within 30 m ("Aufbewahrungshalle" and other types are left out)."""
+    if answer.get("building") and answer.get("building_certainty") in ("sicher", "wahrscheinlich"):
+        for h in dp.find_building(answer["building"], answer.get("municipality")):
+            if h["kind"] not in NOT_PLACES and _dist(h, point) <= 150:
+                return [h["name"]]
+    return [a["building"] for a in at.get("addresses") or []
+            if a.get("building") and a["distance_m"] <= 30 and a.get("kind")][:1]
 
 
 def _official_locality(name: str | None) -> str | None:
