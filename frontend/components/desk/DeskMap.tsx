@@ -1,7 +1,8 @@
 "use client";
 
-// Desk map (FRONTPAGE_PLAN 4, "Map spec"): swisstopo colour map (grey offline), canton outline with the outside veiled
-// white, one circle per place coloured by certainty, hover and selection via feature-state.
+// Desk map (FRONTPAGE_PLAN 4, "Map spec"): swisstopo aerial photo or colour map (grey offline), canton outline,
+// one circle per place coloured by certainty, hover and selection via feature-state. A newly picked place is
+// reached with a flight that zooms out to the canton and back in.
 // Client only (MapLibre needs window): load with next/dynamic and ssr: false.
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -36,17 +37,12 @@ const CANTON_CENTRE: [number, number] = [8.696, 47.055];
 const FIRST_ZOOM = 11.6;
 // Close-up on a picked place; a fractional zoom for the same reason as FIRST_ZOOM (detailed tiles, small labels).
 const PICK_ZOOM = 12.6;
+// Out to the canton and back in on a newly picked photo: long enough to read, short enough not to wait.
+const FLY_MS = 2400;
 const NO_CIRCLE: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
 const MAX_BOUNDS: [[number, number], [number, number]] = [
   [8.1, 46.75],
   [9.3, 47.36],
-];
-const WORLD: [number, number][] = [
-  [-180, -85],
-  [180, -85],
-  [180, 85],
-  [-180, 85],
-  [-180, -85],
 ];
 
 /** A colour token as a CSS colour: globals.css holds RGB channels ("23 23 23"), MapLibre needs rgb(...). */
@@ -65,13 +61,6 @@ function placesData(places: Place[]): GeoJSON.FeatureCollection<GeoJSON.Point> {
       geometry: { type: "Point", coordinates: [p.lon, p.lat] },
     })),
   };
-}
-
-/** World minus canton: the mask that veils everything outside Schwyz. */
-function maskOf(canton: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>): GeoJSON.Feature<GeoJSON.Polygon> {
-  const g = canton.geometry;
-  const outers = g.type === "Polygon" ? [g.coordinates[0]] : g.coordinates.map((poly) => poly[0]);
-  return { type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: [WORLD, ...outers] } };
 }
 
 const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -212,14 +201,20 @@ export default function DeskMap({
         const canton = (await (await fetch("/geo/kanton-schwyz.json")).json()) as GeoJSON.Feature<
           GeoJSON.Polygon | GeoJSON.MultiPolygon
         >;
-        m.addSource("mask", { type: "geojson", data: maskOf(canton) });
+        // No veil outside the canton (Said, 24.10.): MAX_BOUNDS keeps the view on the canton, so the offline
+        // tile cache never shows blank tiles. A white casing keeps the outline readable on the aerial photo.
         m.addSource("canton", { type: "geojson", data: canton });
-        m.addLayer({ id: "mask", type: "fill", source: "mask", paint: { "fill-color": "#ffffff", "fill-opacity": 0.75 } });
+        m.addLayer({
+          id: "canton-casing",
+          type: "line",
+          source: "canton",
+          paint: { "line-color": "#ffffff", "line-width": 3, "line-opacity": 0.55 },
+        });
         m.addLayer({
           id: "canton-line",
           type: "line",
           source: "canton",
-          paint: { "line-color": "#1a1a1a", "line-width": 1.25, "line-opacity": 0.6 },
+          paint: { "line-color": "#1a1a1a", "line-width": 1.25, "line-opacity": 0.7 },
         });
       } catch {
         // Without the outline the map still works.
@@ -450,6 +445,7 @@ export default function DeskMap({
       drawCircle(m);
     }
     // Fly to a newly selected place (jumpTo under reduced motion), zoomed out as far as its circle needs.
+    // The flight first rises to the canton overview, then comes down on the place (Said, 24.10.).
     if (selectedPlace !== null && selectedPlace !== prevSelected) {
       const p = latest.current.places.find((x) => x.id === selectedPlace);
       if (p) {
@@ -463,7 +459,10 @@ export default function DeskMap({
         const zoom = Math.min(Math.max(m.getZoom(), PICK_ZOOM), fit ?? Infinity);
         const target = { center: [p.lon, p.lat] as [number, number], zoom, padding: pad };
         if (reducedMotion()) m.jumpTo(target);
-        else m.easeTo({ ...target, duration: 450 });
+        else {
+          const overview = m.cameraForBounds(BOUNDS, { padding: pad })?.zoom ?? 9;
+          m.flyTo({ ...target, minZoom: Math.min(overview, zoom - 1), duration: FLY_MS, essential: true });
+        }
       }
     }
   }, [hoveredPlace, selectedPlace]);

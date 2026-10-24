@@ -75,15 +75,15 @@ function Arbeitsplatz() {
   const [selected, setSelected] = useState<string | null>(null);
   // Phone: list and map are tabs, list first (plan 4). From lg both show side by side.
   const [view, setView] = useState<"list" | "map">("list");
-  // Map | aerial photo (Timo, 24.10.), remembered per browser.
-  const [basemap, setBasemap] = useState<Basemap>("karte");
+  // Aerial photo | map (Timo, 24.10.), remembered per browser; the aerial photo is the default (Said, 24.10.).
+  const [basemap, setBasemap] = useState<Basemap>("luftbild");
 
   useEffect(() => {
     getTilesUrl().then(setTiles);
     try {
-      if (localStorage.getItem(BASEMAP_KEY) === "luftbild") setBasemap("luftbild");
+      if (localStorage.getItem(BASEMAP_KEY) === "karte") setBasemap("karte");
     } catch {
-      // No storage (private window): start on the map.
+      // No storage (private window): start on the aerial photo.
     }
   }, []);
 
@@ -201,14 +201,14 @@ function Arbeitsplatz() {
               />
             )}
           </div>
-          {/* Map | aerial photo, top right next to the zoom buttons (MapLibre control: 10 px margin, 29 px wide). */}
+          {/* Aerial photo | map, top right next to the zoom buttons (MapLibre control: 10 px margin, 29 px wide). */}
           <Segmented
             label="Hintergrund"
             value={basemap}
             onChange={pickBasemap}
             options={[
-              { key: "karte", label: "Karte" },
               { key: "luftbild", label: "Luftbild" },
+              { key: "karte", label: "Karte" },
             ]}
             className="absolute right-12 top-2.5 z-10 border border-rule/[0.08] bg-paper-2/90 shadow-panel backdrop-blur"
           />
