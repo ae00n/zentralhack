@@ -1,0 +1,249 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* "Swiss modern" tokens (docs/FRONTPAGE_POLISH.md section 3). RGB channels, so Tailwind opacity modifiers
+   work (border-rule/[0.08]); in plain CSS use rgb(var(--x)) or rgb(var(--x) / 0.5). */
+:root {
+  /* surfaces */
+  --canvas: 250 250 250; /* #fafafa app background behind panels and the photo stage */
+  --paper: 255 255 255; /* #ffffff panels, header, rows */
+  --paper-2: 244 244 245; /* #f4f4f5 hover, segmented track, kbd, mats */
+  --rule: 0 0 0; /* use as rule/8 (hairline) and rule/12 (default border) */
+
+  /* text */
+  --ink: 23 23 23; /* #171717 primary text, 17.9:1 */
+  --ink-muted: 107 107 107; /* #6b6b6b meta lines, labels, 5.3:1 */
+  --ink-strong: 0 0 0;
+
+  /* brand: Kanton Schwyz red, sparingly */
+  --accent: 226 0 26; /* #e2001a */
+  --accent-hover: 193 3 25; /* #c10319 */
+  --accent-soft: 226 0 26; /* use as accent-soft/[0.06] for the selected row and changed Excel cell */
+
+  /* attention and data */
+  --warn: 154 74 5; /* #9a4a05 "Prüfung nötig" word */
+  --bad: 153 25 30; /* #99191e errors (darker than brand red, Bund pattern) */
+  --cert-confirmed: 11 60 93; /* #0b3c5d */
+  --cert-sure: 29 78 137; /* #1d4e89 */
+  --cert-check: 179 88 6; /* #b35806 */
+  --cert-open: 89 89 89; /* #595959 hollow */
+
+  /* focus: sz.ch blue, never red (Bund/zh.ch pattern) */
+  --focus: 21 156 228; /* #159ce4 */
+}
+
+html {
+  font-feature-settings: "cv11", "ss01";
+  scrollbar-gutter: stable;
+}
+
+html,
+body {
+  background: rgb(var(--paper));
+  color: rgb(var(--ink));
+}
+
+body {
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 18px;
+  -webkit-font-smoothing: antialiased;
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background: rgb(226 0 26 / 0.15);
+}
+
+/* Focus: the blue ring, keyboard only (:focus-visible). Elements with their own ring classes override this. */
+:focus-visible {
+  outline: 2px solid rgb(var(--focus) / 0.5);
+  outline-offset: 1px;
+}
+
+/* Page width: 92 %, max 1520 px (16 px gutter on a 390 px phone). */
+.wrapper {
+  width: 92%;
+  max-width: 1520px;
+  margin-inline: auto;
+}
+
+/* Body links: red and underlined, black on hover. */
+.link {
+  color: rgb(var(--accent));
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 200ms ease;
+}
+.link:hover {
+  color: rgb(var(--ink-strong));
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.fade-in {
+  animation: fade-in 350ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+
+/* Reduced motion: no fades, no transitions anywhere. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Map (components/map/MapView.tsx). Round shapes live here in CSS. */
+.map-pin {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: rgb(var(--ink));
+  border: 2px solid rgb(var(--paper));
+  box-shadow: 0 0 0 1px rgb(var(--ink));
+}
+
+.maplibregl-ctrl-group:not(:empty) {
+  border: 1px solid rgb(var(--rule) / 0.12);
+  border-radius: 6px;
+  box-shadow: none;
+  background: rgb(var(--paper));
+}
+
+.maplibregl-ctrl-group button + button {
+  border-top-color: rgb(var(--rule) / 0.08);
+}
+
+/* Zeitreise slider (components/analyse/Zeitreise.tsx): 2px hairline track, round accent thumb. */
+.zeitreise-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 14px;
+  background: transparent;
+  cursor: pointer;
+}
+.zeitreise-slider::-webkit-slider-runnable-track {
+  height: 2px;
+  background: rgb(var(--rule) / 0.12);
+}
+.zeitreise-slider::-moz-range-track {
+  height: 2px;
+  background: rgb(var(--rule) / 0.12);
+}
+.zeitreise-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -6px;
+  border-radius: 50%;
+  background: rgb(var(--accent));
+  border: 2px solid rgb(var(--paper));
+  box-shadow: 0 0 0 1px rgb(var(--accent));
+}
+.zeitreise-slider::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgb(var(--accent));
+  border: 2px solid rgb(var(--paper));
+  box-shadow: 0 0 0 1px rgb(var(--accent));
+}
+
+/* Certainty marker in desk rows, same scale as the desk map: reviewed = filled + ring,
+   sure / check = filled, open = hollow grey. Brand red never encodes a data state. */
+.cert-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.cert-dot-confirmed {
+  background: rgb(var(--cert-confirmed));
+  box-shadow: 0 0 0 1.5px rgb(var(--paper)), 0 0 0 3px rgb(var(--cert-confirmed));
+}
+.cert-dot-sure {
+  background: rgb(var(--cert-sure));
+}
+.cert-dot-check {
+  background: rgb(var(--cert-check));
+}
+.cert-dot-open {
+  background: transparent;
+  border: 1.5px solid rgb(var(--cert-open));
+}
+
+/* Excel-Zeile: a changed cell fades in from the soft accent (components/analyse/ExcelRow.tsx). */
+@keyframes cell-flash {
+  from {
+    background: rgb(var(--accent-soft) / 0.06);
+  }
+  to {
+    background: transparent;
+  }
+}
+.cell-flash {
+  animation: cell-flash 400ms ease-out;
+}
+
+/* Desk map (components/desk/DeskMap.tsx): count labels, the selection pin and the "n Fotos an diesem Ort" popup. */
+.desk-count {
+  pointer-events: none;
+  color: #fff;
+  font: 600 11px/1 var(--font-inter), system-ui, sans-serif;
+}
+/* MapLibre owns the marker's transform, so the drop runs on the inner svg. Clicks pass through to the dot. */
+.desk-pin {
+  pointer-events: none;
+}
+.desk-pin svg {
+  display: block;
+  filter: drop-shadow(0 2px 2px rgb(0 0 0 / 0.3));
+  animation: pin-drop 300ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+@keyframes pin-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+.maplibregl-popup-content {
+  border-radius: 10px;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 8px 24px rgb(0 0 0 / 0.08);
+  border: 1px solid rgb(var(--rule) / 0.08);
+  padding: 8px 10px;
+}
+.desk-popup p {
+  font-size: 12px;
+  color: rgb(var(--ink-muted));
+  margin-bottom: 4px;
+}
+.desk-popup button {
+  display: block;
+  font: 500 13px/20px var(--font-geist-mono), ui-monospace, monospace;
+  color: rgb(var(--ink));
+  text-decoration: underline;
+  text-decoration-color: rgb(var(--rule) / 0.2);
+}
+.desk-popup button:hover {
+  color: rgb(var(--ink-strong));
+}
+
+/* Programmatic focus without a ring until the keyboard is used (lib/quietFocus.ts). */
+[data-quiet-focus]:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
