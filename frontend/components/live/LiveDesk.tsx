@@ -13,7 +13,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import TraceLog from "@/components/analyse/TraceLog";
 import PhotoDetail from "@/components/desk/PhotoDetail";
 import { OPEN_UPLOAD } from "@/components/upload/QuickUpload";
-import { buttonClass, FOCUS_RING } from "@/components/ui/button";
+import { buttonClass } from "@/components/ui/button";
 import Segmented from "@/components/ui/Segmented";
 import { errorText, getPhoto, getResult, getTilesUrl, imageUrl, tileTemplate } from "@/lib/api";
 import { canRetry, itemTrace, localFile, retry } from "@/lib/batches";
@@ -242,8 +242,8 @@ export default function LiveDesk({ batch }: { batch: Batch }) {
                 <Upload size={14} strokeWidth={1.75} aria-hidden />
                 Weiteres Foto
               </button>
-              <Link href="/" className={cn(buttonClass("ghost"), FOCUS_RING)}>
-                Alle Stapel
+              <Link href="/" className={buttonClass("ghost")}>
+                Zur Karte
               </Link>
             </div>
           </>

@@ -5,7 +5,8 @@
 import { usePathname } from "next/navigation";
 
 export default function SiteFooter() {
-  if (usePathname().startsWith("/stapel/")) return null;
+  const path = usePathname();
+  if (path === "/" || path.startsWith("/stapel/")) return null;
   return (
     <footer className="border-t border-rule/[0.08]">
       <p className="px-4 py-3 text-meta text-ink-muted">

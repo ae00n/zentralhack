@@ -22,8 +22,8 @@ export function photoTitle(r: PhotoRecord): string {
   return r.title?.trim() || "Ohne Titel";
 }
 
-/** The desk of the challenge set; it moved from / to its batch route (UPLOAD_PLAN step 2). */
-export const CHALLENGE_DESK = "/stapel/challenge";
+/** The desk of the challenge set: the main page (UPLOAD_PLAN step 2b; /stapel/challenge shows it too). */
+export const CHALLENGE_DESK = "/";
 
 /** Desk route with an optional search (?q=) or an open photo (?foto=). */
 export function deskHref({ q, foto }: { q?: string; foto?: string } = {}): string {
@@ -31,7 +31,7 @@ export function deskHref({ q, foto }: { q?: string; foto?: string } = {}): strin
   if (q) p.set("q", q);
   if (foto) p.set("foto", foto);
   const s = p.toString();
-  return s ? `${CHALLENGE_DESK}?${s}` : CHALLENGE_DESK;
+  return s ? `/?${s}` : CHALLENGE_DESK;
 }
 
 /** Route to the analysis screen; ids contain ":" and "#". */

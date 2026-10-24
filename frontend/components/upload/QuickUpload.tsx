@@ -2,10 +2,10 @@
 
 // "Foto hochladen" in the header (Timo, 24.10.): pick or drop files anywhere and they start at once, no
 // preview. One image opens the live view (map flight when the place is found), several open the batch
-// grid. A drop on the start page's own drop zone is left to that zone (it calls preventDefault).
+// grid.
 // Other components open the picker with window.dispatchEvent(new Event(OPEN_UPLOAD)).
 import { Upload } from "lucide-react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { buttonClass } from "@/components/ui/button";
@@ -23,8 +23,6 @@ function hasFiles(e: DragEvent): boolean {
 
 export default function QuickUpload({ className }: { className?: string }) {
   const router = useRouter();
-  // The start page has its own drop zone with a preview; no "starts at once" overlay there.
-  const onStart = usePathname() === "/";
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -69,7 +67,7 @@ export default function QuickUpload({ className }: { className?: string }) {
     const drop = async (e: DragEvent) => {
       depth = 0;
       setDragging(false);
-      if (!hasFiles(e) || e.defaultPrevented) return; // the start page's drop zone handled it
+      if (!hasFiles(e)) return;
       e.preventDefault();
       if (e.dataTransfer) await latest.current(await filesFromDrop(e.dataTransfer));
     };
@@ -107,7 +105,7 @@ export default function QuickUpload({ className }: { className?: string }) {
           e.target.value = "";
         }}
       />
-      {dragging && !onStart && (
+      {dragging && (
         <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-ink/20 p-6 backdrop-blur-[2px]">
           <div className={cn("rounded-lg border-2 border-dashed border-accent bg-paper px-8 py-6 text-center shadow-pop")}>
             <Upload size={28} strokeWidth={1.5} aria-hidden className="mx-auto text-accent" />

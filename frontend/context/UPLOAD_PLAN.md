@@ -194,6 +194,38 @@ panel, no footer. Phone 390 px: no horizontal scroll, strip as "1/4 · Hochladen
 
 ---
 
+## Step 2b: start page removed (Timo, 24.10.)
+
+**Scope:** "/" is the desk with the map again; the upload start page from step 2 goes. Uploads start only
+from "Foto hochladen" in the header (step 3b) or by dropping files anywhere.
+
+**Check:** `/` shows the desk in one viewport without the footer; the strip says "3 Prüfen"; "1 Hochladen"
+and "Foto hochladen" open the file picker; an upload from `/` opens the live view and "Zur Karte" comes
+back to `/`; the photo view's Zurück goes to `/?foto=`. Done (24.10.), headless Chrome against the mock dev
+server (the file picker checked with real mouse events: a scripted `.click()` has no user activation, so
+Chrome would not open it). `npm run typecheck` and `npm run build` pass.
+
+**Special**
+- `app/page.tsx` renders `Arbeitsplatz`; `/stapel/challenge` still shows the same desk.
+  `CHALLENGE_DESK` is "/" again, so every `deskHref()` link (desk reset, photo view Zurück and breadcrumb)
+  goes to `/`.
+- Deleted: `components/upload/UploadDrop.tsx` (drop zone with preview, name, estimate) and
+  `components/upload/BatchCards.tsx` (batch cards). Both are in git history (`bc6379c`) if the preview
+  or the batch list is wanted back.
+- Step strip: on `/` the current step is "3 Prüfen"; "1 Hochladen" is a button that opens the file picker
+  (`open-upload` event). The phone menu has "Foto hochladen" and Nachweis.
+- Batch and live pages link "Zur Karte" (was "Alle Stapel"). The global drop overlay now shows on every
+  page.
+- Footer hidden on `/` again (and on every `/stapel/` page).
+
+**Not built**
+- There is no list of earlier batches any more: a batch is reachable only through its URL (or the browser
+  history). With uploads of one photo at a time for the demo, this is fine.
+- No preview before the start: a ZIP with skipped files starts at once. The skipped files show in the grid
+  (chip "übersprungen").
+
+---
+
 ## Step 3: `/stapel/[id]` while the analysis runs
 
 **Scope:** progress line ("23 von 48 · noch ca. 6 Min. · 4.20 USD"), a grid of thumbnails that colour in

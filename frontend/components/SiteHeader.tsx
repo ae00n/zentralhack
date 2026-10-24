@@ -4,7 +4,8 @@
 // Prototyp tag, Nachweis, and the Excel button. Never the Kanton Schwyz shield or wordmark (licence).
 // UPLOAD_PLAN step 2: the step strip Hochladen > Analyse > Prüfen > Export replaces the search field
 // (the search moved into the desk panel). Phone: the current step as text, the links behind a menu button.
-// "Foto hochladen" top right (Timo, 24.10.): one photo goes straight to the live view.
+// "Foto hochladen" top right (Timo, 24.10.): one photo goes straight to the live view. The desk is the main
+// page (step 2b), so step 1 Hochladen opens the file picker instead of a page.
 import { ChevronRight, Download, Menu, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -39,7 +40,7 @@ interface Flow {
 function useFlow(): Flow {
   const path = usePathname();
   const { batches } = useBatches();
-  if (path === "/") return { step: 1, batchHref: null, excelUrl: null };
+  if (path === "/") return { step: 3, batchHref: deskHref(), excelUrl: exportXlsxUrl() };
   const m = path.match(/^\/stapel\/([^/]+)/);
   if (m) {
     const id = decodeURIComponent(m[1]);
@@ -53,7 +54,7 @@ function useFlow(): Flow {
 }
 
 function StepStrip({ flow }: { flow: Flow }) {
-  const target = (n: number) => (n === 1 ? "/" : n === 4 ? flow.excelUrl : flow.batchHref);
+  const target = (n: number) => (n === 1 ? null : n === 4 ? flow.excelUrl : flow.batchHref);
   return (
     <ol aria-label="Ablauf" className="hidden h-full items-stretch gap-1 md:flex">
       {STEPS.map((label, i) => {
@@ -77,7 +78,11 @@ function StepStrip({ flow }: { flow: Flow }) {
         return (
           <li key={label} className="flex items-stretch">
             {i > 0 && <ChevronRight size={12} strokeWidth={1.75} aria-hidden className="mr-1 self-center text-ink-muted" />}
-            {!href || current ? (
+            {n === 1 && !current ? (
+              <button type="button" onClick={() => window.dispatchEvent(new Event(OPEN_UPLOAD))} className={cn(cls, "hover:text-ink")}>
+                {body}
+              </button>
+            ) : !href || current ? (
               <span className={cls} aria-current={current ? "step" : undefined}>
                 {body}
               </span>
@@ -165,9 +170,6 @@ export default function SiteHeader() {
             >
               Foto hochladen
             </button>
-            <Link href="/" onClick={() => setOpen(false)} className={`block rounded py-1.5 text-ui font-medium ${FOCUS}`}>
-              Stapel
-            </Link>
             <Link href="/nachweis" onClick={() => setOpen(false)} className={`block rounded py-1.5 text-ui font-medium ${FOCUS}`}>
               Nachweis
             </Link>

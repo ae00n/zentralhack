@@ -4,7 +4,7 @@
 // Excel button, and the photo list (Prio 1 | Alle, 4 sorts, filter via counters, search in the panel).
 // FRONTPAGE_POLISH 5: one viewport, the map fills it and the list floats on the left as a 400px panel.
 // Hover and selection are synced both ways (FRONTPAGE_PLAN 4, Behaviour).
-// UPLOAD_PLAN step 2: moved from / to /stapel/challenge; the start page is the upload now.
+// UPLOAD_PLAN step 2b: the main page again (/), also shown at /stapel/challenge.
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";

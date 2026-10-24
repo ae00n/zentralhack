@@ -84,7 +84,7 @@ export default function BatchView({ id }: { id: string }) {
         </p>
         {ready && (
           <Link href="/" className={buttonClass("secondary", "mt-4")}>
-            Zur Übersicht
+            Zur Karte
           </Link>
         )}
       </main>
@@ -112,7 +112,7 @@ export default function BatchView({ id }: { id: string }) {
     <main className="mx-auto w-full max-w-[1200px] px-4 py-6 sm:py-8">
       <Link href="/" className={cn("-ml-1 inline-flex items-center gap-1.5 rounded px-1 py-0.5 text-ui text-ink-muted hover:text-ink", FOCUS_RING)}>
         <ArrowLeft className="size-4" aria-hidden />
-        Alle Stapel
+        Zur Karte
       </Link>
       <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
