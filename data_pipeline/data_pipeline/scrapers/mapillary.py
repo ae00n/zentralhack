@@ -3,6 +3,7 @@
     python -m data_pipeline.scrapers.mapillary count               # list + thin, nothing downloaded
     python -m data_pipeline.scrapers.mapillary fetch --limit 50    # test
     python -m data_pipeline.scrapers.mapillary fetch               # full run (resumable)
+    python -m data_pipeline.scrapers.mapillary fetch --anchors a.json --limit 5000   # nearest to the anchors first
 
 Why: Commons has only ~4,400 geotagged canton photos. Mapillary has thousands per town (Schwyz, Brunnen,
 Arth, Lachen: 1,500 to 2,000 per km²), taken from the street, with GPS and compass heading. That is what
@@ -29,6 +30,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
+from pathlib import Path
 
 import httpx
 from PIL import Image
@@ -186,9 +188,25 @@ def _image(m: dict) -> dict:
             "sha1": hashlib.sha1(buf.getvalue()).hexdigest()}
 
 
-def fetch(limit: int | None = None, workers: int = 8) -> dict:
+def focus(items: list[dict], anchors: list[dict], radius_m: float) -> list[dict]:
+    """Images within radius_m of any anchor {lat, lon}, nearest first (embedding is the bottleneck on CPU,
+    so the places the challenge photos show get their references first)."""
+    from ..places import _haversine_m
+    out = []
+    for m in items:
+        d = min(_haversine_m(m["lat"], m["lon"], a["lat"], a["lon"]) for a in anchors)
+        if d <= radius_m:
+            out.append((d, m))
+    return [m for _, m in sorted(out, key=lambda x: x[0])]
+
+
+def fetch(limit: int | None = None, workers: int = 8, anchors: list[dict] | None = None,
+          radius_m: float = 1500) -> dict:
     ensure(IMG_DIR, RECORDS)
     items = list_images()
+    if anchors:
+        items = focus(items, anchors, radius_m)
+        print(f"{len(items)} images within {radius_m:.0f} m of {len(anchors)} anchors", flush=True)
     done = {r["source_id"] for r in read_jsonl(RECORDS_FILE)}
     todo = [m for m in items if m["id"] not in done][:limit]
     print(f"{len(items)} images, {len(done)} done, {len(todo)} to fetch", flush=True)
@@ -220,11 +238,14 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("cmd", choices=["count", "fetch"])
     ap.add_argument("--limit", type=int)
+    ap.add_argument("--anchors", type=Path, help='JSON list of {"lat", "lon"}: fetch only near these, nearest first')
+    ap.add_argument("--radius", type=float, default=1500, help="metres around each anchor (default 1500)")
     a = ap.parse_args()
     if a.cmd == "count":
         print(len(list_images()), "images to fetch")
     else:
-        print(fetch(a.limit))
+        anchors = json.loads(a.anchors.read_text()) if a.anchors else None
+        print(fetch(a.limit, anchors=anchors, radius_m=a.radius))
 
 
 if __name__ == "__main__":
