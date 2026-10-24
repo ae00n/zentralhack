@@ -30,6 +30,8 @@ const BOUNDS: [[number, number], [number, number]] = [
 ];
 const CANTON_CENTRE: [number, number] = [8.696, 47.055];
 const FIRST_ZOOM = 11.6;
+// Close-up on a picked place; a fractional zoom for the same reason as FIRST_ZOOM (detailed tiles, small labels).
+const PICK_ZOOM = 12.6;
 const MAX_BOUNDS: [[number, number], [number, number]] = [
   [8.1, 46.75],
   [9.3, 47.36],
@@ -92,6 +94,7 @@ export default function DeskMap({
   const ready = useRef(false);
   const counts = useRef<maplibregl.Marker[]>([]);
   const popup = useRef<maplibregl.Popup | null>(null);
+  const pin = useRef<maplibregl.Marker | null>(null);
   // Latest props for the map event handlers, which are bound once.
   const latest = useRef({ places, onHover, onPickPhoto, labelOf });
   latest.current = { places, onHover, onPickPhoto, labelOf };
@@ -317,6 +320,7 @@ export default function DeskMap({
       ready.current = false;
       counts.current.forEach((c) => c.remove());
       counts.current = [];
+      pin.current = null;
       map.current = null;
       m.remove();
     };
@@ -345,6 +349,32 @@ export default function DeskMap({
       });
   }
 
+  /**
+   * A red map pin on the selected place (Timo, 24.10.): the ring alone is easy to miss on the colour map.
+   * HTML marker, tip on the spot; a new element per selection replays the drop.
+   */
+  function placePin(m: maplibregl.Map, placeId: number | null, drop: boolean) {
+    const p = placeId === null ? undefined : latest.current.places.find((x) => x.id === placeId);
+    if (!p) {
+      pin.current?.remove();
+      pin.current = null;
+      return;
+    }
+    if (pin.current && !drop) {
+      pin.current.setLngLat([p.lon, p.lat]);
+      return;
+    }
+    pin.current?.remove();
+    const el = document.createElement("div");
+    el.className = "desk-pin";
+    el.innerHTML =
+      '<svg width="26" height="34" viewBox="0 0 24 32" aria-hidden="true">' +
+      '<path d="M12 1C6.2 1 1.5 5.6 1.5 11.4 1.5 19 12 31 12 31s10.5-12 10.5-19.6C22.5 5.6 17.8 1 12 1z" ' +
+      `fill="${token("--accent", "#e2001a")}" stroke="#fff" stroke-width="1.5"/>` +
+      '<circle cx="12" cy="11.5" r="4" fill="#fff"/></svg>';
+    pin.current = new maplibregl.Marker({ element: el, anchor: "bottom" }).setLngLat([p.lon, p.lat]).addTo(m);
+  }
+
   // Data changes (results arrive, reviews change the classes).
   useEffect(() => {
     const m = map.current;
@@ -352,6 +382,7 @@ export default function DeskMap({
     (m.getSource("places") as maplibregl.GeoJSONSource | undefined)?.setData(placesData(places));
     applyState(m);
     drawCounts(m);
+    placePin(m, state.current.selected, false);
   }, [places]);
 
   useEffect(() => {
@@ -360,11 +391,12 @@ export default function DeskMap({
     state.current = { hovered: hoveredPlace, selected: selectedPlace };
     if (!m) return;
     applyState(m);
+    if (selectedPlace !== prevSelected) placePin(m, selectedPlace, true);
     // Fly to a newly selected place (jumpTo under reduced motion).
     if (selectedPlace !== null && selectedPlace !== prevSelected) {
       const p = latest.current.places.find((x) => x.id === selectedPlace);
       if (p) {
-        const target = { center: [p.lon, p.lat] as [number, number], zoom: Math.max(m.getZoom(), 13), padding: framePadding() };
+        const target = { center: [p.lon, p.lat] as [number, number], zoom: Math.max(m.getZoom(), PICK_ZOOM), padding: framePadding() };
         if (reducedMotion()) m.jumpTo(target);
         else m.easeTo({ ...target, duration: 450 });
       }
