@@ -55,6 +55,11 @@ const TOOL_LABELS: Record<string, string> = {
   // v3
   address_lookup: "Adressverzeichnis abfragen",
   named_buildings: "Benannte Gebäude suchen",
+  // v4 GeoGuessr routine (Said, 24.10.)
+  photos_near: "Fotos vor Ort ansehen",
+  aerial_view: "Luftbild vergleichen",
+  skyline: "Skyline und Sonne prüfen",
+  viewpoint_search: "Standort aus den Bergen bestimmen",
 };
 
 export function fieldLabel(key: string): string {

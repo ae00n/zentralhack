@@ -2,7 +2,7 @@
 
 // Foto (FRONTPAGE_PLAN 5, layout FRONTPAGE_POLISH 6): a toolbar (breadcrumb, stage tabs Foto | Vergleich |
 // Karte, position in the queue), the stage on the left and a 440 px inspector with a sticky review footer.
-// Mock and demo mode replay the cached trace (step 5). Live mode shows a cached result at once and
+// Opening a photo replays its cached trace (step 5; in live mode too since 24.10.). Live mode
 // streams a new analysis over SSE when asked (step 8); it never starts one on its own (costs money).
 import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
@@ -216,7 +216,9 @@ export default function AnalysePage() {
           return;
         }
         setResult(res);
-        if (MODE !== "live" && res.trace?.length && !advancing) startReplay(res);
+        // Arriving from the desk the steps fade in, in live mode too (Said, 24.10.): how a result comes about
+        // is a MUST of the brief. Moving on with Enter / arrows / N still shows the next result at once.
+        if (res.trace?.length && !advancing) startReplay(res);
         else setSteps(res.trace ?? []);
       })
       .catch((e: unknown) =>
