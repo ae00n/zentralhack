@@ -12,7 +12,7 @@ from .. import fields as submit
 from .. import llm
 from ..config import MODEL
 from . import tools, vision
-from .common import CACHE_ONLY, IMAGE_PX, SURE, cached, image, key, original, quarters, store
+from .common import CACHE_ONLY, IMAGE_PX, SURE, cached, image, key, original, quarters, ref_image, store
 
 VARIANTS = ("all", "web", "blind")
 EFFORT = "high"
@@ -110,8 +110,7 @@ def content(rec: dict, variant: str) -> tuple[list[dict], list[dict]]:
                                        "oder danach):"}, image(dp.image_file(dp.get_record(s)), 512)]
     refs = strong_refs(rec) if variant == "all" else []
     for i, r in enumerate(refs, 1):
-        p = dp.image_file(dp.get_record(r["id"]))
-        if p and p.exists():
+        if p := ref_image(r["id"]):
             c += [{"type": "text", "text": f"Referenzfoto {i} (Bildvergleich, {r['inliers']} geometrisch passende "
                                            f"Punkte; Titel \"{r.get('title') or '-'}\", {r.get('year') or '?'}, "
                                            f"aufgenommen in {r.get('municipality') or '?'}):"}, image(p, 512)]
