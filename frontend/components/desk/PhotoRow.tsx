@@ -6,30 +6,29 @@ import { certClass, modelClass, type DeskItem } from "@/lib/desk";
 import { NOT_DETERMINED, analyseHref, formatPct, isEmptyValue } from "@/lib/format";
 import { effectiveValue, formatValue } from "@/lib/review";
 
-// Flat list row (sz.ch list, FRONTPAGE_PLAN 2.2): thumbnail, bold signature line, one meta line,
-// 1px divider. Meta: "Schwyz · Alterszentrum Acherhof · Grundstrasse 32 · 94 % · bestätigt".
-// Plan 4 behaviour: hover highlights the pin, the first click selects (map flies there), a second
+// List row. Sidebar makeover (Said, 24.10.): a large thumbnail, the building as the headline, place and
+// street underneath, signature and certainty on a quiet top line. No dividers; rows are soft cards.
+// Behaviour as before: hover highlights the pin, the first click selects (map flies there), a second
 // click or Enter opens the detail page.
 
-function metaParts(item: DeskItem): { text: string; warn?: boolean }[] {
+function lines(item: DeskItem): { headline: string; sub: string | null; status: string | null; warn: boolean } {
   const { result } = item;
-  if (!result) return [{ text: "Noch kein Ergebnis" }];
+  if (!result) return { headline: "Noch kein Ergebnis", sub: null, status: null, warn: false };
   const first = (v: ReturnType<typeof effectiveValue>) => (Array.isArray(v) ? v[0] : v);
   const place = effectiveValue(result, "locality") ?? effectiveValue(result, "municipality");
   const building = first(effectiveValue(result, "buildings"));
   const street = effectiveValue(result, "street");
-  const parts: { text: string; warn?: boolean }[] = [
-    { text: formatValue(place) },
-    { text: building ?? NOT_DETERMINED },
-  ];
-  if (!isEmptyValue(street)) parts.push({ text: formatValue(street) });
-  parts.push({ text: formatPct(result.overall_confidence) });
-  const status = result.review?.status;
-  if (status === "bestaetigt") parts.push({ text: "bestätigt" });
-  else if (status === "korrigiert") parts.push({ text: "korrigiert" });
-  else if (modelClass(result) === "sure") parts.push({ text: "sicher" });
-  else parts.push({ text: "Prüfung nötig", warn: true });
-  return parts;
+  const placeText = isEmptyValue(place) ? null : formatValue(place);
+  const sub = [building ? placeText : null, isEmptyValue(street) ? null : formatValue(street)].filter(Boolean).join(" · ");
+  const review = result.review?.status;
+  const status =
+    review === "bestaetigt" ? "bestätigt" : review === "korrigiert" ? "korrigiert" : modelClass(result) === "sure" ? "sicher" : "Prüfung nötig";
+  return {
+    headline: building ?? placeText ?? NOT_DETERMINED,
+    sub: sub || null,
+    status,
+    warn: status === "Prüfung nötig",
+  };
 }
 
 /** DOM id of a row, for scrollIntoView when the map selects it. */
@@ -45,22 +44,24 @@ interface Props {
   onSelect?: (photoId: string) => void;
 }
 
-/** Status dot (6 px): same certainty scale as the map; reviewed gets a ring, "nicht bestimmbar" is hollow. */
+/** Status dot: same certainty scale as the map; reviewed gets a ring, "nicht bestimmbar" is hollow. */
 const DOT: Record<ReturnType<typeof certClass>, string> = {
   confirmed: "bg-cert-confirmed ring-1 ring-cert-confirmed ring-offset-1 ring-offset-paper",
   sure: "bg-cert-sure",
   check: "bg-cert-check",
-  open: "border border-cert-open",
+  open: "border border-cert-open bg-paper",
 };
 
 export default function PhotoRow({ item, hovered, selected, onHover, onSelect }: Props) {
-  const { record } = item;
+  const { record, result } = item;
   const series = record.raw?.session?.length ?? 0;
+  const l = lines(item);
   return (
     <li id={rowId(record.id)}>
       <Link
         href={analyseHref(record.id)}
         aria-current={selected ? "true" : undefined}
+        title={selected ? "Erneut klicken oder Enter öffnet das Foto" : undefined}
         onMouseEnter={() => onHover?.(record.id)}
         onMouseLeave={() => onHover?.(null)}
         onFocus={() => onHover?.(record.id)}
@@ -72,30 +73,42 @@ export default function PhotoRow({ item, hovered, selected, onHover, onSelect }:
           }
         }}
         className={cn(
-          "group relative grid grid-cols-[64px_minmax(0,1fr)] gap-3 border-b border-rule/[0.06] px-3 py-2.5 transition-colors duration-hover hover:bg-paper-2/70",
+          "group relative flex gap-3 rounded p-2 transition-colors duration-hover hover:bg-paper-2/70",
           FOCUS_RING,
-          "focus-visible:ring-inset focus-visible:ring-offset-0",
           hovered && !selected && "bg-paper-2/70",
-          selected && "bg-accent-soft/[0.06] before:absolute before:inset-y-2 before:left-0 before:w-[2px] before:bg-accent",
+          selected && "bg-accent-soft/[0.07] ring-1 ring-inset ring-accent/25",
         )}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={imageUrl(record.id, 160)} alt="" loading="lazy" className="h-11 w-16 rounded-sm bg-paper-2 object-cover" />
-        <span className="min-w-0">
-          <span className="flex items-center gap-2">
-            <span className={cn("size-1.5 shrink-0 rounded-dot", DOT[certClass(item.result)])} aria-hidden />
-            <span className="font-mono text-ui text-ink">{record.signature ?? record.id}</span>
-            {series > 0 && <span className="text-meta text-ink-muted">Serie ({series + 1})</span>}
-          </span>
-          <span className="mt-0.5 block truncate text-meta tnum text-ink-muted">
-            {metaParts(item).map((p, i) => (
-              <span key={i}>
-                {i > 0 && " · "}
-                <span className={p.warn ? "text-warn" : undefined}>{p.text}</span>
+        <span className="relative shrink-0 overflow-hidden rounded-sm bg-paper-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={imageUrl(record.id, 320)}
+            alt=""
+            loading="lazy"
+            className="h-[84px] w-[112px] object-cover transition-transform duration-500 ease-calm group-hover:scale-[1.04]"
+          />
+          {series > 0 && (
+            <span className="absolute bottom-1 left-1 rounded-sm bg-black/55 px-1 text-micro text-white backdrop-blur-sm">
+              Serie {series + 1}
+            </span>
+          )}
+        </span>
+        <span className="flex min-w-0 flex-1 flex-col justify-center gap-0.5">
+          <span className="flex items-center gap-2 text-meta tnum">
+            <span className={cn("size-1.5 shrink-0 rounded-dot", DOT[certClass(result)])} aria-hidden />
+            <span className="truncate font-mono text-ink-muted">{record.signature ?? record.id}</span>
+            {result && (
+              <span className={cn("ml-auto shrink-0 font-medium", l.warn ? "text-warn" : "text-ink")}>
+                {formatPct(result.overall_confidence)}
               </span>
-            ))}
+            )}
           </span>
-          {selected && <span className="mt-0.5 block text-micro text-ink-muted">Erneut klicken oder Enter öffnet das Foto</span>}
+          <span className="truncate text-ui font-medium text-ink">{l.headline}</span>
+          {l.sub && <span className="truncate text-meta text-ink-muted">{l.sub}</span>}
+          {/* "sicher" says nothing the dot and the percentage do not; the other states do. */}
+          {l.status && l.status !== "sicher" && (
+            <span className={cn("text-micro", l.warn ? "text-warn" : "text-ink-muted")}>{l.status}</span>
+          )}
         </span>
       </Link>
     </li>

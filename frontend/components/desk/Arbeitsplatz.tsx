@@ -1,7 +1,8 @@
 "use client";
 
 // Arbeitsplatz (FRONTPAGE_PLAN 4): the whole SG.CIV.17 set after the agent processed it. Counters band,
-// Excel button, and the photo list (Prio 1 | Alle, 4 sorts, filter via counters, search in the panel).
+// Excel button, and the photo list (Prio 1 | Alle, 4 sorts, search in the panel; no filters since the
+// sidebar makeover, Said 24.10.).
 // FRONTPAGE_POLISH 5: one viewport, the map fills it and the list floats on the left as a 400px panel.
 // Hover and selection are synced both ways (FRONTPAGE_PLAN 4, Behaviour).
 // UPLOAD_PLAN step 2b: the main page again (/), also shown at /stapel/challenge.
@@ -19,17 +20,14 @@ import PhotoRow, { rowId } from "@/components/desk/PhotoRow";
 import StreetPane from "@/components/desk/StreetPane";
 import { errorText, exportXlsxUrl, getTilesUrl, listChallenge, listResults, tileTemplate } from "@/lib/api";
 import {
-  FILTERS,
   SORTS,
   aggregatePlaces,
   certClass,
   countItems,
-  filterItems,
   searchItems,
   sortItems,
   yearSpan,
   type DeskItem,
-  type FilterKey,
   type SortKey,
 } from "@/lib/desk";
 import { reasoningOf } from "@/lib/reasoning";
@@ -73,8 +71,7 @@ function Arbeitsplatz() {
   const [results, setResults] = useState<Map<string, AnalysisResult | null>>(new Map());
   const [error, setError] = useState<string | null>(null);
   const [scope, setScope] = useState<Scope>("prio1");
-  const [sort, setSort] = useState<SortKey>("unsure");
-  const [filter, setFilter] = useState<FilterKey>("all");
+  const [sort, setSort] = useState<SortKey>("sure"); // most certain first (Said, 24.10.)
   const [loadingResults, setLoadingResults] = useState(false);
   useReviewStore(); // decisions made on the detail page count here at once
   const router = useRouter();
@@ -146,8 +143,8 @@ function Arbeitsplatz() {
   const items = toItems(scoped);
   const counts = countItems(items);
   const prio = countItems(toItems(prioRecords));
-  const shown = sortItems(filterItems(searchItems(items, q), filter), sort);
-  // The map shows what the list shows (scope, search, filter).
+  const shown = sortItems(searchItems(items, q), sort);
+  // The map shows what the list shows (scope, search).
   // Keyed by content, not by the array: hover re-renders must not rebuild the map data (it resets feature-state).
   const placeKey = shown
     .map((i) => {
@@ -321,15 +318,7 @@ function Arbeitsplatz() {
                 {l.label}
               </span>
             ))}
-            {withoutPlace > 0 && (
-              <button
-                type="button"
-                onClick={() => setFilter("noplace")}
-                className={cn("rounded-sm underline decoration-rule/20 underline-offset-2 hover:text-ink", FOCUS_RING)}
-              >
-                {withoutPlace === 1 ? "1 Foto ohne Ort" : `${withoutPlace} Fotos ohne Ort`}
-              </button>
-            )}
+            {withoutPlace > 0 && <span>{withoutPlace === 1 ? "1 Foto ohne Ort" : `${withoutPlace} Fotos ohne Ort`}</span>}
           </div>
         </div>
 
@@ -350,12 +339,10 @@ function Arbeitsplatz() {
             meta={meta}
             counts={counts}
             prio={prio}
-            filter={filter}
-            onFilter={setFilter}
             excelUrl={exportXlsxUrl({ split: "challenge", priority: scope === "prio1" ? 1 : undefined })}
           />
 
-          <div className="flex flex-wrap items-center gap-2 border-b border-rule/[0.08] px-3 py-2">
+          <div className="flex flex-wrap items-center gap-2 px-4 pb-3">
             <DeskSearch className="w-full" />
             <Segmented
               label="Umfang"
@@ -366,28 +353,30 @@ function Arbeitsplatz() {
                 { key: "all", label: `Alle ${records?.length ?? ""}`.trim() },
               ]}
             />
-            <Select label="Sortierung" value={sort} onChange={setSort} options={SORTS} />
-            <Select label="Filter" prefix value={filter} onChange={setFilter} options={FILTERS} />
+            <Select label="Sortierung" value={sort} onChange={setSort} options={SORTS} className="ml-auto" />
           </div>
 
-          <p className="px-3 pt-2 text-meta tnum text-ink-muted" aria-live="polite">
-            {shown.length} von {items.length} Fotos
-            {q && (
-              <>
-                {" · "}Suche «{q}»{" · "}
-                <a href={deskHref()} className="underline decoration-rule/20 underline-offset-2 hover:text-ink">
-                  zurücksetzen
-                </a>
-              </>
-            )}
-            {loadingResults && " · lade Ergebnisse ..."}
-          </p>
+          {/* Only while it says something: a search is on or results are still loading. */}
+          {(q || loadingResults) && (
+            <p className="px-4 pb-2 text-meta tnum text-ink-muted" aria-live="polite">
+              {q ? (
+                <>
+                  {shown.length} von {items.length} Fotos · Suche «{q}» ·{" "}
+                  <a href={deskHref()} className="underline decoration-rule/20 underline-offset-2 hover:text-ink">
+                    zurücksetzen
+                  </a>
+                </>
+              ) : (
+                "Lade Ergebnisse ..."
+              )}
+            </p>
+          )}
           {error && <p className="px-3 pt-2 text-ui text-bad">Server nicht erreichbar oder Fehler: {error}</p>}
 
           {records && shown.length === 0 ? (
             <p className="py-10 text-center text-ui text-ink-muted">Keine Fotos für diese Auswahl.</p>
           ) : (
-            <ul className="mt-1 min-h-0 flex-1 overflow-y-auto">
+            <ul className="min-h-0 flex-1 space-y-0.5 overflow-y-auto border-t border-rule/[0.06] px-2 py-2">
               {shown.map((item) => (
                 <PhotoRow
                   key={item.record.id}
