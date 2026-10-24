@@ -220,6 +220,44 @@ body {
     transform: translateY(-10px);
   }
 }
+/* Beacon on the flight target (Said, 24.10.): three radar rings and a glowing core while the camera is high. */
+.desk-beacon {
+  position: relative;
+  width: 18px;
+  height: 18px;
+  pointer-events: none;
+}
+.desk-beacon i {
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: rgb(var(--accent));
+  box-shadow: 0 0 0 2px #fff, 0 0 18px 6px rgb(var(--accent) / 0.55);
+}
+.desk-beacon span {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid rgb(var(--accent));
+  opacity: 0;
+  animation: beacon-ring 1.5s cubic-bezier(0.2, 0.6, 0.3, 1) infinite;
+}
+.desk-beacon span:nth-child(2) {
+  animation-delay: 0.5s;
+}
+.desk-beacon span:nth-child(3) {
+  animation-delay: 1s;
+}
+@keyframes beacon-ring {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(4.2);
+    opacity: 0;
+  }
+}
 .maplibregl-popup-content {
   border-radius: 10px;
   box-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 8px 24px rgb(0 0 0 / 0.08);

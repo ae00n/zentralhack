@@ -37,8 +37,23 @@ const CANTON_CENTRE: [number, number] = [8.696, 47.055];
 const FIRST_ZOOM = 11.6;
 // Close-up on a picked place; a fractional zoom for the same reason as FIRST_ZOOM (detailed tiles, small labels).
 const PICK_ZOOM = 12.6;
-// Out to the canton and back in on a newly picked photo: long enough to read, short enough not to wait.
-const FLY_MS = 2400;
+// The flight to a newly picked photo (Said, 24.10.): rise to all of Switzerland, mark the target with a
+// beacon, dive in with a slight drone tilt, settle flat. Offline only the canton is cached, so it rises to
+// the canton instead.
+const SWISS_BOUNDS: [[number, number], [number, number]] = [
+  [5.956, 45.818],
+  [10.492, 47.808],
+];
+const RISE_MS = 1100;
+const HOLD_MS = 250;
+const DIVE_MS = 1900;
+const SETTLE_MS = 550;
+const DIVE_PITCH = 48;
+const DIVE_BEARING = -14;
+const MIN_ZOOM = 8;
+const easeOut = (t: number) => 1 - (1 - t) ** 3;
+const easeInOut = (t: number) => (t < 0.5 ? 4 * t ** 3 : 1 - (-2 * t + 2) ** 3 / 2);
+const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const NO_CIRCLE: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
 const MAX_BOUNDS: [[number, number], [number, number]] = [
   [8.1, 46.75],
@@ -91,6 +106,9 @@ export default function DeskMap({
   const counts = useRef<maplibregl.Marker[]>([]);
   const popup = useRef<maplibregl.Popup | null>(null);
   const pin = useRef<maplibregl.Marker | null>(null);
+  const beacon = useRef<maplibregl.Marker | null>(null);
+  // Flight number: a newer pick or a hand on the map ends the running flight.
+  const flight = useRef(0);
   // Latest props for the map event handlers, which are bound once.
   const latest = useRef({ places, basemap, onHover, onPickPhoto, labelOf });
   latest.current = { places, basemap, onHover, onPickPhoto, labelOf };
@@ -181,7 +199,7 @@ export default function DeskMap({
       bounds: BOUNDS,
       fitBoundsOptions: { padding: framePadding() },
       maxBounds: MAX_BOUNDS,
-      minZoom: 8,
+      minZoom: MIN_ZOOM,
       maxZoom: offline ? 16 : 18,
       attributionControl: false,
       dragRotate: false,
@@ -338,6 +356,19 @@ export default function DeskMap({
     const ro = new ResizeObserver(() => m.resize());
     ro.observe(container.current);
 
+    // A hand on the map ends a running flight where it is (and restores the canton limits).
+    const takeOver = (e: { originalEvent?: unknown }) => {
+      if (!e.originalEvent || !beacon.current) return;
+      flight.current++;
+      endFlight(m);
+      placePin(m, state.current.selected, true);
+      // Hand rotation is off on the desk, so level the drone tilt once the hand lets go.
+      m.once("moveend", () => m.easeTo({ pitch: 0, bearing: 0, duration: 300 }));
+    };
+    m.on("dragstart", takeOver);
+    m.on("wheel", takeOver);
+    m.on("touchstart", takeOver);
+
     map.current = m;
     // Test hook for the headless checks (dev only): read feature-state and project pins to pixels.
     if (process.env.NODE_ENV !== "production") (window as unknown as { __deskMap?: maplibregl.Map }).__deskMap = m;
@@ -373,6 +404,56 @@ export default function DeskMap({
         el.textContent = String(p.count);
         return new maplibregl.Marker({ element: el }).setLngLat([p.lon, p.lat]).addTo(m);
       });
+  }
+
+  /** One leg of the flight; resolves when it ends, false when a newer flight or the user took over. */
+  function leg(m: maplibregl.Map, id: number, run: () => void): Promise<boolean> {
+    return new Promise((resolve) => {
+      m.once("moveend", () => resolve(flight.current === id));
+      run();
+    });
+  }
+
+  function endFlight(m: maplibregl.Map) {
+    beacon.current?.remove();
+    beacon.current = null;
+    m.setMinZoom(MIN_ZOOM);
+    m.setMaxBounds(MAX_BOUNDS);
+  }
+
+  /** Pulsing rings on the target while the camera is up high, so the eye knows where it will land. */
+  function showBeacon(m: maplibregl.Map, p: Place) {
+    beacon.current?.remove();
+    const el = document.createElement("div");
+    el.className = "desk-beacon";
+    el.innerHTML = "<span></span><span></span><span></span><i></i>";
+    beacon.current = new maplibregl.Marker({ element: el, anchor: "center" }).setLngLat([p.lon, p.lat]).addTo(m);
+  }
+
+  /** Rise to Switzerland, beacon, dive with a drone tilt, settle flat, drop the pin. */
+  async function fly(m: maplibregl.Map, p: Place, target: { center: [number, number]; zoom: number; padding: maplibregl.PaddingOptions }) {
+    const id = ++flight.current;
+    m.stop();
+    m.setMaxBounds(null);
+    m.setMinZoom(4);
+    const high = m.cameraForBounds(offline ? BOUNDS : SWISS_BOUNDS, { padding: target.padding });
+    showBeacon(m, p);
+    const up = await leg(m, id, () =>
+      m.easeTo({ center: high?.center ?? target.center, zoom: high?.zoom ?? 7, pitch: 0, bearing: 0, padding: target.padding,
+                 duration: RISE_MS, easing: easeOut, essential: true }));
+    if (!up) return;
+    await wait(HOLD_MS);
+    if (flight.current !== id) return;
+    const down = await leg(m, id, () =>
+      m.flyTo({ ...target, pitch: DIVE_PITCH, bearing: DIVE_BEARING, duration: DIVE_MS, curve: 1.3, easing: easeInOut,
+                essential: true }));
+    if (!down) return;
+    beacon.current?.remove();
+    beacon.current = null;
+    const flat = await leg(m, id, () => m.easeTo({ pitch: 0, bearing: 0, duration: SETTLE_MS, easing: easeOut, essential: true }));
+    if (!flat) return;
+    endFlight(m);
+    placePin(m, state.current.selected, true);
   }
 
   /**
@@ -441,7 +522,8 @@ export default function DeskMap({
     if (!m) return;
     applyState(m);
     if (selectedPlace !== prevSelected) {
-      placePin(m, selectedPlace, true);
+      if (reducedMotion() || selectedPlace === null) placePin(m, selectedPlace, true);
+      else placePin(m, null, false); // the pin drops in when the flight lands
       drawCircle(m);
     }
     // Fly to a newly selected place (jumpTo under reduced motion), zoomed out as far as its circle needs.
@@ -459,10 +541,7 @@ export default function DeskMap({
         const zoom = Math.min(Math.max(m.getZoom(), PICK_ZOOM), fit ?? Infinity);
         const target = { center: [p.lon, p.lat] as [number, number], zoom, padding: pad };
         if (reducedMotion()) m.jumpTo(target);
-        else {
-          const overview = m.cameraForBounds(BOUNDS, { padding: pad })?.zoom ?? 9;
-          m.flyTo({ ...target, minZoom: Math.min(overview, zoom - 1), duration: FLY_MS, essential: true });
-        }
+        else void fly(m, p, target);
       }
     }
   }, [hoveredPlace, selectedPlace]);
