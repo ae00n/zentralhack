@@ -95,7 +95,8 @@ def similar_images(image_path: str, k: int = 8, model: str = "best",
     excluded = {_base(i) for i in exclude_ids}
     want = k * 3 + len(excluded) + 10
     out, seen = [], set()
-    for pid, score in embed.search(image_path, want, model):
+    # sources go into the index search, so a filter like ["commons"] pages past the older photos ranked above them
+    for pid, score in embed.search(image_path, want, model, sources=sources):
         if _base(pid) in excluded or _base(pid) in seen:  # a card and its crops count once (best one wins)
             continue
         rec = get_record(pid)
@@ -126,13 +127,16 @@ def archive_lookup(place: str | None = None, municipality: str | None = None,
                    year_from: int | None = None, year_to: int | None = None, limit: int = 20) -> list[dict]:
     """Dated, labelled Staatsarchiv records matching the filter. Never returns eval cards.
 
-    place: substring match on Thema tags and title. municipality: exact Gemeinde name
-    (with or without "(SZ)"). Years: overlap with the card's year range.
+    place: matches Thema tags and title when every word of it occurs there, in any order ("Kirche
+    Lachen" finds "Lachen, Pfarrkirche"). With no hit at all, spelling variants count too
+    ("Muotathal" finds "Muotatal"). municipality: exact Gemeinde name (with or without "(SZ)").
+    Years: overlap with the card's year range.
     """
     ev = eval_ids()
     p = _norm(place) if place else None
     m = _norm(re.sub(r"\s*\(SZ\)\s*$", "", municipality)) if municipality else None
-    out = []
+    words = [w for w in (p or "").split() if len(w) >= 3] or ([p] if p else [])
+    out, fuzzy = [], []
     for r in _records().values():
         if r["source"] != "staatsarchiv" or "#" in r["id"] or r["id"] in ev:
             continue
@@ -141,13 +145,23 @@ def archive_lookup(place: str | None = None, municipality: str | None = None,
             continue
         if m and _norm(re.sub(r"\s*\(SZ\)\s*$", "", r.get("municipality") or "")) != m:
             continue
-        if p and p not in _norm(" ".join(r.get("places") or []) + " " + (r.get("title") or "")):
-            continue
         if year_from is not None and d.get("year_to") is not None and d["year_to"] < year_from:  # "nach 1910": open end
             continue
         if year_to is not None and d["year_from"] > year_to:
             continue
+        if p:
+            text = _norm(" ".join(r.get("places") or []) + " " + (r.get("title") or ""))
+            if not all(w in text for w in words):
+                if not out:
+                    fuzzy.append((r, text))
+                continue
         out.append(r)
+    if p and not out:  # spelling variants: every query word close to some word of the card
+        import difflib
+        for r, text in fuzzy:
+            tw = text.split()
+            if all(difflib.get_close_matches(w, tw, n=1, cutoff=0.8) for w in words):
+                out.append(r)
     out.sort(key=lambda r: (r["date"]["year_from"], r["id"]))
     return out[:limit]
 
@@ -192,3 +206,37 @@ def timeline(lat: float, lon: float, radius_m: int = 1000) -> list[dict]:
                         "distance_m": round(dist), "image_path": r["image"]["path"]})
     out.sort(key=lambda x: (x["year_from"], x["distance_m"], x["id"]))
     return out
+
+
+def photos_near(lat: float, lon: float, radius_m: int = 500, max_precision_m: int = 500,
+                sources: list[str] | None = None, exclude_ids: list[str] = (), limit: int = 12) -> list[dict]:
+    """Reference photos taken near a point, nearest first ("walk around" a candidate spot).
+
+    [{id, source, title, year, distance_m, precision_m, heading_deg, image_path}]
+    Every source with a position counts (Commons, E-Pics/Smapshot, LUBIS, Staatsarchiv, NB). Only
+    positions at least as precise as max_precision_m: Staatsarchiv cards placed at their municipality
+    (1 to 3 km) are left out by default. heading_deg is the camera's viewing direction (0 = north,
+    90 = east) where a pose is known (Smapshot, E-Pics, LUBIS), else null. Never returns eval cards,
+    challenge photos, crops, or anything in exclude_ids.
+    """
+    ev = eval_ids()
+    excluded = {_base(i) for i in exclude_ids}
+    out = []
+    for r in _records().values():
+        if r["source"] == "challenge" or "#" in r["id"] or r["id"] in ev or r["id"] in excluded:
+            continue
+        loc = r.get("location")
+        if not loc or (loc.get("precision_m") or 10**6) > max_precision_m or not (r.get("image") or {}).get("path"):
+            continue
+        if sources and r["source"] not in sources:
+            continue
+        dist = _haversine_m(lat, lon, loc["lat"], loc["lon"])
+        if dist > radius_m:
+            continue
+        az = (r.get("camera") or {}).get("azimuth")
+        out.append({"id": r["id"], "source": r["source"], "title": r.get("title"),
+                    "year": (r.get("date") or {}).get("year_from"), "distance_m": round(dist),
+                    "precision_m": loc.get("precision_m"), "heading_deg": round(az % 360) if az is not None else None,
+                    "image_path": r["image"]["path"]})
+    out.sort(key=lambda x: (x["distance_m"], x["id"]))
+    return out[:limit]

@@ -84,3 +84,24 @@ def address_lookup(lat: float, lon: float, radius_m: int = 100, limit: int = 10)
 def named_buildings(lat: float | None = None, lon: float | None = None, radius_m: int = 500,
                     name: str | None = None, kinds: list[str] | None = None, limit: int = 20) -> list[dict]:
     return _load("named_buildings.json")[:limit]
+
+
+def photos_near(lat: float, lon: float, radius_m: int = 500, max_precision_m: int = 500,
+                sources: list[str] | None = None, exclude_ids: list[str] = (), limit: int = 12) -> list[dict]:
+    r = _record()
+    if r["id"] in {i.split("#", 1)[0] for i in exclude_ids}:
+        return []
+    return [{"id": r["id"], "source": r["source"], "title": r.get("title"), "year": r["date"]["year_from"],
+             "distance_m": 120, "precision_m": 50, "heading_deg": 135, "image_path": r["image"]["path"]}][:limit]
+
+
+def aerial_image(lat: float, lon: float, radius_m: float = 80, year: int | None = None) -> dict:
+    return {"path": "sample.jpg", "year": year, "meters_per_pixel": 0.2, "width": 800, "height": 800,
+            "radius_m": radius_m}
+
+
+def horizon(lat: float, lon: float, heading_deg: float, fov_deg: float = 60) -> dict:
+    return {"path": "sample.jpg", "camera_height_m": 440, "heading_deg": heading_deg, "fov_deg": fov_deg,
+            "azimuths_deg": [heading_deg], "elevation_deg": [5.0],
+            "peaks": [{"name": "Grosser Mythen", "azimuth_deg": heading_deg, "offset_deg": 0.0, "distance_km": 3.0,
+                       "elevation_deg": 25.0, "ele_m": 1898, "visible": True}]}

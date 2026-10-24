@@ -31,7 +31,7 @@ def test_timeline_sorted_and_leak_free(tiny_data):
 
 def test_similar_images_excludes_query_and_its_crops(tiny_data, monkeypatch):
     fake = types.ModuleType("data_pipeline.embed")
-    fake.search = lambda path, k, model: [("stasz:2#1", 0.99), ("stasz:2", 0.95), ("epics:4", 0.9), ("stasz:1", 0.8)]
+    fake.search = lambda path, k, model, sources=None: [("stasz:2#1", 0.99), ("stasz:2", 0.95), ("epics:4", 0.9), ("stasz:1", 0.8)]
     monkeypatch.setitem(sys.modules, "data_pipeline.embed", fake)
     import data_pipeline
     monkeypatch.setattr(data_pipeline, "embed", fake, raising=False)
@@ -50,7 +50,7 @@ def test_eval_ids(tiny_data):
 
 def test_similar_images_verify_reranks(tiny_data, monkeypatch):
     fake = types.ModuleType("data_pipeline.embed")
-    fake.search = lambda path, k, model: [("stasz:2", 0.95), ("epics:4", 0.9), ("stasz:3", 0.8)]
+    fake.search = lambda path, k, model, sources=None: [("stasz:2", 0.95), ("epics:4", 0.9), ("stasz:3", 0.8)]
     geo = types.ModuleType("data_pipeline.verify")
     inl = {"2.jpg": 5, "4.jpg": 80, "3.jpg": 40}
     geo.verify = lambda q, paths: [{"path": str(p), "matches": 99, "inliers": inl[p.name],
@@ -64,3 +64,21 @@ def test_similar_images_verify_reranks(tiny_data, monkeypatch):
     assert set(plain[0]) == {"id", "score", "record"}  # default shape unchanged
     out = tiny_data.similar_images("q.jpg", k=2, verify=True)
     assert [(o["id"], o["inliers"], o["verified"]) for o in out] == [("epics:4", 80, True), ("stasz:3", 40, True)]
+
+
+def test_archive_lookup_word_order_and_spelling(tiny_data):
+    assert [r["id"] for r in tiny_data.archive_lookup(place="Schwyz Hauptplatz")] == ["stasz:2"]
+    assert [r["id"] for r in tiny_data.archive_lookup(place="Hauptplaz")] == ["stasz:2"]  # typo: fuzzy fallback
+    assert tiny_data.archive_lookup(place="Einsiedeln") == []
+
+
+def test_photos_near(tiny_data):
+    from data_pipeline import api
+    for pid, (lat, lon, prec) in {"stasz:2": (47.0201, 8.6501, 50), "stasz:3": (47.0300, 8.6500, 50),
+                                  "epics:4": (47.0200, 8.6500, 3000)}.items():
+        api._records()[pid]["location"] = {"lat": lat, "lon": lon, "method": "x", "precision_m": prec}
+    api._records()["stasz:2"]["camera"] = {"azimuth": 450.0}
+    out = tiny_data.photos_near(47.02, 8.65, radius_m=500)
+    assert [(o["id"], o["heading_deg"]) for o in out] == [("stasz:2", 90)]  # 3 too far, epics too imprecise, 1 is eval
+    assert tiny_data.photos_near(47.02, 8.65, exclude_ids=["stasz:2"]) == []
+    assert [o["id"] for o in tiny_data.photos_near(47.02, 8.65, max_precision_m=5000)] == ["epics:4", "stasz:2"]

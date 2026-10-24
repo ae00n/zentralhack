@@ -43,6 +43,27 @@ def test_named_buildings_by_point_name_and_kind(tiny_data, monkeypatch):
     assert [b["name"] for b in places.named_buildings(47.0184, 8.6572, 500, kinds=["Kirche/Kapelle"])] == ["Pfarrkirche St. Martin"]
 
 
+def test_generic_gwr_names_rank_after_proper_names(tiny_data):
+    from data_pipeline import places
+    for n in ["Einfamilienhaus", "Garage B", "MFH; 883", "Gewerbegebäude Luzernerstrasse 22", "Oek.-Gebäude",
+              "Wohn- und Geschäftshaus", "Mehrfamilienhaus mit Gewerbe", "Weidstall / Gebäude-Nr. 27", "1073"]:
+        assert places.is_generic(n), n
+    for n in ["Hotel Waldstätterhof", "Alte Metzg", "Klosterkirche 84", "Weidstall Ochsenweidli", "Pfarrhaus"]:
+        assert not places.is_generic(n), n
+    assert places.GBD_NR.sub("", "Gbd.-Nr. 995 Gartenhaus") == "Gartenhaus"
+    rows = [
+        {"name": "Einfamilienhaus", "kind": "Gebäude", "lat": 47.0184, "lon": 8.6572, "alt_names": [], "generic": True},
+        {"name": "Hotel Schwert", "kind": "Hotel", "lat": 47.0190, "lon": 8.6572, "alt_names": [], "generic": False},
+        {"name": "Kapelle Ried", "kind": "Kirche/Kapelle", "lat": 47.0200, "lon": 8.6572, "alt_names": []},
+    ]
+    f = places.GAZETTEER / "buildings.json"
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text(json.dumps(rows))
+    places._buildings.cache_clear()
+    assert [b["name"] for b in places.named_buildings(47.0184, 8.6572, 500)] == [
+        "Hotel Schwert", "Kapelle Ried", "Einfamilienhaus"]
+
+
 def test_challenge_records_resolve_but_are_never_similar_hits(tiny_data):
     from data_pipeline import api
     rec = {"id": "challenge:SG.CIV.17.3", "source": "challenge", "split": "challenge", "date": {}, "places": []}
