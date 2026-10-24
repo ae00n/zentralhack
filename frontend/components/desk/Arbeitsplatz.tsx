@@ -6,6 +6,7 @@
 // Hover and selection are synced both ways (FRONTPAGE_PLAN 4, Behaviour).
 // UPLOAD_PLAN step 2b: the main page again (/), also shown at /stapel/challenge.
 import dynamic from "next/dynamic";
+import { PersonStanding } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState, type CSSProperties } from "react";
 import DeskBand from "@/components/desk/DeskBand";
@@ -178,22 +179,22 @@ function Arbeitsplatz() {
   const reasoningPromise = useMemo(() => (selectedItem ? reasoningOf(selectedItem.result) : null), [selected, Boolean(selectedItem?.result)]); // eslint-disable-line react-hooks/exhaustive-deps
   // Street view split on the right (Said, 24.10.): opens once the flight to the picked photo has landed, and
   // only when Google has Street View on the spot (15 m, checked during the flight); otherwise no pane at all.
+  // A toggle next to the background switch turns it on; off by default, and nothing goes to Google while off.
   const [landed, setLanded] = useState<string | null>(null);
-  const [streetClosed, setStreetClosed] = useState(false);
+  const [streetOn, setStreetOn] = useState(false);
   const [paneW, setPaneW] = useState(0);
   const [pano, setPano] = useState<{ id: string; spot: StreetSpot } | null>(null);
   const spot = selectedItem?.result?.fields.coordinates?.value ?? null;
   useEffect(() => {
-    setStreetClosed(false);
-    if (!selected || !spot || tiles?.offline) return;
+    if (!streetOn || !selected || !spot || tiles?.offline) return;
     let live = true;
     void nearestStreetView(spot.lat, spot.lon).then((s) => live && s && setPano({ id: selected, spot: s }));
     return () => {
       live = false;
     };
-  }, [selected, spot?.lat, spot?.lon, tiles?.offline]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [streetOn, selected, spot?.lat, spot?.lon, tiles?.offline]); // eslint-disable-line react-hooks/exhaustive-deps
   const streetSpot = pano && pano.id === selected ? pano.spot : null;
-  const streetOpen = Boolean(selectedItem && spot && streetSpot && landed === selected && !streetClosed && paneW > 0 && !tiles?.offline);
+  const streetOpen = Boolean(selectedItem && spot && streetSpot && landed === selected && streetOn && paneW > 0 && !tiles?.offline);
   const onLanded = () => {
     setLanded(selected);
     // Wide screens only: about 42 % of the window, at most 760 px.
@@ -276,11 +277,31 @@ function Arbeitsplatz() {
               signature={selectedItem.record.signature ?? selectedItem.record.id}
               reasoning={reasoningPromise}
               width={paneW}
-              onClose={() => setStreetClosed(true)}
+              onClose={() => setStreetOn(false)}
             />
           )}
           {/* Aerial photo | map, top right next to the zoom buttons (MapLibre control: 10 px margin, 29 px wide). */}
-          <div className="absolute top-2.5 z-10 transition-[right] duration-500" style={{ right: "calc(var(--pane-w) + 48px)" }}>
+          <div
+            className="absolute top-2.5 z-10 flex items-center gap-2 transition-[right] duration-500"
+            style={{ right: "calc(var(--pane-w) + 48px)" }}
+          >
+            {!tiles?.offline && (
+              <button
+                type="button"
+                aria-pressed={streetOn}
+                onClick={() => setStreetOn((v) => !v)}
+                title="Zeigt Google Street View, wenn ein Panorama direkt am Standort liegt"
+                className={cn(
+                  "hidden h-8 items-center gap-1.5 rounded border border-rule/[0.08] px-2.5 text-ui shadow-panel backdrop-blur transition-colors duration-hover lg:inline-flex",
+                  FOCUS_RING,
+                  streetOn ? "bg-paper font-medium text-ink" : "bg-paper-2/90 text-ink-muted hover:text-ink",
+                )}
+              >
+                <PersonStanding className="size-4" aria-hidden />
+                Strassenansicht
+                <span aria-hidden className={cn("ml-0.5 size-1.5 rounded-dot", streetOn ? "bg-accent" : "bg-ink-muted/40")} />
+              </button>
+            )}
             <Segmented
               label="Hintergrund"
               value={basemap}
