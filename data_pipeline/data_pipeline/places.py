@@ -42,6 +42,24 @@ NOT_A_BUILDING = {"Brücke", "Bauwerk", "Station", "Bergbahnstation", "Schiffsta
                   "Natur", "Park", "Areal", "Ort"}  # mountains and lakes asked by name keep their rank
 CARE = re.compile(r"alters|pflege|senior|betagt", re.I)
 ADDRESS_LIKE = re.compile(r"^[^,]+, ?\d")  # "Acher, 1, 6442, 0": an address in the name field, not a name
+GBD_NR = re.compile(r"^Gbd\.?\s*-?\s*Nr\.?\s*\d+(\s*(und|/|,)\s*\d+)*\s*", re.I)  # "Gbd.-Nr. 995 Gartenhaus"
+# A GWR name that only says what type of building it is ("Einfamilienhaus", "Garage B", "MFH; 883",
+# "Gewerbegebäude Luzernerstrasse 22"). Matched on _norm(name) after dropping house numbers, letters and streets.
+GENERIC = re.compile(
+    r"((doppel|reihen)\s?)?(ein|zwei|drei|mehr|doppelein|reihenein)?familienhaus|[dr]?[emz]fh|doppel efh|reihen efh"
+    r"|wohnhaus|wohngebaude|wohnung|ferienhaus|gartenhaus|terrassenhaus|bootshaus|bienenhaus|geratehaus|haus"
+    r"|(doppel|tief)?garage|garagengebaude|carport|(velo|auto|container )?unterstand|container"
+    r"|(weid|alp)?stall|stallgebaude|scheune|remise|silo|(holz)?schopf|o?e?k\s?gebaude|o?e?konomiegebaude"
+    r"|trafo(station)?|reservoir|warmepumpe|pergola|werkstatt|gerate?schuppen|lager(gebaude|halle)?"
+    r"|neben(bau|baute|gebaude)|gewerbegebaude|technisches gebaude|unterirdisches gebaude|andere gebaude|gebaude"
+    r"|wohn und (geschafts|gewerbe)(haus|gebaude)|(gewerbe|geschafts|buro|fabrik|alp|post)?gebaude|(gewerbe|geschafts)haus"
+    r"|alphutte|laufstall|weidestall|garagen|un garage|garage unterirdisch|(personen|fahrrad)unterstand|gewachshaus"
+    r"|(garten)?gerat(e)?raum|gartengeratehaus|abstellraum|einstellhalle|werkhalle|gartenhalle|terrassenwohnung"
+    r"|burocontainer|containerburo|wc anlage|gewerbe (und )?industriebaute|gebaude sind verbunden|neubau|tank"
+    r"|\d familienhaus|(fertig)?garage|(schweine|vieh)stall|stallanbau|gerateschopf|materialraum|treppenhaus"
+    r"|gewerbehalle|magazin|betriebsgebaude|photovoltaikanlage|wochenendhaus|wohnen|abbruch|abgebrochen"
+    r"|west|ost|nord|sud|mitte|haus mitte")
+GENERIC_TAIL = re.compile(r"\s+(\d+\w?|[a-z]\d*|nr|gebaude nr|gbd nr|\S*(strasse|weg|gasse))$")
 
 _client: PoliteClient | None = None
 
@@ -187,7 +205,9 @@ def build_buildings() -> int:
         b["source"] = "osm"
     out += gwr_buildings(out)
     ensure(GAZETTEER)
-    BUILDINGS_FILE.write_text(json.dumps(out, ensure_ascii=False))
+    tmp = BUILDINGS_FILE.with_suffix(".json.tmp")  # rename, so a running agent never reads half a file
+    tmp.write_text(json.dumps(out, ensure_ascii=False))
+    tmp.replace(BUILDINGS_FILE)
     _buildings.cache_clear()
     return len(out)
 
@@ -217,8 +237,8 @@ def gwr_buildings(osm: list[dict]) -> list[dict]:
     rows = db.execute("select EGID, GBEZ, GKLAS, GGDENAME, GKODE, GKODN, GBAUJ, GSTAT, GABBJ from building "
                       "where GBEZ is not null and GBEZ != '' and GKODE is not null")
     for egid, name, klass, gem, e, n, built, status, gone in rows:
-        name = name.strip()
-        if ADDRESS_LIKE.match(name) or not (status == 1004 or (status == 1007 and (gone or 0) >= 2003)):
+        name = GBD_NR.sub("", name.strip()).strip()
+        if not name or ADDRESS_LIKE.match(name) or not (status == 1004 or (status == 1007 and (gone or 0) >= 2003)):
             continue
         lat, lon = _lv95_to_wgs84(e, n)
         cell = [b for dy in (-0.01, 0, 0.01) for dx in (-0.01, 0, 0.01)
@@ -234,8 +254,21 @@ def gwr_buildings(osm: list[dict]) -> list[dict]:
             "municipality": gem, "osm": None, "wikidata": None, "alt_names": [], "tags": {},
             "source": "gwr", "egid": egid, "gwr": GWR_URL.format(egid), "year_built": built,
             "locality": ort, "plz": plz, "demolished": gone if status == 1007 else None,
+            "generic": is_generic(name),
         })
     return out
+
+
+def is_generic(name: str) -> bool:
+    """True for a name that is only a building type, not a proper name ("Garage B", "MFH; 883")."""
+    parts = [p for p in re.split(r"/|\(|\)", name) if _norm(p)]  # "Stall / Lagergebäude", "Weidstall / Gebäude-Nr. 27"
+    if len(parts) > 1:
+        return all(is_generic(p) for p in parts)
+    s = re.sub(r"^(neubau|abbruch|umbau)\s+", "", _norm(name))
+    while (t := GENERIC_TAIL.sub("", s)) != s:
+        s = t
+    head = re.sub(r"\s+(mit|und)\s.*$", "", s)  # "Mehrfamilienhaus mit Gewerbe", "Holzschopf und Geräteraum"
+    return s.isdigit() or bool(GENERIC.fullmatch(s) or GENERIC.fullmatch(head))
 
 
 @lru_cache(maxsize=1)
@@ -271,8 +304,8 @@ def named_buildings(lat: float | None = None, lon: float | None = None, radius_m
                 continue
             item["distance_m"] = round(d)
         out.append(item)
-    if lat is not None and lon is not None:
-        out.sort(key=lambda b: b["distance_m"])
+    if lat is not None and lon is not None:  # proper names first, "Einfamilienhaus" and "Garage" after them
+        out.sort(key=lambda b: (bool(b.get("generic")), b["distance_m"]))
     elif q:  # whole-word hits first ("Acherhof" before "Tischmacherhof"), buildings before bridges and rivers
         out.sort(key=lambda b: (not re.search(rf"\b{re.escape(q)}\b", _norm(b["name"])), b["kind"] in NOT_A_BUILDING))
     return out[:limit]
