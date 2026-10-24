@@ -59,7 +59,10 @@ export default function ArbeitsplatzPage() {
 }
 
 function Arbeitsplatz() {
-  const q = useSearchParams().get("q") ?? "";
+  const params = useSearchParams();
+  const q = params.get("q") ?? "";
+  // Back from the full view: "?foto=<id>" opens that photo in the side panel again.
+  const fotoParam = params.get("foto");
   const [records, setRecords] = useState<PhotoRecord[] | null>(null);
   const [results, setResults] = useState<Map<string, AnalysisResult | null>>(new Map());
   const [error, setError] = useState<string | null>(null);
@@ -111,6 +114,10 @@ function Arbeitsplatz() {
       .then(setRecords)
       .catch((e: unknown) => setError(errorText(e)));
   }, []);
+
+  useEffect(() => {
+    if (fotoParam && records?.some((r) => r.id === fotoParam)) setSelected(fotoParam);
+  }, [fotoParam, records]);
 
   const prioRecords = useMemo(() => (records ?? []).filter((r) => r.raw?.priority === 1), [records]);
   const scoped = scope === "prio1" ? prioRecords : (records ?? []);
@@ -165,6 +172,7 @@ function Arbeitsplatz() {
   const backToList = () => {
     const id = selected;
     setSelected(null);
+    if (fotoParam) router.replace(q ? `/?q=${encodeURIComponent(q)}` : "/", { scroll: false });
     if (id) setTimeout(() => document.getElementById(rowId(id))?.scrollIntoView({ block: "nearest" }), 0);
   };
   useEffect(() => {

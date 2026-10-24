@@ -4,7 +4,7 @@
 // Karte, position in the queue), the stage on the left and a 440 px inspector with a sticky review footer.
 // Mock and demo mode replay the cached trace (step 5). Live mode shows a cached result at once and
 // streams a new analysis over SSE when asked (step 8); it never starts one on its own (costs money).
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -419,6 +419,17 @@ export default function AnalysePage() {
         aria-label="Werkzeugleiste"
         className="flex min-h-11 flex-wrap items-center gap-x-4 gap-y-1 border-b border-rule/[0.08] bg-paper px-4 py-1.5"
       >
+        {/* Back to the desk with this photo open in the side panel (Said, 24.10.). */}
+        <Link
+          href={`/?foto=${encodeURIComponent(id)}`}
+          className={cn(
+            "-ml-1 inline-flex items-center gap-1.5 rounded px-2 py-1 text-ui font-medium text-ink transition-colors duration-hover hover:bg-paper-2",
+            FOCUS_RING,
+          )}
+        >
+          <ArrowLeft className="size-4" aria-hidden />
+          Zurück
+        </Link>
         <ol aria-label="Brotkrume" className="flex min-w-0 items-center gap-1.5 overflow-x-auto whitespace-nowrap text-ui text-ink-muted">
           <li>
             <Link href="/" className={cn("rounded-sm hover:text-ink", FOCUS_RING)}>
