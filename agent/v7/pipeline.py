@@ -16,7 +16,7 @@ from .. import fields as submit
 from .. import results
 from ..config import MODEL
 from . import attempt, check, ground, judge, tiers, vision
-from .common import dist_m, gem, original
+from .common import dist_m, gem, original, small, upload_record
 from .tools import NOT_PLACES
 
 MAX_CANDIDATES = 5
@@ -95,9 +95,10 @@ def landmarks(names: list[str], center: dict | None) -> list[str]:
 
 def analyze(photo_id: str | None = None, image_path: str | None = None, *, model: str = MODEL,
             exclude_ids: list[str] = (), on_event: Callable[[dict], None] | None = None) -> dict:
-    rec = dp.get_record(photo_id) if photo_id else None
+    rec = dp.get_record(photo_id) if photo_id else (upload_record(image_path) if image_path else None)
     if not rec:
-        raise ValueError(f"v7 needs a known photo_id, got {photo_id!r}")
+        raise ValueError(f"unknown photo_id {photo_id!r}")
+    photo_id = rec["id"]
     trace: list[dict] = []
 
     def emit(item: dict) -> None:
@@ -129,8 +130,8 @@ def analyze(photo_id: str | None = None, image_path: str | None = None, *, model
     cands = sorted(cands, key=lambda c: -len([a for a in c["attempts"] if a in attempt.VARIANTS]))[:MAX_CANDIDATES]
 
     t0 = time.monotonic()
-    strong = attempt.strong_refs(photo_id)
-    photo = str(dp.image_file(rec))
+    strong = attempt.strong_refs(rec)
+    photo = str(small(rec))
     for c in cands:
         c["check"] = check.check(photo, c, strong) if c.get("municipality") else {"best_inliers": 0, "pass": False,
                                                                                   "photos": [], "by_match": None}
@@ -205,6 +206,8 @@ def result(rec, model, runs, cands, chosen, pick, v, usd, trace, emit) -> dict:
     overall = f["municipality"]["confidence"]
     needs_review = overall < ACCEPT or not f["municipality"]["value"]
     how = "gemessene Trefferquote der Handprüfung" if measured else "Schätzwert, noch nicht gemessen"
+    if rec.get("upload_path") and measured:
+        how = "Trefferquote der Handprüfung auf den Prio-1-Fotos, für hochgeladene Fotos nicht eigens gemessen"
     expl = f"Stufe {t}: {tiers.WHY[t]}. Konfidenz: {how}."
     if chosen and chosen.get("outside") and not chosen.get("municipality"):
         expl = f"Nicht im Kanton Schwyz: vermutlich {chosen['outside']}. Felder offen gelassen."

@@ -17,7 +17,7 @@ import data_pipeline as dp
 
 from . import llm, results
 from .config import MODEL
-from .v7.common import CACHE_ONLY, block, cached, key, store
+from .v7.common import CACHE_ONLY, block, cached, key, small, store
 
 PX = 1024
 VERSION = "marks.1"
@@ -41,7 +41,7 @@ Names:
 
 def _image(rec: dict) -> tuple[bytes, int, int]:
     from PIL import Image
-    with Image.open(dp.image_file(rec)) as im:
+    with Image.open(small(rec)) as im:
         im = im.convert("RGB")
         im.thumbnail((PX, PX))
         buf = io.BytesIO()

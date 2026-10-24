@@ -22,13 +22,43 @@ SURE = ("sicher", "wahrscheinlich", "vermutet")
 
 
 def original(rec: dict) -> Path:
-    """The photo at full resolution (data/challenge/<folder>/<file>), else the 1024 px copy."""
+    """The photo at full resolution (data/challenge/<folder>/<file>, or the uploaded file), else the 1024 px copy."""
+    if rec.get("upload_path"):
+        return Path(rec["upload_path"])
     raw = rec.get("raw") or {}
     if raw.get("folder") and raw.get("file_name"):
         p = DATA_DIR / "challenge" / raw["folder"] / raw["file_name"]
         if p.exists():
             return p
     return Path(dp.image_file(rec))
+
+
+def small(rec: dict) -> Path:
+    """The photo for image matching: the 1024 px copy, or the uploaded file."""
+    return Path(rec["upload_path"]) if rec.get("upload_path") else Path(dp.image_file(rec))
+
+
+def upload_record(path: str) -> dict:
+    """A record for an uploaded photo: its EXIF date when it has one, and its own reference matches
+    (MegaLoc + LightGlue over the index, as data_pipeline.matches does for the challenge photos)."""
+    from PIL import Image
+    data = Path(path).read_bytes()
+    rec = {"id": f"upload:{hashlib.sha1(data).hexdigest()[:12]}", "source": "upload", "raw": {}, "date": {},
+           "upload_path": str(path)}
+    try:
+        with Image.open(path) as im:
+            when = (im.getexif().get_ifd(0x8769) or {}).get(36867) or im.getexif().get(306)
+        if when:
+            y, m, d = str(when)[:10].split(":")
+            rec["date"] = {"raw": f"{d}.{m}.{y}", "year_from": int(y), "year_to": int(y)}
+    except Exception:  # no or broken EXIF: the photo still counts
+        pass
+    try:
+        from data_pipeline.matches import K_VERIFY, _hit
+        rec["upload_hits"] = [_hit(h) for h in dp.similar_images(str(path), k=K_VERIFY, model="megaloc", verify=True)]
+    except Exception:  # no index on this machine: the attempts run without references
+        rec["upload_hits"] = []
+    return rec
 
 
 def jpeg(path: Path | str, max_px: int, quality: int = 88, box: tuple | None = None) -> bytes:

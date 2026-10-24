@@ -75,11 +75,13 @@ def answer_tool(names: list[str]) -> dict:
     }
 
 
-def strong_refs(photo_id: str | None) -> list[dict]:
-    """Precomputed reference matches with at least STRONG_INLIERS, one per 100 m, strongest first."""
+def strong_refs(rec: dict) -> list[dict]:
+    """Reference matches (precomputed, or computed for an upload) with at least STRONG_INLIERS, one per
+    100 m, strongest first."""
     from .common import dist_m
+    hits = rec["upload_hits"] if "upload_hits" in rec else (dp.matches(rec["id"]) or {}).get("hits", [])
     out = []
-    for h in ((dp.matches(photo_id) or {}).get("hits", []) if photo_id else []):
+    for h in hits:
         if (h["inliers"] or 0) < STRONG_INLIERS or h["lat"] is None:
             continue
         if not any(dist_m(h, o) < 100 for o in out):
@@ -106,7 +108,7 @@ def content(rec: dict, variant: str) -> tuple[list[dict], list[dict]]:
     for s in [s for s in ((rec.get("raw") or {}).get("session") or []) if dp.get_record(s)][:2]:
         c += [{"type": "text", "text": "Foto aus derselben Aufnahmeserie (gleiche Kamera, wenige Minuten davor "
                                        "oder danach):"}, image(dp.image_file(dp.get_record(s)), 512)]
-    refs = strong_refs(rec.get("id")) if variant == "all" else []
+    refs = strong_refs(rec) if variant == "all" else []
     for i, r in enumerate(refs, 1):
         p = dp.image_file(dp.get_record(r["id"]))
         if p and p.exists():

@@ -1,7 +1,7 @@
 """Single entry point used by the CLI and the server: one photo in, one AnalysisResult (CONTRACTS section 3) out.
 
-The analysis itself is agent.v7 (three attempts, registers, image check at the spot, judge, tiers) for a
-known photo, and agent.v6 for an upload (v7 needs the record: EXIF, session, precomputed matches).
+The analysis itself is agent.v7 (three attempts, registers, image check at the spot, judge, tiers), for a
+known photo and for an upload alike (an upload gets its EXIF date and its reference matches computed on the fly).
 AGENT_FAKE=1 replays the contract fixture instead, with no Claude call (offline fallback, UI development).
 """
 
@@ -9,7 +9,7 @@ import copy
 import json
 from collections.abc import Callable
 
-from . import config, v6
+from . import config
 from .v7 import pipeline as v7
 from .config import FIXTURES, MODEL
 
@@ -24,9 +24,7 @@ def analyze(photo_id: str | None = None, image_path: str | None = None, *,
         raise ValueError("analyze needs a photo_id or an image_path")
     if config.FAKE:
         return _fake_result(photo_id, model, on_event)
-    if photo_id is not None:
-        return v7.analyze(photo_id, model=model, on_event=on_event)
-    return v6.analyze(photo_id, image_path, model=model, exclude_ids=exclude_ids, on_event=on_event)
+    return v7.analyze(photo_id, image_path, model=model, on_event=on_event)
 
 
 def _fake_result(photo_id, model, on_event) -> dict:
