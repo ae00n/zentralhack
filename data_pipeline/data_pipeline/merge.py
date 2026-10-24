@@ -61,6 +61,7 @@ def merge() -> dict:
     lubis = list(read_jsonl(RECORDS / "lubis.jsonl"))
     nb = list(read_jsonl(RECORDS / "nb.jsonl"))
     commons = list(read_jsonl(RECORDS / "commons.jsonl"))  # modern references (2005 onwards)
+    mapillary = list(read_jsonl(RECORDS / "mapillary.jsonl"))  # modern street-level references (2014 onwards)
     in_lubis = {str((r.get("raw") or {}).get("smapshot_id")) for r in lubis}
     smap_all = list(read_jsonl(RECORDS / "smapshot.jsonl"))
     smap = [r for r in smap_all if r["source_id"] not in in_lubis]
@@ -84,7 +85,7 @@ def merge() -> dict:
     for r in epics:
         if r["id"] not in out:
             out[r["id"]] = r
-    for r in lubis + nb + commons:
+    for r in lubis + nb + commons + mapillary:
         out[r["id"]] = r
 
     # dedupe identical images (same sha1) across sources, keep the first seen
@@ -111,7 +112,7 @@ def merge() -> dict:
     n = write_jsonl(RECORDS / "all.jsonl", rows)
     stats = {
         "inputs": {"staatsarchiv": len(stasz), "epics": len(epics), "smapshot": len(smap),
-                   "lubis": len(lubis), "nb": len(nb), "commons": len(commons)},
+                   "lubis": len(lubis), "nb": len(nb), "commons": len(commons), "mapillary": len(mapillary)},
         "smapshot_dropped_for_lubis": len(smap_all) - len(smap),
         "merged_epics_smapshot": len(merged_ids),
         "duplicate_images_dropped": dup,

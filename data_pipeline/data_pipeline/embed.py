@@ -43,7 +43,8 @@ def _device():
 
     if torch.backends.mps.is_available():
         return "mps"
-    torch.set_num_threads(min(16, os.cpu_count() or 4))
+    # EMBED_THREADS: several worker processes on one machine should split the cores, not each take 16
+    torch.set_num_threads(int(os.environ.get("EMBED_THREADS") or min(16, os.cpu_count() or 4)))
     return "cpu"
 
 
@@ -167,7 +168,9 @@ def build(model: str) -> None:
         return
     index = faiss.IndexFlatIP(vecs.shape[1])
     index.add(vecs)
-    faiss.write_index(index, str(p["faiss"]))
+    tmp = p["faiss"].with_suffix(".faiss.tmp")  # rename, so a running agent never loads half an index
+    faiss.write_index(index, str(tmp))
+    tmp.replace(p["faiss"])
     p["meta.json"].write_text(json.dumps({
         "model": model, "dim": int(vecs.shape[1]), "n": len(ids),
         "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
