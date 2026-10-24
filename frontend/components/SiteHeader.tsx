@@ -4,12 +4,14 @@
 // Prototyp tag, Nachweis, and the Excel button. Never the Kanton Schwyz shield or wordmark (licence).
 // UPLOAD_PLAN step 2: the step strip Hochladen > Analyse > Prüfen > Export replaces the search field
 // (the search moved into the desk panel). Phone: the current step as text, the links behind a menu button.
+// "Foto hochladen" top right (Timo, 24.10.): one photo goes straight to the live view.
 import { ChevronRight, Download, Menu, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { MODE, exportXlsxUrl } from "@/lib/api";
 import { batchCounts, batchExportUrl, isRunning, useBatches } from "@/lib/batches";
+import QuickUpload, { OPEN_UPLOAD } from "@/components/upload/QuickUpload";
 import { cn } from "@/lib/cn";
 import { deskHref } from "@/lib/format";
 
@@ -114,6 +116,7 @@ export default function SiteHeader() {
         <StepStrip flow={flow} />
 
         <nav className="ml-auto hidden items-center gap-1 sm:flex">
+          <QuickUpload className="mr-1" />
           <Link
             href="/nachweis"
             className={`inline-flex h-8 items-center rounded px-2 text-ui text-ink-muted transition-colors duration-hover hover:bg-paper-2 hover:text-ink ${FOCUS}`}
@@ -152,8 +155,18 @@ export default function SiteHeader() {
       {open && (
         <nav id="phone-menu" className="fade-in border-b border-rule/[0.08] bg-paper sm:hidden">
           <div className="space-y-2 px-4 py-3">
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                window.dispatchEvent(new Event(OPEN_UPLOAD));
+              }}
+              className={`block rounded py-1.5 text-ui font-medium ${FOCUS}`}
+            >
+              Foto hochladen
+            </button>
             <Link href="/" onClick={() => setOpen(false)} className={`block rounded py-1.5 text-ui font-medium ${FOCUS}`}>
-              Hochladen und Stapel
+              Stapel
             </Link>
             <Link href="/nachweis" onClick={() => setOpen(false)} className={`block rounded py-1.5 text-ui font-medium ${FOCUS}`}>
               Nachweis

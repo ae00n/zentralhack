@@ -518,3 +518,35 @@ body {
   outline: none !important;
   box-shadow: none !important;
 }
+
+/* Live view (components/live/LiveDesk.tsx): while the agent works, the photo is muted and a light bar with a
+   thin red edge sweeps over it, top to bottom. */
+.scan {
+  position: relative;
+  overflow: hidden;
+}
+.scan img {
+  filter: saturate(0.5) brightness(1.04);
+  transition: filter 600ms ease;
+}
+.scan::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -30%;
+  height: 30%;
+  background: linear-gradient(180deg, transparent 0%, rgb(255 255 255 / 0.28) 85%, rgb(var(--accent) / 0.55) 100%);
+  animation: scan 2400ms cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  pointer-events: none;
+}
+@keyframes scan {
+  to {
+    top: 100%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .scan::after {
+    display: none;
+  }
+}

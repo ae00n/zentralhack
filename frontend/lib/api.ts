@@ -574,7 +574,10 @@ function mockUploadResult(n: number, photoId: string): AnalysisResult {
   return { ...base, photo_id: photoId, run_id: `mock-${n}`, review: null, created_at: new Date().toISOString() };
 }
 
-/** A mock job finishes after a few seconds; every 7th fails once, so the error state can be shown. */
+/**
+ * A mock job plays the trace of its mock result step by step, then finishes; every 7th fails after a few
+ * seconds instead, so the error state can be shown.
+ */
 function followMockJob(jobId: string, h: AnalysisHandlers): () => void {
   const photoId = mockJobs.get(jobId);
   const upload = photoId ? mockUploads.get(photoId) : undefined;
@@ -584,18 +587,27 @@ function followMockJob(jobId: string, h: AnalysisHandlers): () => void {
     return () => (cancelled = true);
   }
   const n = Number(jobId.slice("mockjob-".length));
-  const [min, max] = MOCK_JOB_MS;
-  const timer = setTimeout(() => {
+  const result = mockUploadResult(n, photoId);
+  if (n % 7 === 6) {
+    const [min, max] = MOCK_JOB_MS;
+    const timer = setTimeout(
+      () => !cancelled && h.onResult({ ...result, status: "error", error: "Die Analyse ist fehlgeschlagen." }),
+      min + Math.random() * (max - min),
+    );
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }
+  const stop = replayTrace(result.trace ?? [], h.onTrace, () => {
     if (cancelled) return;
-    const result = mockUploadResult(n, photoId);
-    if (n % 7 === 6) return h.onResult({ ...result, status: "error", error: "Die Analyse ist fehlgeschlagen." });
     upload.result = result;
     resultCache.set(photoId, result);
     h.onResult(result);
-  }, min + Math.random() * (max - min));
+  });
   return () => {
     cancelled = true;
-    clearTimeout(timer);
+    stop();
   };
 }
 

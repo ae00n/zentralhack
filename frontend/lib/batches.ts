@@ -21,7 +21,7 @@ import {
   uploadPhoto,
 } from "./api";
 import type { PickedFile, SkippedFile } from "./collect";
-import type { AnalysisResult, Batch, BatchItem, BatchItemStatus } from "./types";
+import type { AnalysisResult, Batch, BatchItem, BatchItemStatus, TraceItem } from "./types";
 
 const CONCURRENCY = 3;
 /** Files per POST /batches/{id}/files. */
@@ -40,6 +40,8 @@ const LOST = "Analyse abgebrochen (Server neu gestartet): Datei bitte erneut hoc
 const state = { batches: [] as Batch[], version: 0, loaded: false, ready: false };
 /** Files not yet stored by the backend, by fileKey(). Memory only. */
 const files = new Map<string, Blob>();
+/** Trace steps as they stream in, by fileKey(), for the live view. Memory only. */
+const traces = new Map<string, TraceItem[]>();
 const listeners = new Set<() => void>();
 const polling = new Set<string>();
 let active = 0;
@@ -158,7 +160,11 @@ async function runClient(batchId: string, fileName: string): Promise<void> {
 function follow(batchId: string, fileName: string, jobId: string, photoId: string | null): Promise<void> {
   return new Promise((resolve) => {
     followAnalysis(jobId, {
-      onTrace: () => {},
+      onTrace: (t) => {
+        const k = fileKey(batchId, fileName);
+        traces.set(k, [...(traces.get(k) ?? []), t]);
+        emit();
+      },
       onResult: (r) => {
         settle(batchId, fileName, r);
         resolve();
@@ -302,6 +308,11 @@ export async function startBatch(name: string, images: PickedFile[], skipped: Sk
   });
   pump();
   return id;
+}
+
+/** Trace steps of an item seen so far in this tab (live view). Empty after a reload. */
+export function itemTrace(batchId: string, fileName: string): TraceItem[] {
+  return traces.get(fileKey(batchId, fileName)) ?? [];
 }
 
 /** The picked file while it is still in memory (preview tiles before the backend has the image). */

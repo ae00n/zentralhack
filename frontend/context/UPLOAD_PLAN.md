@@ -246,6 +246,51 @@ the done items (live) and marks interrupted uploads. Done (24.10.):
 
 ---
 
+## Step 3b: Live upload of one photo (added by Timo, 24.10., for the demo)
+
+**Scope:** an upload field top right in the header; one uploaded photo shows live how its place is found,
+with the desk's map flight (zoom in, sight lines, pin) as the payoff. Several photos still go to the grid.
+
+**Check:** mock mode, desk open: "Foto hochladen" with one JPEG opens the live view at once; the photo is
+scanned, the steps come in one by one, then the panel turns into the result and the map flies to the place.
+Done (24.10.), headless Chrome against the mock dev server, see the screenshots in the scratchpad: at 2 s the
+scan bar and step 1; at 5 s steps 1 to 4 with "Ort wird bestimmt ... 5 s"; at 5.7 s the result panel; the
+flight rises to Switzerland with the beacon and lands on "Alterszentrum Acherhof · Grundstrasse 32" with a
+sight line to the Mythen. Zurück shows the 5 steps again with "Ergebnis anzeigen". No console errors.
+`npm run typecheck` and `npm run build` pass.
+
+**Special**
+- `components/upload/QuickUpload.tsx` in the header ("Foto hochladen", secondary button left of Nachweis):
+  no preview, it starts at once. One image: batch named after the file, opens the live view; several: the
+  grid. Files can also be dropped anywhere on the page, with a full-page overlay "Foto loslassen"; the start
+  page keeps its own drop zone with the preview (its drop calls preventDefault, the global handler then
+  leaves it alone, and the overlay is not shown on `/`). Phone: "Foto hochladen" in the menu. Other
+  components open the picker with the window event `open-upload` ("Weiteres Foto" in the live view).
+- `/stapel/[id]` picks the view: `challenge` = desk, a batch with one image = `LiveDesk`, else the grid.
+  `LiveDesk` is keyed by batch id, so "Weiteres Foto" starts fresh.
+- `components/live/LiveDesk.tsx` reuses the desk parts as they are: `DeskMap` (its flight starts when the
+  place is selected), `PhotoDetail` (burn-in, write-in) and `TraceLog`. Before the result the map shows the
+  canton without dots.
+- The panel paces the steps (650 ms apart, 280 ms when more than 6 wait), so a cached result (the same photo
+  analysed before: a cache hit in the backend, the steps arrive in one burst) looks like a live run. That is
+  the safe pitch path: run the demo photo once before, then the upload on stage is instant and still plays.
+  The flight starts at the earliest 2.5 s after opening, so the map has loaded.
+- The store now keeps the streamed trace per item in memory (`itemTrace`); mock jobs play the trace of
+  their mock result with `replayTrace` instead of only waiting.
+- The photo is muted under a light bar with a thin red edge (`.scan` in globals.css, off under reduced
+  motion). The status line counts seconds: "Ort wird bestimmt ... 12 s".
+- Footer hidden on every `/stapel/` page now (live view and desk fill one viewport; the grid does without).
+
+**Not built**
+- The step strip says "3 Prüfen" as soon as the job is done, while the panel may still be pacing the last
+  steps (mock: about 1 s). The header does not know the panel's pace.
+- The map does not move while the agent works (no hops to the places it checks); the reasoning is shown on
+  landing, as on the desk (the hops were dropped there on 24.10. for the same reason: far, noisy stops).
+- Phone layout of the live view (panel above, map below at 60 vh) not checked in a screenshot.
+- The global drop overlay is not covered by the headless test (CDP drag events); one manual drop test.
+
+---
+
 ## Step 4: Auswertung: the desk for one batch
 
 **Scope:** the desk (`app/page.tsx` today) takes its records from the batch instead of `listChallenge()`:
