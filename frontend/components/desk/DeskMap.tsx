@@ -6,6 +6,7 @@
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef } from "react";
+import { circleBox, circleData } from "@/lib/circle";
 import type { CertClass, Place } from "@/lib/desk";
 
 export interface DeskMapProps {
@@ -35,6 +36,7 @@ const CANTON_CENTRE: [number, number] = [8.696, 47.055];
 const FIRST_ZOOM = 11.6;
 // Close-up on a picked place; a fractional zoom for the same reason as FIRST_ZOOM (detailed tiles, small labels).
 const PICK_ZOOM = 12.6;
+const NO_CIRCLE: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
 const MAX_BOUNDS: [[number, number], [number, number]] = [
   [8.1, 46.75],
   [9.3, 47.36],
@@ -75,7 +77,7 @@ function maskOf(canton: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>)
 const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /** Room for the floating list panel (400 px + 12 px inset) on wide screens; plain padding on the phone. */
-function framePadding(): maplibregl.PaddingOptions {
+function framePadding(): Required<maplibregl.PaddingOptions> {
   return window.matchMedia("(min-width: 1024px)").matches
     ? { left: 424, top: 24, right: 24, bottom: 24 }
     : { left: 24, top: 24, right: 24, bottom: 24 };
@@ -115,6 +117,7 @@ export default function DeskMap({
       open: token("--cert-open", "#595959"),
     };
     const accent = token("--accent", "#e2001a");
+    const ink = token("--ink", "#191919");
     const byClass = (cls: CertClass) => ["==", ["get", "worst"], cls];
     const fillByClass: maplibregl.ExpressionSpecification = [
       "case",
@@ -221,6 +224,17 @@ export default function DeskMap({
       } catch {
         // Without the outline the map still works.
       }
+      // Uncertainty circle (radius_m) of the selected place, under the dots; ink like the detail map,
+      // with a white casing so it also reads on the aerial photo.
+      m.addSource("uncertainty", { type: "geojson", data: NO_CIRCLE });
+      m.addLayer({ id: "uncertainty-fill", type: "fill", source: "uncertainty", paint: { "fill-color": ink, "fill-opacity": 0.12 } });
+      m.addLayer({
+        id: "uncertainty-casing",
+        type: "line",
+        source: "uncertainty",
+        paint: { "line-color": "#ffffff", "line-width": 3.5, "line-opacity": 0.7 },
+      });
+      m.addLayer({ id: "uncertainty-line", type: "line", source: "uncertainty", paint: { "line-color": ink, "line-width": 1.5 } });
       // Dots in layers (polish 5): soft shadow, reviewed outer ring, the dot, and the selection ring on top.
       m.addLayer({
         id: "places-shadow",
@@ -282,6 +296,7 @@ export default function DeskMap({
       applyBasemap(m);
       applyState(m);
       drawCounts(m);
+      drawCircle(m);
     });
 
     m.on("mousemove", "places", (e) => {
@@ -406,6 +421,13 @@ export default function DeskMap({
     if (map.current) applyBasemap(map.current);
   }, [basemap]);
 
+  /** The selected place's uncertainty circle; none without a selection or radius. */
+  function drawCircle(m: maplibregl.Map) {
+    const id = state.current.selected;
+    const p = id === null ? undefined : latest.current.places.find((x) => x.id === id);
+    (m.getSource("uncertainty") as maplibregl.GeoJSONSource | undefined)?.setData(p && p.radius_m > 0 ? circleData(p) : NO_CIRCLE);
+  }
+
   // Data changes (results arrive, reviews change the classes).
   useEffect(() => {
     const m = map.current;
@@ -414,6 +436,7 @@ export default function DeskMap({
     applyState(m);
     drawCounts(m);
     placePin(m, state.current.selected, false);
+    drawCircle(m);
   }, [places]);
 
   useEffect(() => {
@@ -422,12 +445,23 @@ export default function DeskMap({
     state.current = { hovered: hoveredPlace, selected: selectedPlace };
     if (!m) return;
     applyState(m);
-    if (selectedPlace !== prevSelected) placePin(m, selectedPlace, true);
-    // Fly to a newly selected place (jumpTo under reduced motion).
+    if (selectedPlace !== prevSelected) {
+      placePin(m, selectedPlace, true);
+      drawCircle(m);
+    }
+    // Fly to a newly selected place (jumpTo under reduced motion), zoomed out as far as its circle needs.
     if (selectedPlace !== null && selectedPlace !== prevSelected) {
       const p = latest.current.places.find((x) => x.id === selectedPlace);
       if (p) {
-        const target = { center: [p.lon, p.lat] as [number, number], zoom: Math.max(m.getZoom(), PICK_ZOOM), padding: framePadding() };
+        const pad = framePadding();
+        const fit =
+          p.radius_m > 0
+            ? m.cameraForBounds(circleBox(p), {
+                padding: { top: pad.top + 40, right: pad.right + 40, bottom: pad.bottom + 40, left: pad.left + 40 },
+              })?.zoom
+            : undefined;
+        const zoom = Math.min(Math.max(m.getZoom(), PICK_ZOOM), fit ?? Infinity);
+        const target = { center: [p.lon, p.lat] as [number, number], zoom, padding: pad };
         if (reducedMotion()) m.jumpTo(target);
         else m.easeTo({ ...target, duration: 450 });
       }

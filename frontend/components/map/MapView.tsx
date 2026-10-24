@@ -6,6 +6,7 @@
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef } from "react";
+import { circleBox, circleData } from "@/lib/circle";
 import type { Coordinates } from "@/lib/types";
 
 export interface MapViewProps {
@@ -20,30 +21,10 @@ export interface MapViewProps {
   offline: boolean;
 }
 
-const METRES_PER_DEGREE = 111_320;
 const FIT = { padding: 48, maxZoom: 16 };
 
-/** Ring of [lon, lat] around the centre; flat-earth maths is exact enough for a few kilometres. */
-function circleRing(c: Coordinates, steps = 64): [number, number][] {
-  const dLat = c.radius_m / METRES_PER_DEGREE;
-  const dLon = dLat / Math.cos((c.lat * Math.PI) / 180);
-  const ring: [number, number][] = [];
-  for (let i = 0; i <= steps; i++) {
-    const a = (i / steps) * 2 * Math.PI;
-    ring.push([c.lon + dLon * Math.cos(a), c.lat + dLat * Math.sin(a)]);
-  }
-  return ring;
-}
-
-function circleData(c: Coordinates): GeoJSON.Feature<GeoJSON.Polygon> {
-  return { type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: [circleRing(c)] } };
-}
-
 function circleBounds(c: Coordinates): maplibregl.LngLatBounds {
-  return circleRing(c, 16).reduce(
-    (b, p) => b.extend(p),
-    new maplibregl.LngLatBounds([c.lon, c.lat], [c.lon, c.lat]),
-  );
+  return new maplibregl.LngLatBounds(circleBox(c));
 }
 
 /** A colour token as a CSS colour: globals.css holds RGB channels ("23 23 23"), MapLibre needs rgb(...). */

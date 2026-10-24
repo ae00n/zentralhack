@@ -138,7 +138,7 @@ function Arbeitsplatz() {
   const placeKey = shown
     .map((i) => {
       const c = i.result?.fields.coordinates?.value;
-      return `${i.record.id}:${certClass(i.result)}:${c ? `${c.lat},${c.lon}` : ""}`;
+      return `${i.record.id}:${certClass(i.result)}:${c ? `${c.lat},${c.lon},${c.radius_m}` : ""}`;
     })
     .join("|");
   const { places, placeOf, withoutPlace } = useMemo(() => aggregatePlaces(shown), [placeKey]); // eslint-disable-line react-hooks/exhaustive-deps

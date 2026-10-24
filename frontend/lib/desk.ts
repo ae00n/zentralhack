@@ -153,6 +153,8 @@ export interface Place {
   id: number;
   lat: number;
   lon: number;
+  /** Uncertainty radius in metres, the largest of the photos at this spot (0 when unknown). */
+  radius_m: number;
   count: number;
   worst: CertClass;
   ids: string[];
@@ -174,9 +176,10 @@ export function aggregatePlaces(items: DeskItem[]): { places: Place[]; placeOf: 
     const key = `${lat},${lon}`;
     let place = byKey.get(key);
     if (!place) {
-      place = { id: byKey.size + 1, lat, lon, count: 0, worst: "confirmed", ids: [] };
+      place = { id: byKey.size + 1, lat, lon, radius_m: 0, count: 0, worst: "confirmed", ids: [] };
       byKey.set(key, place);
     }
+    place.radius_m = Math.max(place.radius_m, c.radius_m || 0);
     const cls = certClass(item.result);
     if (CLASS_RANK[cls] < CLASS_RANK[place.worst]) place.worst = cls;
     place.count++;
