@@ -54,7 +54,7 @@ def _tool(names: list[str]) -> dict:
                               "the same place, or null"},
                 "candidate_reason": nullable,
                 "place_query": nullable,
-                "municipality": {"type": ["string", "null"], "enum": [*names, None]},
+                "municipality": {"anyOf": [{"type": "string", "enum": names}, {"type": "null"}]},
                 "locality": nullable,
                 "buildings": {"type": "array", "items": {"type": "string"},
                               "description": "concrete building names you can back (sign, landmark), not types"},
