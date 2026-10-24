@@ -48,8 +48,12 @@ const RISE_MS = 850;
 const HOLD_MS = 180;
 const DIVE_MS = 1450;
 const SETTLE_MS = 420;
-const DIVE_PITCH = 48;
-const DIVE_BEARING = -14;
+// Every flight takes its own route (Said, 24.10.): the camera rises off to a new side of the target (never
+// the side of the last flight) and dives back in with a tilt and turn that vary.
+const RISE_OFFSET_DEG = 1.1; // how far the high point lies from the target, in degrees of latitude
+const DIVE_PITCH: [number, number] = [38, 52];
+const DIVE_BEARING: [number, number] = [8, 20];
+const between = ([a, b]: [number, number]) => a + Math.random() * (b - a);
 const MIN_ZOOM = 8;
 // Europe underneath for the high part of the flight: swisstopo tiles are white outside Switzerland, so they
 // fade in only from FADE_FROM to FADE_TO. Sentinel-2 cloudless 2020 by EOX (CC BY-NC-SA 4.0), online only.
@@ -116,6 +120,8 @@ export default function DeskMap({
   const beacon = useRef<maplibregl.Marker | null>(null);
   // Flight number: a newer pick or a hand on the map ends the running flight.
   const flight = useRef(0);
+  // Compass direction of the last flight's high point, so the next one comes from another side.
+  const lastSide = useRef<number | null>(null);
   // Latest props for the map event handlers, which are bound once.
   const latest = useRef({ places, basemap, onHover, onPickPhoto, labelOf });
   latest.current = { places, basemap, onHover, onPickPhoto, labelOf };
@@ -447,15 +453,25 @@ export default function DeskMap({
     m.setMaxBounds(null);
     m.setMinZoom(4);
     const high = m.cameraForBounds(offline ? BOUNDS : SWISS_BOUNDS, { padding: target.padding });
+    // A new side: at least 90 degrees away from the last one.
+    const side = ((lastSide.current ?? Math.random() * 360) + 90 + Math.random() * 180) % 360;
+    lastSide.current = side;
+    const rad = (side * Math.PI) / 180;
+    const k = offline ? 0.25 : 1; // offline the canton is the whole world: stay close
+    const highCenter: [number, number] = [
+      target.center[0] + Math.sin(rad) * RISE_OFFSET_DEG * k / Math.cos((target.center[1] * Math.PI) / 180),
+      target.center[1] + Math.cos(rad) * RISE_OFFSET_DEG * k,
+    ];
+    const turn = between(DIVE_BEARING) * (Math.random() < 0.5 ? -1 : 1);
     showBeacon(m, p);
     const up = await leg(m, id, () =>
-      m.easeTo({ center: high?.center ?? target.center, zoom: high?.zoom ?? 7, pitch: 0, bearing: 0, padding: target.padding,
+      m.easeTo({ center: highCenter, zoom: high?.zoom ?? 7, pitch: 0, bearing: 0, padding: target.padding,
                  duration: RISE_MS, easing: easeOut, essential: true }));
     if (!up) return;
     await wait(HOLD_MS);
     if (flight.current !== id) return;
     const down = await leg(m, id, () =>
-      m.flyTo({ ...target, pitch: DIVE_PITCH, bearing: DIVE_BEARING, duration: DIVE_MS, curve: 1.3, easing: easeInOut,
+      m.flyTo({ ...target, pitch: between(DIVE_PITCH), bearing: turn, duration: DIVE_MS, curve: 1.3, easing: easeInOut,
                 essential: true }));
     if (!down) return;
     beacon.current?.remove();
