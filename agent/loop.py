@@ -48,6 +48,10 @@ def analyze(photo_id: str | None = None, image_path: str | None = None, *,
     # SESSION_BUDGET_USD) and anthropic API errors after the SDK's retries; callers decide what to do.
     if config.FAKE:
         return _fake_result(photo_id, model, on_event)
+    if config.PIPELINE == 5:
+        from . import v5
+
+        return v5.analyze(photo_id, image_path, model=model, exclude_ids=exclude_ids, on_event=on_event)
     client = llm.make_client()
     parts = _parts(photo_id, image_path)
     if len(parts) >= 2:

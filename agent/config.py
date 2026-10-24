@@ -21,6 +21,9 @@ FAKE = os.environ.get("AGENT_FAKE") == "1"
 # DATA_PIPELINE_STUB=1: data_pipeline answers from contracts/fixtures/ (read by data_pipeline itself)
 STUB = os.environ.get("DATA_PIPELINE_STUB") == "1"
 
+# AGENT_PIPELINE=5: agent.v5 (retrieval pipeline, at most one Claude call) instead of the v3 tool loop
+PIPELINE = int(os.environ.get("AGENT_PIPELINE", 3))
+
 MODEL = os.environ.get("AGENT_MODEL", "claude-opus-5-5")
 DEBUG_MODEL = "claude-haiku-5-5"
 
