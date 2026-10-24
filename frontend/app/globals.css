@@ -446,6 +446,11 @@ body {
   padding: 4px 6px;
   border-radius: 4px;
 }
+/* On the right side of the photo the sign goes left of the icon, so it is never cut off. */
+.photo-mark.flip {
+  flex-direction: row-reverse;
+  transform: translate(calc(-100% + 7px), -50%);
+}
 .photo-mark.edge {
   flex-direction: column;
   transform: translate(-50%, 6px);

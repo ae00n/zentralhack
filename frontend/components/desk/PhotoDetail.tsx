@@ -56,7 +56,7 @@ export default function PhotoDetail({ item, onBack }: Props) {
           {photoMarksOf(result).map((m, i) => (
             <span
               key={m.name}
-              className={cn("photo-mark", m.kind, m.y === null && "edge")}
+              className={cn("photo-mark", m.kind, m.y === null ? "edge" : m.x > 0.6 && "flip")}
               style={{ left: `${m.x * 100}%`, top: m.y === null ? 0 : `${m.y * 100}%`, animationDelay: `${1150 + i * 220}ms` }}
             >
               <i aria-hidden />
