@@ -71,6 +71,7 @@ const SIGNS_FOLD_MS = 4500;
 // Candidates on the map (Said, 24.10.): an unsure result shows every option within 30 km; a sure one only
 // the nearby ones it dropped, so a far guess does not pull the camera out.
 const OPTION_KM = 30;
+const OPTIONS_MAX_ZOOM = 16.5;
 const DROPPED_KM = 3;
 const KIND_LABEL: Record<Landmark["kind"], string> = { mountain: "Berg", water: "Gewässer", place: "Ort" };
 const RISE_OFFSET_DEG = 1.1; // how far the high point lies from the target, in degrees of latitude
@@ -570,9 +571,9 @@ export default function DeskMap({
     requestAnimationFrame(step);
   }
 
-  function addSign(m: maplibregl.Map, at: [number, number], text: string, cls: string, letter?: string, note?: string) {
+  function addSign(m: maplibregl.Map, at: [number, number], text: string, cls: string, letter?: string, note?: string, flip = false) {
     const el = document.createElement("div");
-    el.className = `desk-stop ${cls}`;
+    el.className = `desk-stop ${cls}${flip ? " flip" : ""}`;
     const dot = document.createElement("i");
     if (letter) dot.textContent = letter;
     const label = document.createElement("span");
@@ -583,7 +584,9 @@ export default function DeskMap({
       label.append(small);
     }
     el.append(dot, label);
-    stops.current.push(new maplibregl.Marker({ element: el, anchor: "left", offset: [-6, 0] }).setLngLat(at).addTo(m));
+    stops.current.push(
+      new maplibregl.Marker({ element: el, anchor: flip ? "right" : "left", offset: [flip ? 6 : -6, 0] }).setLngLat(at).addTo(m),
+    );
   }
 
   /** Signs fold to their dots after a while; the lines stay until the next pick. */
@@ -660,10 +663,14 @@ export default function DeskMap({
       const lats = pts.map((q) => q[1]);
       const pad = target.padding as Required<maplibregl.PaddingOptions>;
       const frame = m.cameraForBounds([[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]], {
-        padding: { top: 90, bottom: 90, left: pad.left + 90, right: 190 },
+        padding: { top: 90, bottom: 90, left: pad.left + (unsure ? 260 : 90), right: unsure ? 280 : 190 }, // room for the signs
       });
+      // Options a few hundred metres apart need a closer view, or B hides under A's pin (17.485, 175 m).
+      const frameZoom = unsure && options.length
+        ? Math.min(frame?.zoom ?? target.zoom, OPTIONS_MAX_ZOOM)
+        : Math.min(frame?.zoom ?? target.zoom, FRAME_MAX_ZOOM, target.zoom);
       const into = await leg(m, id, () =>
-        m.flyTo({ center: frame?.center ?? spot, zoom: Math.min(frame?.zoom ?? target.zoom, FRAME_MAX_ZOOM, target.zoom),
+        m.flyTo({ center: frame?.center ?? spot, zoom: frameZoom,
                   pitch: between(DIVE_PITCH), bearing: turn, duration: DIVE_MS, curve: 1.3, easing: easeInOut, essential: true }));
       if (!into) return;
       beacon.current?.remove();
@@ -682,10 +689,13 @@ export default function DeskMap({
       }
       // The other places it weighed, lettered B, C, ...: the options when unsure (now, in this view); the
       // dropped ones when sure come after the close-in, where a few hundred metres are readable.
+      // Labels point away from each other: an option left of A writes to the left, A away from the options.
+      const xOf = (q: { lon: number; lat: number }) => m.project([q.lon, q.lat]).x;
       const showOptions = async () => {
+        const ax = xOf({ lon: spot[0], lat: spot[1] });
         for (const c of options) {
           addSign(m, [c.lon, c.lat], `${unsure ? "" : "verworfen: "}${c.name}`, `candidate ${unsure ? "option" : "dropped"}`,
-            c.letter, candidateNote(c));
+            c.letter, candidateNote(c), xOf(c) < ax);
           await wait(SIGN_STAGGER_MS);
           if (flight.current !== id) return false;
         }
@@ -694,7 +704,9 @@ export default function DeskMap({
       if (unsure && !(await showOptions())) return;
       const label = [why.building, why.street].filter(Boolean).join(" · ");
       const a = options.length ? why.candidates[0] : null;
-      if (a) addSign(m, spot, label || a.name, "found candidate", "A", `${unsure ? "wahrscheinlichster Ort" : "gewählt"} · ${candidateNote(a)}`);
+      const optionsRight = options.length > 0 && options.reduce((sum, c) => sum + xOf(c), 0) / options.length > xOf({ lon: spot[0], lat: spot[1] });
+      if (a) addSign(m, spot, label || a.name, "found candidate", "A", `${unsure ? "wahrscheinlichster Ort" : "gewählt"} · ${candidateNote(a)}`,
+        unsure && optionsRight);
       else if (label) addSign(m, spot, label, "found");
       await wait(REASON_HOLD_MS);
       if (flight.current !== id) return;

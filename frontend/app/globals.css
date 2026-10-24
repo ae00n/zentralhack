@@ -376,6 +376,13 @@ body {
   text-decoration: line-through;
   background: rgb(var(--ink-muted) / 0.85);
 }
+/* A sign whose label writes to the left of its dot, away from a neighbour. */
+.desk-stop.flip {
+  flex-direction: row-reverse;
+}
+.desk-stop.flip.settled span {
+  transform: translateX(6px);
+}
 .desk-stop.settled span {
   opacity: 0;
   transform: translateX(-6px);
