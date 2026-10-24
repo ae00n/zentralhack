@@ -1,0 +1,16 @@
+Superset pages (open on any device, logged in to the org):
+  Agent scope board      https://app.superset.sh/page/agent-scope-board-hm61l5
+  How the agent works    https://app.superset.sh/page/how-the-agent-works-dthe5y
+  Agent results for Data https://app.superset.sh/page/agent-results-for-data-icqq5g
+  Handpruefung Prio 1    https://app.superset.sh/page/handpr-fung-prio-1-otzbd6
+
+Files in this folder:
+  metadaten_challenge_prio1.xlsx   the Excel deliverable, 50 Prio 1 (Metadaten + Methode)
+  metadaten_challenge_alle.xlsx    every challenge photo with a result
+  bericht_*_ohne_bilder.html       the report without images (opens anywhere)
+  results.zip                      data/results (JSON, no images): unzip into data/ on the other machine
+  PIPELINE_PLAN.md                 the v4 plan (also in git: agent/PIPELINE_PLAN.md)
+
+Report WITH images on Dijar's machine (after unzipping results.zip into data/):
+  .venv/bin/python -m agent.report --split challenge --priority 1
+  open agent/.cache/report.html
