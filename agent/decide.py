@@ -7,6 +7,7 @@ into coordinates and official names; Claude never types coordinates.
 """
 
 import logging
+import re
 
 import data_pipeline as dp
 
@@ -118,12 +119,44 @@ def ask(client, image_path: str, cands: list[dict], context: str, meta: dict) ->
     return (dict(use.input) if use else None), usd
 
 
-def lookup(query: str) -> dict | None:
-    """A name Claude read or recognised -> {lat, lon, radius_m, source}. Named buildings first, then swisstopo."""
-    hits = dp.named_buildings(name=query, limit=3)
-    if hits:
-        b = hits[0]
-        return {"lat": b["lat"], "lon": b["lon"], "radius_m": 50, "source": f"Gebäudeverzeichnis: {b['name']}"}
+_TYPE_WORDS = {"hotel", "restaurant", "gasthaus", "gasthof", "kirche", "pfarrkirche", "kapelle", "haus", "bahnhof",
+               "schulhaus", "schule", "station", "talstation", "bergstation", "the", "der", "die", "das", "des", "zum",
+               "zur", "am", "im", "bei", "und", "st.", "sankt"}
+
+
+def _words(s: str) -> list[str]:
+    return [w for w in re.findall(r"[\wäöüéèà.]+", (s or "").lower()) if len(w) >= 4 and w not in _TYPE_WORDS]
+
+
+def _in(municipality: str | None, place: str | None) -> bool:
+    """Same Gemeinde, ignoring a "(SZ)" suffix. No constraint when municipality is None."""
+    if not municipality:
+        return True
+    norm = lambda s: re.sub(r"\s*\(SZ\)\s*$", "", s or "").strip().lower()
+    return norm(municipality) == norm(place)
+
+
+def lookup(query: str, municipality: str | None = None) -> dict | None:
+    """A name Claude read or recognised -> {lat, lon, radius_m, source}, inside `municipality` when given.
+
+    Named buildings (OSM + GWR) are scored by how many distinctive words of the query they share
+    ("Hotel du Lac Seehof" finds "du Lac Seehof"); at least half the words must match. Then swisstopo
+    places, but only places in Kanton Schwyz (its free-text search is fuzzy across the whole country)."""
+    words = _words(query)
+    best, best_n = None, 0
+    seen = set()
+    for w in words:
+        for b in dp.named_buildings(name=w, limit=50):
+            key = (b["name"], b["lat"], b["lon"])
+            if key in seen or not _in(municipality, b.get("municipality")):
+                continue
+            seen.add(key)
+            n = sum(1 for x in words if x in " ".join([b["name"], *b.get("alt_names", [])]).lower())
+            if n > best_n:
+                best, best_n = b, n
+    if best and best_n * 2 >= len(words):
+        return {"lat": best["lat"], "lon": best["lon"], "radius_m": 50,
+                "source": f"Gebäudeverzeichnis: {best['name']} ({best.get('municipality') or '?'})"}
     try:
         body = cached_get(search_url(query))
     except Exception:
@@ -131,6 +164,10 @@ def lookup(query: str) -> dict | None:
         return None
     for r in body.get("results") or []:
         a = r.get("attrs") or {}
-        if "(SZ)" in (a.get("label") or "") or "SZ" == (a.get("detail") or "")[-2:].upper():
-            return {"lat": a["lat"], "lon": a["lon"], "radius_m": 300, "source": f"swisstopo: {query}"}
+        label = re.sub(r"<[^>]+>", "", a.get("label") or "")
+        if "(SZ)" not in label or a.get("lat") is None or not any(w in label.lower() for w in words):
+            continue
+        place = dp.address_lookup(a["lat"], a["lon"], radius_m=50, limit=1)
+        if _in(municipality, place.get("municipality")):
+            return {"lat": a["lat"], "lon": a["lon"], "radius_m": 300, "source": f"swisstopo: {label}"}
     return None

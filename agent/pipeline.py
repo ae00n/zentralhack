@@ -14,6 +14,7 @@ Stages 1, 2 and 4 make no model call and give the same answer on every run.
 import json
 import logging
 import math
+import os
 import re
 import sys
 from collections import Counter
@@ -67,8 +68,15 @@ def _hit(h: dict) -> dict:
     }
 
 
+_threads_set = False
+
+
 def retrieve(image_path: str, exclude_ids: list[str] = ()) -> dict:
     """Stages 1 and 2: {hits (top K_RETRIEVE, verified first), verified (only those)}."""
+    global _threads_set
+    if not _threads_set and os.environ.get("AGENT_TORCH_THREADS"):
+        set_threads(int(os.environ["AGENT_TORCH_THREADS"]))
+    _threads_set = True
     checked = dp.similar_images(image_path, k=K_VERIFY, verify=True, exclude_ids=list(exclude_ids))
     wide = dp.similar_images(image_path, k=K_RETRIEVE, exclude_ids=list(exclude_ids))
     seen = {h["id"] for h in checked}

@@ -16,6 +16,7 @@ from pathlib import Path
 FILE = Path(__file__).with_name("calibration.json")
 FIELDS = ["municipality", "locality", "street", "coordinates"]
 ACCEPT = 0.9  # overall confidence at or above this is not flagged for review; checked by `fit`
+UNCONFIRMED = 0.7  # factor for a weak match Claude looked at and could not confirm (an assumption)
 
 # Assumptions until the hand check measures them (per field). Deliberately below ACCEPT: an answer
 # only Claude backs always goes to review.
@@ -38,6 +39,8 @@ def score(fe: dict, path: str | None) -> dict:
     """{field: probability}. Buildings and landscape features follow the locality (no ground truth)."""
     if path is None:
         return {}
+    if path.endswith("_unconfirmed"):  # Claude was asked and could not confirm it: no data yet, discount
+        return {k: round(v * UNCONFIRMED, 3) for k, v in score(fe, path.removesuffix("_unconfirmed")).items()}
     cal = _load()
     if path in ("match", "match_confirmed") and cal.get("match"):
         out = {}

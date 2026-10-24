@@ -84,27 +84,40 @@ def analyze(photo_id: str | None = None, image_path: str | None = None, *, model
               "output_summary": (answer or {}).get("reason") or "keine Antwort",
               "ms": round((time.monotonic() - t1) * 1000)})
         if answer:
-            k = answer.get("candidate")
-            pick = cands[k - 1] if isinstance(k, int) and 1 <= k <= len(cands) else None
-            if pick and pick["lat"] is not None and pick["precision_m"] <= pipeline.PRECISE_M:
-                if not (point and pipeline.haversine_m((point["lat"], point["lon"]), (pick["lat"], pick["lon"]))
-                        <= pipeline.CLUSTER_M):
-                    path = "claude_pick"
-                    point = {"lat": pick["lat"], "lon": pick["lon"], "radius_m": pick["precision_m"]}
-                    nm = pipeline.names(pick["lat"], pick["lon"], [pick])
-                else:
-                    path = "match_confirmed"
-                ref = pick
-            elif answer.get("place_query") and (hit := decide.lookup(answer["place_query"])):
-                path = "claude_text"
-                point = {k: hit[k] for k in ("lat", "lon", "radius_m")}
-                nm = pipeline.names(hit["lat"], hit["lon"])
-                nm["lookup_source"] = hit["source"]
-            elif path is None and answer.get("municipality"):
-                path = "claude_name"
-                nm = {"locality": answer.get("locality"), "municipality": answer["municipality"],
-                      "street": None, "building": None}
+            path, point, nm, ref = _combine(path, point, nm, ref, answer, cands)
     return _result(photo_id, model, path, point, nm or {}, answer, ref, fe, trace, usage, emit)
+
+
+def _combine(path, point, nm, ref, answer: dict, cands: list[dict]):
+    """Retrieval answer + Claude's answer -> (path, point, names, ref). Rules, first that applies:
+    1. Claude picks a candidate with a precise location: the same place as the match confirms it,
+       another place replaces it.
+    2. Claude read or recognised a name: looked up in the registers, inside the Gemeinde Claude (or
+       a picked municipality-level candidate) names.
+    3. The retrieval answer stays when Claude names no other Gemeinde (unconfirmed, lower confidence).
+    4. Else Claude's Gemeinde alone (always reviewed)."""
+    k = answer.get("candidate")
+    pick = cands[k - 1] if isinstance(k, int) and 1 <= k <= len(cands) else None
+    mun = answer.get("municipality")
+    if pick and pick["lat"] is not None and pick["precision_m"] <= pipeline.PRECISE_M:
+        if point and pipeline.haversine_m((point["lat"], point["lon"]), (pick["lat"], pick["lon"])) <= pipeline.CLUSTER_M:
+            return "match_confirmed", point, nm, pick
+        p = {"lat": pick["lat"], "lon": pick["lon"], "radius_m": pick["precision_m"]}
+        return "claude_pick", p, pipeline.names(pick["lat"], pick["lon"], [pick]), pick
+    if pick and pick["municipality"]:
+        mun = pick["municipality"]
+        ref = pick
+    if answer.get("place_query") and (hit := decide.lookup(answer["place_query"], mun)):
+        p = {k: hit[k] for k in ("lat", "lon", "radius_m")}
+        out = pipeline.names(hit["lat"], hit["lon"])
+        out["lookup_source"] = hit["source"]
+        return "claude_text", p, out, (pick if pick else None)
+    if path in ("match", "municipality") and (not mun or decide._in(mun, (nm or {}).get("municipality"))):
+        return (path + "_unconfirmed"), point, nm, ref
+    if mun:
+        return "claude_name", None, {"locality": answer.get("locality"), "municipality": mun,
+                                     "street": None, "building": None}, (pick if pick else None)
+    return None, None, None, None
 
 
 def _result(photo_id, model, path, point, nm, answer, ref, fe, trace, usage, emit) -> dict:
@@ -117,6 +130,8 @@ def _result(photo_id, model, path, point, nm, answer, ref, fe, trace, usage, emi
         "claude_text": "Name im Bild gelesen bzw. Wahrzeichen erkannt, im Register nachgeschlagen",
         "claude_name": "Nur Claudes Einschätzung, kein Referenzfoto und kein Registereintrag",
         "municipality": "Bestätigte Referenzfotos, nur auf Gemeindeebene verortet",
+        "match_unconfirmed": "Schwach bestätigtes Referenzfoto, von Claude nicht bestätigt",
+        "municipality_unconfirmed": "Schwach bestätigte Referenzfotos auf Gemeindeebene, von Claude nicht bestätigt",
     }.get(path)
     ref_ev = []
     if ref:
