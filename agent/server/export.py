@@ -145,9 +145,9 @@ def method() -> list[tuple[str, str]]:
     from ..v7 import tiers
 
     rows = [
-        ("Ablauf", "1. Google-Bildsuche (Cloud Vision) nach Seiten mit demselben Motiv. 2. Drei unabhängige "
-                   "Untersuchungen mit Claude (Opus 5.5): mit allen Hinweisen, nur mit der Websuche, nur mit dem Foto. "
-                   "Jede zoomt ins Original, liest Schrift, sucht im Web und in den amtlichen Registern (GWR, OSM, "
+        ("Ablauf", "1. Bildsuche über rund 52'000 Referenzfotos (Wikimedia Commons, Mapillary; MegaLoc, LightGlue). "
+                   "2. Drei unabhängige Untersuchungen mit Claude (Opus 5.5): mit den Referenzfotos, ohne sie, und eine "
+                   "dritte ebenfalls nur mit dem Foto. Jede zoomt ins Original, liest Schrift, sucht im Web und in den amtlichen Registern (GWR, OSM, "
                    "KGS-Inventar, swissNAMES3D) und nennt das Motiv mit seinem Registereintrag. 3. Ortschaft, Gemeinde, "
                    "Strasse und Gebäude kommen aus dem Register am Ort des Motivs (nie vom Standort eines "
                    "Vergleichsfotos). 4. Bildvergleich vor Ort: Fotos, die dort aufgenommen wurden (Mapillary, "
@@ -159,7 +159,7 @@ def method() -> list[tuple[str, str]]:
         ("Konfidenz", "Stufe nach Regel, Zahl = gemessene Trefferquote der Stufe auf den von Hand geprüften "
                       "Prio-1-Fotos (Gemeinde und Ortschaft richtig). Ohne Messung ein Schätzwert, das steht dann in "
                       "Konfidenz_Begruendung."),
-        ("Prüfung nötig", "ja, ausser bei Stufe A. Nach einem Review (bestätigt oder korrigiert) nein; korrigierte "
+        ("Prüfung nötig", "ja, wenn die gemessene Konfidenz unter 0.90 liegt oder die Gemeinde fehlt. Nach einem Review (bestätigt oder korrigiert) nein; korrigierte "
                           "Werte ersetzen die Vorschläge."),
     ]
     rows += [(f"Stufe {t}", w) for t, w in tiers.WHY.items() if t != "-"]

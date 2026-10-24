@@ -9,7 +9,8 @@ Files in this folder:
   metadaten_challenge_alle.xlsx    every challenge photo with a result
   bericht_*_ohne_bilder.html       the report without images (opens anywhere)
   results.zip                      data/results (JSON, no images): unzip into data/ on the other machine
-  PIPELINE_PLAN.md                 the v4 plan (also in git: agent/PIPELINE_PLAN.md)
+  Agent v7 (24 Oct, 10:00): 50 Prio 1, 43 hand-checked. Stufe A 11/11, B 24/24, C 3/5 right.
+  Confidence = measured hit rate per tier (agent/v7_tiers.json, python -m agent.v7.score --fit).
 
 Report WITH images on Dijar's machine (after unzipping results.zip into data/):
   .venv/bin/python -m agent.report --split challenge --priority 1

@@ -20,6 +20,7 @@ from .common import dist_m, gem, original
 from .tools import NOT_PLACES
 
 MAX_CANDIDATES = 5
+ACCEPT = 0.9  # the brief: above 90% is accepted without review
 # kinds that look alike from outside: a guessed care home is compared with hospitals and schools too
 LOOKALIKE = [{"Spital", "Alters-/Pflegeheim", "Soziale Einrichtung", "Schule"},
              {"Hotel", "Restaurant", "Tourismus"}, {"Kirche/Kapelle", "Kloster"},
@@ -198,7 +199,7 @@ def result(rec, model, runs, cands, chosen, pick, v, usd, trace, emit) -> dict:
         marks = landmarks(sorted({m for a in answers for m in a.get("landmarks") or []}), chosen)
         put("landscape_features", marks, min(conf, 0.8), [_ev("map_layer", "swissNAMES3D (swisstopo)")] + reasons)
     overall = f["municipality"]["confidence"]
-    needs_review = t != "A" or not f["municipality"]["value"]
+    needs_review = overall < ACCEPT or not f["municipality"]["value"]
     how = "gemessene Trefferquote der Handprüfung" if measured else "Schätzwert, noch nicht gemessen"
     expl = f"Stufe {t}: {tiers.WHY[t]}. Konfidenz: {how}."
     if chosen and chosen.get("outside") and not chosen.get("municipality"):
