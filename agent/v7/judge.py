@@ -28,7 +28,7 @@ zeigt, oder null, wenn keiner überzeugt. Begründung auf Deutsch, ein bis zwei 
 
 
 def _label(i: int, c: dict) -> str:
-    bits = [f"Kandidat {i}: {c.get('building') or c.get('street') or c.get('locality') or c.get('municipality')}",
+    bits = [f"Kandidat {i}: {c.get('building') or c.get('street') or c.get('locality') or c.get('municipality') or c.get('outside')}",
             f"Gemeinde {c.get('municipality') or '?'}", f"Ortschaft {c.get('locality') or '?'}"]
     if c.get("street"):
         bits.append(f"Adresse {c['street']}")

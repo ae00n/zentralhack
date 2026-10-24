@@ -141,7 +141,7 @@ def analyze(photo_id: str | None = None, image_path: str | None = None, *, model
           "ms": round((time.monotonic() - t0) * 1000)})
 
     pick, chosen = None, None
-    if cands:
+    if any(c.get("municipality") for c in cands):  # only outside-canton verdicts: nothing to compare
         t0 = time.monotonic()
         random.Random(rec["id"]).shuffle(cands)  # the judge must not read the attempts' vote from the order
         pick, cost = judge.judge(rec, cands, meta)
@@ -154,7 +154,8 @@ def analyze(photo_id: str | None = None, image_path: str | None = None, *, model
     if chosen is None:
         # judge rejected all: the outside-canton verdict of a majority still counts
         outside = [c for c in cands if c.get("outside") and len(c["attempts"]) >= 2]
-        chosen = outside[0] if outside else None
+        chosen = {**outside[0], "municipality": None, "locality": None, "building": None, "street": None,
+                  "lat": None, "lon": None} if outside else None
     r = result(rec, model, runs, cands, chosen, pick, v, usd, trace, emit)
     from ..photo_marks import marks
     r["photo_marks"], cost = marks(rec, r)

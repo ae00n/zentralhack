@@ -56,7 +56,10 @@ def candidate(attempt: dict) -> dict | None:
     a = attempt.get("answer") or {}
     if not a:
         return None
-    p, anchor = _subject(a, attempt.get("point"))
+    if a.get("outside_canton") and not a.get("municipality"):
+        p, anchor = None, "none"  # outside the canton: the Schwyz registers would only find a namesake
+    else:
+        p, anchor = _subject(a, attempt.get("point"))
     out = {"anchor": anchor, "attempt": attempt["variant"], "outside": a.get("outside_canton"),
            "claude_municipality": a.get("municipality"), "landmarks": a.get("landmarks") or [],
            "municipality": None, "locality": None, "building": None, "street": None, "lat": None, "lon": None,
