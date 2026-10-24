@@ -240,36 +240,7 @@ export default function DeskMap({
         const canton = (await (await fetch("/geo/kanton-schwyz.json")).json()) as GeoJSON.Feature<
           GeoJSON.Polygon | GeoJSON.MultiPolygon
         >;
-        // The Swiss border as a strong white line with a soft glow (Said, 24.10.), seen best during the flight.
-        // swisstopo swissBOUNDARIES3D, simplified to about 70 m (public/geo/schweiz.json).
-        try {
-          const ch = await (await fetch("/geo/schweiz.json")).json();
-          m.addSource("switzerland", { type: "geojson", data: ch });
-          m.addLayer({
-            id: "switzerland-glow",
-            type: "line",
-            source: "switzerland",
-            paint: {
-              "line-color": "#ffffff",
-              "line-width": ["interpolate", ["linear"], ["zoom"], 5, 7, 9, 10, 13, 8],
-              "line-blur": 6,
-              "line-opacity": 0.45,
-            },
-          });
-          m.addLayer({
-            id: "switzerland-line",
-            type: "line",
-            source: "switzerland",
-            layout: { "line-join": "round" },
-            paint: {
-              "line-color": "#ffffff",
-              "line-width": ["interpolate", ["linear"], ["zoom"], 5, 2.2, 9, 3, 13, 2.5],
-              "line-opacity": 0.95,
-            },
-          });
-        } catch {
-          // Without the national border the map still works.
-        }
+        void addBorder(m); // in the background: it must not hold up the dots
         // No veil outside the canton (Said, 24.10.): MAX_BOUNDS keeps the view on the canton, so the offline
         // tile cache never shows blank tiles. A white casing keeps the outline readable on the aerial photo.
         m.addSource("canton", { type: "geojson", data: canton });
@@ -357,6 +328,8 @@ export default function DeskMap({
         },
       });
       ready.current = true;
+      // Places that arrived while the style was loading were skipped by the data effect: draw the latest now.
+      (m.getSource("places") as maplibregl.GeoJSONSource | undefined)?.setData(placesData(latest.current.places));
       applyBasemap(m);
       applyState(m);
       drawCounts(m);
@@ -455,6 +428,50 @@ export default function DeskMap({
         el.textContent = String(p.count);
         return new maplibregl.Marker({ element: el }).setLngLat([p.lon, p.lat]).addTo(m);
       });
+  }
+
+  /**
+   * The Swiss border as a strong white line with a soft glow (Said, 24.10.), seen best during the flight.
+   * swisstopo swissBOUNDARIES3D, simplified to about 70 m (public/geo/schweiz.json). Loaded after the rest
+   * of the style, so it goes in under the canton outline and the dots.
+   */
+  async function addBorder(m: maplibregl.Map) {
+    try {
+      const ch = await (await fetch("/geo/schweiz.json")).json();
+      if (map.current !== m) return;
+      const below = ["canton-casing", "uncertainty-fill", "places-shadow"].find((id) => m.getLayer(id));
+      m.addSource("switzerland", { type: "geojson", data: ch });
+      m.addLayer(
+        {
+          id: "switzerland-glow",
+          type: "line",
+          source: "switzerland",
+          paint: {
+            "line-color": "#ffffff",
+            "line-width": ["interpolate", ["linear"], ["zoom"], 5, 7, 9, 10, 13, 8],
+            "line-blur": 6,
+            "line-opacity": 0.45,
+          },
+        },
+        below,
+      );
+      m.addLayer(
+        {
+          id: "switzerland-line",
+          type: "line",
+          source: "switzerland",
+          layout: { "line-join": "round" },
+          paint: {
+            "line-color": "#ffffff",
+            "line-width": ["interpolate", ["linear"], ["zoom"], 5, 2.2, 9, 3, 13, 2.5],
+            "line-opacity": 0.95,
+          },
+        },
+        below,
+      );
+    } catch {
+      // Without the national border the map still works.
+    }
   }
 
   /** One leg of the flight; resolves when it ends, false when a newer flight or the user took over. */
