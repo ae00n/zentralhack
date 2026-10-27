@@ -411,11 +411,9 @@ def _table() -> dict:
 
 
 def bucket(path: str | None, agree: bool | None, sure: str | None) -> str:
-    """The cell confidence is measured in: path, plus whether the reference agrees (pick/building/street/
-    match) or Claude's own certainty (claude)."""
-    if path == "claude":
-        return f"claude|{sure or 'none'}"
-    return f"{path}|{'agree' if agree else 'alone'}"
+    """The cell confidence is measured in: how the point was found (path) and how sure Claude is of the
+    Gemeinde. Measured on Commons: "sicher" was right 94% of the time, "vermutet" 55%, whatever the path."""
+    return f"{path}|{sure or 'none'}"
 
 
 def confidence(b: str, field: str) -> tuple[float, bool]:

@@ -1,24 +1,46 @@
 {
- "building|agree": {
+ "building|wahrscheinlich": {
   "locality": {
-   "n": 42,
-   "hits": 27,
-   "rate": 0.636
+   "n": 21,
+   "hits": 13,
+   "rate": 0.609
   },
   "municipality": {
-   "n": 43,
-   "hits": 32,
-   "rate": 0.733
+   "n": 21,
+   "hits": 14,
+   "rate": 0.652
   },
   "coordinates": {
-   "n": 43,
-   "hits": 32,
-   "rate": 0.733
+   "n": 21,
+   "hits": 14,
+   "rate": 0.652
   },
   "street": {
-   "n": 29,
+   "n": 14,
+   "hits": 5,
+   "rate": 0.375
+  }
+ },
+ "building|sicher": {
+  "locality": {
+   "n": 13,
    "hits": 11,
-   "rate": 0.387
+   "rate": 0.8
+  },
+  "municipality": {
+   "n": 14,
+   "hits": 13,
+   "rate": 0.875
+  },
+  "street": {
+   "n": 9,
+   "hits": 4,
+   "rate": 0.455
+  },
+  "coordinates": {
+   "n": 14,
+   "hits": 13,
+   "rate": 0.875
   }
  },
  "claude|vermutet": {
@@ -38,29 +60,51 @@
    "rate": 0.333
   }
  },
- "street|agree": {
+ "street|sicher": {
   "locality": {
-   "n": 5,
-   "hits": 3,
-   "rate": 0.571
+   "n": 2,
+   "hits": 2,
+   "rate": 0.75
   },
   "municipality": {
-   "n": 5,
-   "hits": 4,
-   "rate": 0.714
+   "n": 2,
+   "hits": 2,
+   "rate": 0.75
   },
   "street": {
-   "n": 5,
+   "n": 2,
    "hits": 1,
-   "rate": 0.286
+   "rate": 0.5
   },
   "coordinates": {
-   "n": 5,
-   "hits": 4,
-   "rate": 0.714
+   "n": 2,
+   "hits": 2,
+   "rate": 0.75
   }
  },
- "building|alone": {
+ "building|vermutet": {
+  "locality": {
+   "n": 8,
+   "hits": 3,
+   "rate": 0.4
+  },
+  "municipality": {
+   "n": 8,
+   "hits": 5,
+   "rate": 0.6
+  },
+  "street": {
+   "n": 6,
+   "hits": 2,
+   "rate": 0.375
+  },
+  "coordinates": {
+   "n": 8,
+   "hits": 5,
+   "rate": 0.6
+  }
+ },
+ "building|none": {
   "locality": {
    "n": 2,
    "hits": 0,
@@ -126,6 +170,28 @@
    "n": 1,
    "hits": 0,
    "rate": 0.333
+  }
+ },
+ "street|wahrscheinlich": {
+  "locality": {
+   "n": 3,
+   "hits": 1,
+   "rate": 0.4
+  },
+  "municipality": {
+   "n": 3,
+   "hits": 2,
+   "rate": 0.6
+  },
+  "street": {
+   "n": 3,
+   "hits": 0,
+   "rate": 0.2
+  },
+  "coordinates": {
+   "n": 3,
+   "hits": 2,
+   "rate": 0.6
   }
  }
 }

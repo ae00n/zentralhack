@@ -75,9 +75,36 @@ def truth(rec: dict) -> dict:
             "street": near["street"] if near else None, "buildings": None, "lat": loc["lat"], "lon": loc["lon"]}
 
 
+def loo_matches(recs: list[dict], workers: int = 3) -> int:
+    """Reference matches for the sample photos as for a challenge photo, but leave-one-out: the photo itself
+    and every other Commons photo by the same photographer are hidden (a series of one spot would otherwise
+    match itself). Written where v6 reads matches (data/matches), for the current index."""
+    import importlib
+    m = importlib.import_module("data_pipeline.matches")  # the package exports a function of the same name
+    by_author: dict = {}
+    for r in read_jsonl(RECORDS / "commons.jsonl"):
+        by_author.setdefault(r.get("photographer"), []).append(r["id"])
+
+    def one(rec):
+        if m.matches(rec["id"]) is not None:
+            return
+        hide = by_author.get(rec.get("photographer"), []) if rec.get("photographer") else [rec["id"]]
+        img = str(dp.image_file(rec))
+        checked = dp.similar_images(img, k=m.K_VERIFY, model="megaloc", verify=True, exclude_ids=hide)
+        out = {"photo_id": rec["id"], "index": m.index_version(), "hits": [m._hit(h) for h in checked],
+               "created_at": "loo"}
+        m.MATCHES.mkdir(parents=True, exist_ok=True)
+        m._path(rec["id"]).write_text(json.dumps(out, ensure_ascii=False))
+
+    with ThreadPoolExecutor(workers) as ex:
+        list(ex.map(one, recs))
+    return sum(m.matches(r["id"]) is not None for r in recs)
+
+
 def run(recs: list[dict], workers: int) -> None:
     from .. import v6
     OUT.mkdir(parents=True, exist_ok=True)
+    print(loo_matches(recs), "photos with leave-one-out matches", flush=True)
 
     def one(rec):
         p = OUT / f"{rec['id'].replace(':', '_')}.json"
